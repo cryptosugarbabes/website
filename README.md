@@ -37,7 +37,7 @@ The current storage uses the existing Droplet disk and does not require DigitalO
 
 - MetaMask, Rabby, Coinbase, Binance, and Trust injected wallets can authenticate on Base by signing a free message.
 - Solana wallets including Solflare and Phantom can authenticate in the same way.
-- WalletConnect support is installed and is enabled by setting `NEXT_PUBLIC_REOWN_PROJECT_ID` at build time. The GitHub workflow reads it from the `REOWN_PROJECT_ID` repository secret.
+- WalletConnect uses the public Crypto Sugar Reown project ID, with an optional `NEXT_PUBLIC_REOWN_PROJECT_ID` build-time override. The GitHub workflow can read that override from the `REOWN_PROJECT_ID` repository secret.
 - Base is chain ID `8453`; Solana authentication uses Ed25519 signature verification.
 - Platform products can transfer directly to the platform treasury.
 - High-frequency micro-payments should use prepaid USDC credits or batched settlement. Requiring a blockchain transaction for every message or like is not acceptable UX.

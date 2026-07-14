@@ -226,11 +226,7 @@ export function DiscoveryApp() {
 
   async function connectWalletConnect() {
     setWalletError("");
-    const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
-    if (!projectId) {
-      setWalletError("WalletConnect is installed but still needs a Reown project ID before it can be activated.");
-      return;
-    }
+    const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || "bcf47f78b31ff3dba418e362303a181d";
     setWalletBusy(true);
     try {
       const { EthereumProvider: WalletConnectProvider } = await import("@walletconnect/ethereum-provider");
