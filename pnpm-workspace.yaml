@@ -1,4 +1,5 @@
 allowBuilds:
+  '@reown/appkit': false
   sharp: true
 minimumReleaseAgeExclude:
   - viem@2.55.2

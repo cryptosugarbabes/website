@@ -16,6 +16,10 @@ type WalletChain = "evm" | "solana";
 type EthereumProvider = {
   request: (request: { method: string; params?: unknown[] }) => Promise<unknown>;
   providers?: EthereumProvider[];
+  isMetaMask?: boolean;
+  isTrust?: boolean;
+  isBinance?: boolean;
+  isCoinbaseWallet?: boolean;
 };
 type SolanaPublicKey = { toString: () => string };
 type SolanaProvider = {
@@ -30,6 +34,8 @@ type SolanaProvider = {
 declare global {
   interface Window {
     ethereum?: EthereumProvider;
+    binancew3w?: { ethereum?: EthereumProvider };
+    trustwallet?: { ethereum?: EthereumProvider };
     solana?: SolanaProvider;
     solflare?: SolanaProvider;
     phantom?: { solana?: SolanaProvider };
@@ -89,6 +95,19 @@ async function switchToBase(provider: EthereumProvider) {
       params: [{ chainId: BASE_CHAIN_ID, chainName: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://mainnet.base.org"], blockExplorerUrls: ["https://basescan.org"] }]
     });
   }
+}
+
+type EvmWalletKind = "browser" | "binance" | "trust";
+
+function injectedEvmProvider(kind: EvmWalletKind) {
+  if (kind === "binance" && window.binancew3w?.ethereum) return window.binancew3w.ethereum;
+  if (kind === "trust" && window.trustwallet?.ethereum) return window.trustwallet.ethereum;
+
+  const defaultProvider = window.ethereum;
+  const providers = defaultProvider?.providers?.length ? defaultProvider.providers : defaultProvider ? [defaultProvider] : [];
+  if (kind === "binance") return providers.find((provider) => provider.isBinance);
+  if (kind === "trust") return providers.find((provider) => provider.isTrust);
+  return providers.find((provider) => provider.isMetaMask && !provider.isTrust) || providers.find((provider) => provider.isCoinbaseWallet) || defaultProvider;
 }
 
 function ProfileArtwork({ profile, large = false }: { profile: Profile; large?: boolean }) {
@@ -177,23 +196,60 @@ export function DiscoveryApp() {
     await loadPersistedProfiles();
   }
 
-  async function connectEvmWallet() {
+  async function authenticateEvmProvider(provider: EthereumProvider, label: string) {
+    const accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
+    if (!accounts[0]) throw new Error(`${label} did not return a wallet address.`);
+    const address = getAddress(accounts[0]);
+    await switchToBase(provider);
+    const message = await requestSignIn(address, "evm");
+    const signature = (await provider.request({ method: "personal_sign", params: [message, address] })) as string;
+    await verifySignIn(address, "evm", message, signature, label);
+  }
+
+  async function connectEvmWallet(kind: EvmWalletKind = "browser") {
     setWalletError("");
-    const provider = window.ethereum;
+    const provider = injectedEvmProvider(kind);
+    const label = kind === "binance" ? "Binance Wallet" : kind === "trust" ? "Trust Wallet" : "Base wallet";
     if (!provider) {
-      setWalletError("No Base/EVM wallet detected. Install MetaMask, Rabby, or Coinbase Wallet, then refresh.");
+      setWalletError(`${label} was not detected. Install its browser extension or choose WalletConnect for a mobile wallet.`);
       return;
     }
     setWalletBusy(true);
     try {
-      const accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
-      const address = getAddress(accounts[0]);
-      await switchToBase(provider);
-      const message = await requestSignIn(address, "evm");
-      const signature = (await provider.request({ method: "personal_sign", params: [message, address] })) as string;
-      await verifySignIn(address, "evm", message, signature, "Base wallet");
+      await authenticateEvmProvider(provider, label);
     } catch (error) {
       setWalletError(error instanceof Error ? error.message : "Wallet connection was cancelled.");
+    } finally {
+      setWalletBusy(false);
+    }
+  }
+
+  async function connectWalletConnect() {
+    setWalletError("");
+    const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
+    if (!projectId) {
+      setWalletError("WalletConnect is installed but still needs a Reown project ID before it can be activated.");
+      return;
+    }
+    setWalletBusy(true);
+    try {
+      const { EthereumProvider: WalletConnectProvider } = await import("@walletconnect/ethereum-provider");
+      const provider = await WalletConnectProvider.init({
+        projectId,
+        metadata: {
+          name: "Crypto Sugar Babes",
+          description: "Private, adults-only crypto-native social discovery",
+          url: window.location.origin,
+          icons: [`${window.location.origin}/icon.png`]
+        },
+        showQrModal: true,
+        optionalChains: [8453],
+        rpcMap: { 8453: "https://mainnet.base.org" }
+      });
+      await provider.connect();
+      await authenticateEvmProvider(provider as EthereumProvider, "WalletConnect");
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : "WalletConnect was cancelled.");
     } finally {
       setWalletBusy(false);
     }
@@ -431,20 +487,20 @@ export function DiscoveryApp() {
       <section className="steps-section" id="how-it-works">
         <div className="section-heading compact"><div><span className="section-kicker">DESIRE, WITH STANDARDS</span><h2>Private by design. Free to join.</h2></div></div>
         <div className="steps-grid">
-          <div className="step-card"><span className="step-number">01</span><Icon name="wallet" size={26}/><h3>Choose your wallet</h3><p>Connect Base, Solflare, or Phantom and sign a free message. No payment or blockchain transaction is made.</p></div>
+          <div className="step-card"><span className="step-number">01</span><Icon name="wallet" size={26}/><h3>Choose your wallet</h3><p>Connect a Base or Solana wallet and sign a free message. No payment or blockchain transaction is made.</p></div>
           <div className="step-card"><span className="step-number">02</span><Icon name="user" size={26}/><h3>Create your profile</h3><p>Introduce yourself, add your style and interests, then submit for adult identity review. Women are never charged to publish.</p></div>
           <div className="step-card"><span className="step-number">03</span><Icon name="message" size={26}/><h3>Follow the chemistry</h3><p>Discover privately, favorite discreetly, and begin conversations with clear intentions and boundaries.</p></div>
         </div>
       </section>
 
       <section className="crypto-section">
-        <div className="crypto-copy"><span className="section-kicker">USDC-READY ACCESS</span><h2>Your wallet is the key.<br/>Not the price of entry.</h2><p>Crypto Sugar supports free wallet authentication on Base and Solana. Connecting proves wallet ownership; it never gives us custody or permission to move funds.</p><ul><li><Icon name="check" size={16}/>MetaMask, Rabby, and Coinbase Wallet on Base</li><li><Icon name="check" size={16}/>Solflare and Phantom on Solana</li><li><Icon name="check" size={16}/>No charge to create or publish an approved profile</li></ul></div>
+        <div className="crypto-copy"><span className="section-kicker">USDC-READY ACCESS</span><h2>Your wallet is the key.<br/>Not the price of entry.</h2><p>Crypto Sugar supports free wallet authentication on Base and Solana. Connecting proves wallet ownership; it never gives us custody or permission to move funds.</p><ul><li><Icon name="check" size={16}/>MetaMask, Binance, Trust, Rabby, and Coinbase on Base</li><li><Icon name="check" size={16}/>Solflare and Phantom on Solana</li><li><Icon name="check" size={16}/>WalletConnect for compatible mobile wallets</li><li><Icon name="check" size={16}/>No charge to create or publish an approved profile</li></ul></div>
         <div className="access-card"><div className="access-orbit"><Icon name="spark" size={28}/></div><span>FREE MEMBERSHIP</span><h3>Make an entrance.</h3><p>Create a private draft, preview it instantly, and submit it for review when you are ready.</p><div className="access-networks"><span><i className="base-symbol">B</i>Base</span><span><i className="solana-symbol">S</i>Solana</span></div><button className="primary-button full" onClick={openProfileCreator}>Create your profile <Icon name="arrow" size={18}/></button><small>No profile fees. No boost charges. No recovery phrase—ever.</small></div>
       </section>
 
-      <section className="safety-section" id="safety"><div className="safety-mark"><Icon name="shield" size={31}/></div><div><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Consent always.</h2></div><p>Crypto Sugar is designed for lawful social discovery and companionship. Solicitation, coercion, trafficking, underage users, and non-consensual content are prohibited and subject to immediate removal.</p><a href="mailto:safety@cryptosugarbabes.com">Contact safety <Icon name="arrow" size={16}/></a></section>
+      <section className="safety-section" id="safety"><div className="safety-mark"><Icon name="shield" size={31}/></div><div><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Consent always.</h2></div><p>Crypto Sugar is designed for lawful social discovery and companionship. Solicitation, coercion, trafficking, underage users, and non-consensual content are prohibited and subject to immediate removal.</p><a href="mailto:cryptosugarbabes@gmail.com?subject=Safety%20report">Contact safety <Icon name="arrow" size={16}/></a></section>
 
-      <footer><a className="brand" href="#top"><img className="brand-logo-image" src="/csb-logo.png" alt=""/><span>CRYPTO SUGAR</span></a><p>© 2026 Crypto Sugar Babes. Demo profiles are fictional.</p><div><a href="#safety">Safety</a><a href="#top">Terms</a><a href="#top">Privacy</a></div></footer>
+      <footer><a className="brand" href="#top"><img className="brand-logo-image" src="/csb-logo.png" alt=""/><span>CRYPTO SUGAR</span></a><p>© 2026 Crypto Sugar Babes. Adults only.</p><div><a href="/safety">Safety</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div></footer>
 
       {activeProfile && (() => {
         const stats = engagementFor(activeProfile);
@@ -485,7 +541,7 @@ export function DiscoveryApp() {
         </div>;
       })()}
 
-      {walletPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !walletBusy) setWalletPickerOpen(false); }}><section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title"><button className="modal-close" onClick={() => setWalletPickerOpen(false)} aria-label="Close wallet options"><Icon name="close" size={20}/></button><span className="section-kicker">SIGN IN WITHOUT GAS</span><h2 id="wallet-title">Choose your wallet.</h2><p className="wallet-intro">Every option supports USDC. Connecting only requests a free signature to verify ownership.</p><div className="wallet-options"><button onClick={connectEvmWallet} disabled={walletBusy}><span className="wallet-logo base-logo">B</span><span><strong>Base / EVM wallet</strong><small>MetaMask · Rabby · Coinbase</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("solflare")} disabled={walletBusy}><span className="wallet-logo solflare-logo">S</span><span><strong>Solflare</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("phantom")} disabled={walletBusy}><span className="wallet-logo phantom-logo">P</span><span><strong>Phantom</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button></div>{walletError && <div className="form-error">{walletError}</div>}<p className="wallet-safety"><Icon name="lock" size={14}/>We never request your seed phrase or private key.</p></section></div>}
+      {walletPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !walletBusy) setWalletPickerOpen(false); }}><section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title"><button className="modal-close" onClick={() => setWalletPickerOpen(false)} aria-label="Close wallet options"><Icon name="close" size={20}/></button><span className="section-kicker">SIGN IN WITHOUT GAS</span><h2 id="wallet-title">Choose your wallet.</h2><p className="wallet-intro">Connecting requests a free signature to verify ownership. It does not give Crypto Sugar permission to move funds.</p><div className="wallet-options"><button onClick={() => connectEvmWallet("browser")} disabled={walletBusy}><span className="wallet-logo base-logo">B</span><span><strong>Base browser wallet</strong><small>MetaMask · Rabby · Coinbase</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("binance")} disabled={walletBusy}><span className="wallet-logo binance-logo">B</span><span><strong>Binance Wallet</strong><small>Browser or Binance app</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("trust")} disabled={walletBusy}><span className="wallet-logo trust-logo">T</span><span><strong>Trust Wallet</strong><small>Browser extension</small></span><Icon name="arrow" size={18}/></button><button onClick={connectWalletConnect} disabled={walletBusy}><span className="wallet-logo walletconnect-logo">W</span><span><strong>WalletConnect</strong><small>Trust · Binance · compatible mobile wallets</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("solflare")} disabled={walletBusy}><span className="wallet-logo solflare-logo">S</span><span><strong>Solflare</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("phantom")} disabled={walletBusy}><span className="wallet-logo phantom-logo">P</span><span><strong>Phantom</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button></div>{walletError && <div className="form-error">{walletError}</div>}<div className="wallet-setup"><strong>Don&apos;t have a wallet?</strong><span>Set one up with <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, <a href="https://www.solflare.com/" target="_blank" rel="noreferrer">Solflare</a>, <a href="https://phantom.com/download" target="_blank" rel="noreferrer">Phantom</a>, <a href="https://www.binance.com/en/web3wallet" target="_blank" rel="noreferrer">Binance</a>, or <a href="https://trustwallet.com/download" target="_blank" rel="noreferrer">Trust Wallet</a>.</span></div><p className="wallet-safety"><Icon name="lock" size={14}/>We never request your seed phrase or private key.</p></section></div>}
 
       {profileOpen && <div className="modal-backdrop profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}><section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><button className="modal-close" onClick={() => setProfileOpen(false)} aria-label="Close profile creator"><Icon name="close" size={20}/></button><div className="create-heading"><span className="section-kicker">YOUR PRIVATE INTRODUCTION</span><h2 id="create-title">Create your profile.</h2><p>Preview a free draft now. Public profiles require adult identity review before discovery.</p></div><form onSubmit={submitProfile}>
         <div className="photo-field"><label className={profilePhotos.length ? "has-photo" : ""}>{profilePhotos.length ? <div className="photo-preview-grid">{profilePhotos.slice(0, 4).map((photo, index) => <img src={photo} alt={`Profile preview ${index + 1}`} key={`${photo.slice(-24)}-${index}`}/>)}</div> : <span><Icon name="camera" size={28}/><strong>Add up to 20 photos</strong><small>JPG, PNG or WebP · 5 MB each</small></span>}<input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={profileSaving} onChange={(event) => handlePhotos(event.target.files)}/></label><div><strong>Your photo collection</strong><p>Photos are optimized, stripped of location metadata, and kept private until approval.</p><small>{profilePhotos.length}/20 photos selected</small>{profilePhotos.length > 0 && <button type="button" disabled={profileSaving} onClick={() => { setProfilePhotos([]); setProfileFiles([]); }}>Remove all</button>}</div></div>

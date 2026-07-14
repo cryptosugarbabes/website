@@ -1,6 +1,6 @@
 # Crypto Sugar Babes
 
-Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes responsive discovery, fictional demo profiles, server-verified Base/EVM and Solana wallet sign-in, permanent creator profiles, private photo processing, PostgreSQL storage, and an administrator approval queue.
+Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes responsive discovery, server-verified Base/EVM and Solana wallet sign-in, permanent creator profiles, private photo processing, PostgreSQL storage, and an administrator approval queue.
 
 ## Run locally
 
@@ -35,7 +35,9 @@ The current storage uses the existing Droplet disk and does not require DigitalO
 
 ## Payment boundaries
 
-- Base/EVM wallets and Solana wallets (including Solflare and Phantom) can authenticate by signing a free message.
+- MetaMask, Rabby, Coinbase, Binance, and Trust injected wallets can authenticate on Base by signing a free message.
+- Solana wallets including Solflare and Phantom can authenticate in the same way.
+- WalletConnect support is installed and is enabled by setting `NEXT_PUBLIC_REOWN_PROJECT_ID` at build time. The GitHub workflow reads it from the `REOWN_PROJECT_ID` repository secret.
 - Base is chain ID `8453`; Solana authentication uses Ed25519 signature verification.
 - Platform products can transfer directly to the platform treasury.
 - High-frequency micro-payments should use prepaid USDC credits or batched settlement. Requiring a blockchain transaction for every message or like is not acceptable UX.
@@ -44,7 +46,7 @@ The current storage uses the existing Droplet disk and does not require DigitalO
 
 ## Before accepting real customers
 
-- Remove the fictional demo profiles when enough reviewed profiles exist.
+- Replace the starter discovery profiles as reviewed member profiles are approved.
 - Add specialist age and identity verification; administrator approval is content review, not KYC.
 - Add malware scanning and automated image moderation before publication.
 - Add a database-backed nonce store, rate limiting, CSRF/origin checks, and passkey or recovery flows.
