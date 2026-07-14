@@ -39,6 +39,8 @@ jobs:
       - name: Build production application
         env:
           NEXT_PUBLIC_REOWN_PROJECT_ID: ${{ secrets.REOWN_PROJECT_ID }}
+          NEXT_PUBLIC_BASE_TREASURY_ADDRESS: ${{ vars.BASE_TREASURY_ADDRESS }}
+          NEXT_PUBLIC_SOLANA_TREASURY_ADDRESS: ${{ vars.SOLANA_TREASURY_ADDRESS }}
         run: pnpm build
 
       - name: Package standalone release

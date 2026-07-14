@@ -39,6 +39,8 @@ The current storage uses the existing Droplet disk and does not require DigitalO
 - Solana wallets including Solflare and Phantom can authenticate in the same way.
 - WalletConnect uses the public Crypto Sugar Reown project ID, with an optional `NEXT_PUBLIC_REOWN_PROJECT_ID` build-time override. The GitHub workflow can read that override from the `REOWN_PROJECT_ID` repository secret.
 - Base is chain ID `8453`; Solana authentication uses Ed25519 signature verification.
+- Base platform fees are assigned to `0x7293F09B131B99D564c602538D0777b18075c9b4`; Solana platform fees are assigned to `EjkzchC98rxfQzHgmXD5cCbBQmhp1csqbPHkpXEA9shL`. These public destinations can be overridden at build time with `NEXT_PUBLIC_BASE_TREASURY_ADDRESS` and `NEXT_PUBLIC_SOLANA_TREASURY_ADDRESS`.
+- `/api/payments/config` publishes the active treasury destinations and split policy for clients. `settlementEnabled` remains `false` until an audited payment router and ledger are deployed.
 - Platform products can transfer directly to the platform treasury.
 - High-frequency micro-payments should use prepaid USDC credits or batched settlement. Requiring a blockchain transaction for every message or like is not acceptable UX.
 - Creator payments, message charges, photo-like splits, coupons, affiliate fees, and commissions must use an audited settlement contract and immutable internal ledger. They should not be implemented as untracked direct wallet transfers.
