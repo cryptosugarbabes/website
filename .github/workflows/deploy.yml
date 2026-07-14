@@ -1,0 +1,72 @@
+name: Deploy cryptosugarbabes.com
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cryptosugarbabes-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out application
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build production application
+        env:
+          NEXT_PUBLIC_PLATFORM_TREASURY: ${{ vars.NEXT_PUBLIC_PLATFORM_TREASURY || '0x0000000000000000000000000000000000000000' }}
+        run: pnpm build
+
+      - name: Package standalone release
+        run: |
+          mkdir -p release/.next
+          cp -a .next/standalone/. release/
+          cp -a .next/static release/.next/static
+          if [ -d public ]; then cp -a public release/public; fi
+          tar -C release -czf cryptosugarbabes-release.tgz .
+
+      - name: Configure VPS access
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/cryptosugarbabes_vps
+          chmod 600 ~/.ssh/cryptosugarbabes_vps
+          ssh-keyscan -H 161.35.17.40 >> ~/.ssh/known_hosts
+
+      - name: Upload release
+        run: |
+          ssh -i ~/.ssh/cryptosugarbabes_vps -o BatchMode=yes -o IdentitiesOnly=yes root@161.35.17.40 \
+            "mkdir -p /tmp/cryptosugarbabes-deploy"
+          scp -i ~/.ssh/cryptosugarbabes_vps -o BatchMode=yes -o IdentitiesOnly=yes \
+            cryptosugarbabes-release.tgz \
+            deploy/server/release.sh \
+            deploy/server/cryptosugarbabes.service \
+            root@161.35.17.40:/tmp/cryptosugarbabes-deploy/
+
+      - name: Activate release and verify health
+        run: |
+          ssh -i ~/.ssh/cryptosugarbabes_vps -o BatchMode=yes -o IdentitiesOnly=yes root@161.35.17.40 \
+            "bash /tmp/cryptosugarbabes-deploy/release.sh '${{ github.sha }}'"

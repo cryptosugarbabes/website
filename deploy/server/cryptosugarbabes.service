@@ -1,0 +1,25 @@
+[Unit]
+Description=Crypto Sugar Babes Next.js application
+After=network.target
+
+[Service]
+Type=simple
+User=cryptosugar
+Group=cryptosugar
+WorkingDirectory=/opt/cryptosugarbabes/current
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3001
+EnvironmentFile=-/opt/cryptosugarbabes/shared/.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/opt/cryptosugarbabes
+
+[Install]
+WantedBy=multi-user.target

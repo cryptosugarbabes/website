@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PaymentStatus {
+  QUOTED
+  SUBMITTED
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  walletAddress      String             @unique
+  email              String?            @unique
+  status             UserStatus         @default(PENDING)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  profile            Profile?
+  favorites          Favorite[]         @relation("FavoriteOwner")
+  receivedFavorites  Favorite[]         @relation("FavoriteProfile")
+  payments           Payment[]          @relation("PaymentBuyer")
+  receivedPayments   Payment[]          @relation("PaymentCreator")
+  referrals          Referral[]         @relation("AffiliateReferrals")
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String
+  birthDate   DateTime
+  city        String
+  country     String
+  headline    String
+  bio         String
+  isPublished Boolean  @default(false)
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media       Media[]
+}
+
+model Media {
+  id         String   @id @default(cuid())
+  profileId  String
+  storageKey String   @unique
+  mimeType   String
+  isApproved Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  ownerId   String
+  profileId String
+  createdAt DateTime @default(now())
+  owner     User     @relation("FavoriteOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  profile   User     @relation("FavoriteProfile", fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([ownerId, profileId])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  buyerId           String
+  creatorId         String?
+  chainId           Int
+  tokenAddress      String
+  grossAmount       Decimal       @db.Decimal(36, 6)
+  creatorAmount     Decimal       @db.Decimal(36, 6)
+  platformAmount    Decimal       @db.Decimal(36, 6)
+  affiliateAmount   Decimal       @db.Decimal(36, 6)
+  transactionHash   String?       @unique
+  quoteNonce        String        @unique
+  status            PaymentStatus @default(QUOTED)
+  confirmedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  buyer             User          @relation("PaymentBuyer", fields: [buyerId], references: [id])
+  creator           User?         @relation("PaymentCreator", fields: [creatorId], references: [id])
+  couponRedemption  CouponRedemption?
+  referral          Referral?
+}
+
+model Coupon {
+  id          String             @id @default(cuid())
+  code        String             @unique
+  percentOff  Int?
+  amountOff   Decimal?           @db.Decimal(36, 6)
+  active      Boolean            @default(true)
+  expiresAt   DateTime?
+  redemptions CouponRedemption[]
+}
+
+model CouponRedemption {
+  id        String   @id @default(cuid())
+  couponId  String
+  paymentId String   @unique
+  createdAt DateTime @default(now())
+  coupon    Coupon   @relation(fields: [couponId], references: [id])
+  payment   Payment  @relation(fields: [paymentId], references: [id])
+}
+
+model Referral {
+  id          String   @id @default(cuid())
+  affiliateId String
+  paymentId   String   @unique
+  code        String
+  amount      Decimal  @db.Decimal(36, 6)
+  createdAt   DateTime @default(now())
+  affiliate   User     @relation("AffiliateReferrals", fields: [affiliateId], references: [id])
+  payment     Payment  @relation(fields: [paymentId], references: [id])
+}
+
+model ModerationCase {
+  id          String   @id @default(cuid())
+  subjectId   String
+  reporterId  String?
+  reason      String
+  details     String?
+  status      String   @default("OPEN")
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  subjectId  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
