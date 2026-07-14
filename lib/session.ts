@@ -10,9 +10,15 @@ function sign(payload: string) {
   return createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
-export function createSessionToken(address: string) {
+export type WalletChain = "evm" | "solana";
+
+export function createSessionToken(address: string, chain: WalletChain = "evm") {
   const payload = Buffer.from(
-    JSON.stringify({ address: address.toLowerCase(), expiresAt: Date.now() + SESSION_TTL_MS })
+    JSON.stringify({
+      address: chain === "evm" ? address.toLowerCase() : address,
+      chain,
+      expiresAt: Date.now() + SESSION_TTL_MS
+    })
   ).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
@@ -30,10 +36,11 @@ export function readSessionToken(token?: string) {
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
       address: string;
+      chain?: WalletChain;
       expiresAt: number;
     };
     if (!parsed.address || parsed.expiresAt < Date.now()) return null;
-    return parsed;
+    return { ...parsed, chain: parsed.chain || "evm" };
   } catch {
     return null;
   }

@@ -37,8 +37,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build production application
-        env:
-          NEXT_PUBLIC_PLATFORM_TREASURY: ${{ vars.NEXT_PUBLIC_PLATFORM_TREASURY || '0x0000000000000000000000000000000000000000' }}
         run: pnpm build
 
       - name: Package standalone release

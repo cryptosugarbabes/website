@@ -4,18 +4,17 @@ The production build is created by GitHub Actions and deployed as a standalone N
 
 ## One-time setup
 
-1. Resize the VPS if possible. The current 512 MB / 10 GB instance is below the recommended production size; 2 GB RAM and about 40 GB disk is a safer baseline.
+1. The VPS is currently sized at 4 GB RAM, 2 vCPUs, and 80 GB disk.
 2. Run `./deploy/bootstrap-vps.sh` from the project root.
-3. Create a private GitHub repository named `cryptosugarbabes` and push the `main` branch.
+3. Use the private GitHub repository `cryptosugarbabes/website` and push the `main` branch.
 4. Add the private SSH key as the GitHub Actions secret `VPS_SSH_KEY`.
-5. Optionally add the Base treasury address as the repository variable `NEXT_PUBLIC_PLATFORM_TREASURY`. Without it, live USDC checkout stays disabled.
-6. Push to `main`. The deployment workflow will build, upload, activate, health-check, and retain the five newest releases.
+5. Push to `main`. The deployment workflow will build, upload, activate, health-check, and retain the five newest releases.
 
 ## Domain cutover
 
-The current root domain is parked. When the app passes its VPS health check, change the root `A` record to `161.35.17.40`. The existing `www` CNAME can continue to point to `cryptosugarbabes.com`.
+The root `A` record and `www` CNAME now resolve to `161.35.17.40`.
 
-After DNS resolves to the VPS, issue the certificate on the server:
+HTTPS is already installed for both hostnames with automatic renewal. The original certificate command was:
 
 ```bash
 certbot --nginx \
@@ -24,4 +23,4 @@ certbot --nginx \
   --redirect
 ```
 
-Certbot will request the operational email address interactively. Do not run it before both hostnames resolve to the VPS.
+Certificate notices go to `cryptosugarbabes@gmail.com`.

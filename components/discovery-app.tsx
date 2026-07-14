@@ -1,22 +1,51 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { encodeFunctionData, getAddress, isAddress, parseUnits } from "viem";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { getAddress } from "viem";
 import { Profile, profiles } from "@/lib/profiles";
+import {
+  PHOTO_LIKE_CREATOR_SHARE_USDC,
+  PHOTO_LIKE_PLATFORM_FEE_USDC,
+  PHOTO_LIKE_PRICE_USDC,
+  creatorRatingPoints,
+  formatUsdc,
+  messagePriceUsdc
+} from "@/lib/creator-economy";
 
+type WalletChain = "evm" | "solana";
 type EthereumProvider = {
   request: (request: { method: string; params?: unknown[] }) => Promise<unknown>;
+  providers?: EthereumProvider[];
+};
+type SolanaPublicKey = { toString: () => string };
+type SolanaProvider = {
+  publicKey?: SolanaPublicKey;
+  connect: () => Promise<{ publicKey?: SolanaPublicKey }>;
+  disconnect?: () => Promise<void>;
+  signMessage: (message: Uint8Array, display?: string) => Promise<Uint8Array | { signature: Uint8Array }>;
+  isPhantom?: boolean;
+  isSolflare?: boolean;
 };
 
 declare global {
   interface Window {
     ethereum?: EthereumProvider;
+    solana?: SolanaProvider;
+    solflare?: SolanaProvider;
+    phantom?: { solana?: SolanaProvider };
   }
 }
 
 const BASE_CHAIN_ID = "0x2105";
-const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const BOOST_PRICE = "20";
+const emptyProfile = {
+  name: "",
+  age: "",
+  city: "",
+  country: "",
+  headline: "",
+  bio: "",
+  interests: ""
+};
 
 const iconPaths: Record<string, React.ReactNode> = {
   compass: <><circle cx="12" cy="12" r="9"/><path d="m15.2 8.8-2 4.4-4.4 2 2-4.4 4.4-2Z"/></>,
@@ -31,135 +60,152 @@ const iconPaths: Record<string, React.ReactNode> = {
   lock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
   globe: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></>,
   user: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
-  message: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></>
+  message: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></>,
+  camera: <><path d="M4 8h3l1.5-2h7L17 8h3v11H4V8Z"/><circle cx="12" cy="13" r="3.5"/></>,
+  solana: <><path d="M7 5h12l-2 2H5l2-2ZM5 11h12l2 2H7l-2-2ZM7 17h12l-2 2H5l2-2Z"/></>
 };
 
 function Icon({ name, size = 20, filled = false }: { name: string; size?: number; filled?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {iconPaths[name]}
-    </svg>
-  );
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{iconPaths[name]}</svg>;
 }
 
 function shortAddress(address: string) {
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+  return `${address.slice(0, 5)}…${address.slice(-4)}`;
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return window.btoa(binary);
 }
 
 async function switchToBase(provider: EthereumProvider) {
   try {
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_CHAIN_ID }] });
   } catch (error) {
-    const code = (error as { code?: number }).code;
-    if (code !== 4902) throw error;
+    if ((error as { code?: number }).code !== 4902) throw error;
     await provider.request({
       method: "wallet_addEthereumChain",
-      params: [
-        {
-          chainId: BASE_CHAIN_ID,
-          chainName: "Base",
-          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-          rpcUrls: ["https://mainnet.base.org"],
-          blockExplorerUrls: ["https://basescan.org"]
-        }
-      ]
+      params: [{ chainId: BASE_CHAIN_ID, chainName: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://mainnet.base.org"], blockExplorerUrls: ["https://basescan.org"] }]
     });
   }
+}
+
+function ProfileArtwork({ profile, large = false }: { profile: Profile; large?: boolean }) {
+  return (
+    <div className={`${large ? "modal-visual" : "profile-visual"} motif-${profile.motif}`} style={{ "--tone-one": profile.colors[0], "--tone-two": profile.colors[1], "--tone-three": profile.colors[2] } as React.CSSProperties}>
+      {profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <><div className="moon"/><div className="horizon horizon-back"/><div className="horizon horizon-front"/><span className={large ? "modal-monogram" : "profile-monogram"}>{profile.initials}</span></>}
+      {!large && profile.online && <span className="profile-online">ONLINE</span>}
+    </div>
+  );
 }
 
 export function DiscoveryApp() {
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("Anywhere");
   const [wallet, setWallet] = useState<string | null>(null);
+  const [walletChain, setWalletChain] = useState<WalletChain | null>(null);
+  const [walletName, setWalletName] = useState("");
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState("");
+  const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [paymentState, setPaymentState] = useState<"idle" | "sending" | "submitted">("idle");
-  const [paymentHash, setPaymentHash] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState(emptyProfile);
+  const [profilePhotos, setProfilePhotos] = useState<string[]>([]);
+  const [customProfiles, setCustomProfiles] = useState<Profile[]>([]);
+  const [engagement, setEngagement] = useState<Record<string, { received: number; likes: number }>>({});
+  const [messageTarget, setMessageTarget] = useState<Profile | null>(null);
+  const [messageText, setMessageText] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    fetch("/api/auth/session")
-      .then((response) => response.json())
-      .then((data: { address: string | null }) => setWallet(data.address))
-      .catch(() => undefined);
+    fetch("/api/auth/session").then((response) => response.json()).then((data: { address: string | null; chain: WalletChain | null }) => {
+      setWallet(data.address);
+      setWalletChain(data.chain);
+      if (data.chain) setWalletName(data.chain === "solana" ? "Solana" : "Base");
+    }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!notice) return;
-    const timeout = window.setTimeout(() => setNotice(""), 3800);
+    const timeout = window.setTimeout(() => setNotice(""), 4200);
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
-  const cities = useMemo(() => ["Anywhere", ...new Set(profiles.map((profile) => profile.city))], []);
+  const allProfiles = useMemo(() => [...customProfiles, ...profiles], [customProfiles]);
+  const cities = useMemo(() => ["Anywhere", ...new Set(allProfiles.map((profile) => profile.city))], [allProfiles]);
   const filteredProfiles = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return profiles.filter((profile) => {
+    return allProfiles.filter((profile) => {
       const matchesCity = city === "Anywhere" || profile.city === city;
-      const matchesQuery =
-        !needle ||
-        [profile.name, profile.city, profile.country, profile.headline, ...profile.tags]
-          .join(" ")
-          .toLowerCase()
-          .includes(needle);
+      const matchesQuery = !needle || [profile.name, profile.city, profile.country, profile.headline, ...profile.tags].join(" ").toLowerCase().includes(needle);
       return matchesCity && matchesQuery;
     });
-  }, [city, query]);
+  }, [allProfiles, city, query]);
 
-  async function connectWallet() {
+  async function requestSignIn(address: string, chain: WalletChain) {
+    const response = await fetch("/api/auth/nonce", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, chain }) });
+    const data = (await response.json()) as { message?: string; error?: string };
+    if (!response.ok || !data.message) throw new Error(data.error || "Could not start sign-in.");
+    return data.message;
+  }
+
+  async function verifySignIn(address: string, chain: WalletChain, message: string, signature: string, name: string) {
+    const response = await fetch("/api/auth/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, chain, message, signature }) });
+    const data = (await response.json()) as { address?: string; chain?: WalletChain; error?: string };
+    if (!response.ok || !data.address) throw new Error(data.error || "Sign-in failed.");
+    setWallet(data.address);
+    setWalletChain(data.chain || chain);
+    setWalletName(name);
+    setWalletPickerOpen(false);
+    setNotice(`${name} verified. Welcome to Crypto Sugar.`);
+  }
+
+  async function connectEvmWallet() {
     setWalletError("");
     const provider = window.ethereum;
     if (!provider) {
-      setWalletError("Install a browser wallet such as MetaMask or Rabby to continue.");
-      return null;
+      setWalletError("No Base/EVM wallet detected. Install MetaMask, Rabby, or Coinbase Wallet, then refresh.");
+      return;
     }
-
     setWalletBusy(true);
     try {
       const accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
       const address = getAddress(accounts[0]);
       await switchToBase(provider);
-
-      const nonceResponse = await fetch("/api/auth/nonce", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ address })
-      });
-      const nonceData = (await nonceResponse.json()) as { message?: string; error?: string };
-      if (!nonceResponse.ok || !nonceData.message) throw new Error(nonceData.error || "Could not start sign-in.");
-
-      const signature = (await provider.request({
-        method: "personal_sign",
-        params: [nonceData.message, address]
-      })) as `0x${string}`;
-
-      const verifyResponse = await fetch("/api/auth/verify", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ address, message: nonceData.message, signature })
-      });
-      const verifyData = (await verifyResponse.json()) as { address?: string; error?: string };
-      if (!verifyResponse.ok || !verifyData.address) throw new Error(verifyData.error || "Sign-in failed.");
-
-      setWallet(verifyData.address);
-      setNotice("Wallet verified. Welcome to Crypto Sugar.");
-      return verifyData.address;
+      const message = await requestSignIn(address, "evm");
+      const signature = (await provider.request({ method: "personal_sign", params: [message, address] })) as string;
+      await verifySignIn(address, "evm", message, signature, "Base wallet");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Wallet connection was cancelled.";
-      setWalletError(message);
-      return null;
+      setWalletError(error instanceof Error ? error.message : "Wallet connection was cancelled.");
+    } finally {
+      setWalletBusy(false);
+    }
+  }
+
+  async function connectSolanaWallet(kind: "solflare" | "phantom") {
+    setWalletError("");
+    const provider = kind === "solflare"
+      ? window.solflare || (window.solana?.isSolflare ? window.solana : undefined)
+      : window.phantom?.solana || (window.solana?.isPhantom ? window.solana : undefined);
+    const label = kind === "solflare" ? "Solflare" : "Phantom";
+    if (!provider) {
+      setWalletError(`${label} was not detected. Install the ${label} browser extension, then refresh this page.`);
+      return;
+    }
+    setWalletBusy(true);
+    try {
+      const connected = await provider.connect();
+      const address = (connected.publicKey || provider.publicKey)?.toString();
+      if (!address) throw new Error(`${label} did not return a wallet address.`);
+      const message = await requestSignIn(address, "solana");
+      const signed = await provider.signMessage(new TextEncoder().encode(message), "utf8");
+      const signatureBytes = signed instanceof Uint8Array ? signed : signed.signature;
+      await verifySignIn(address, "solana", message, bytesToBase64(signatureBytes), label);
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : "Wallet connection was cancelled.");
     } finally {
       setWalletBusy(false);
     }
@@ -168,285 +214,262 @@ export function DiscoveryApp() {
   async function disconnectWallet() {
     await fetch("/api/auth/logout", { method: "POST" });
     setWallet(null);
+    setWalletChain(null);
+    setWalletName("");
     setNotice("Signed out of Crypto Sugar.");
   }
 
   function toggleFavorite(id: string) {
     setFavorites((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }
 
-  async function sendBoostPayment() {
+  function openProfileCreator() {
     setWalletError("");
-    const provider = window.ethereum;
-    if (!provider) {
-      setWalletError("A browser wallet is required to pay with USDC.");
+    setProfileOpen(true);
+  }
+
+  function handlePhotos(fileList?: FileList | null) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    if (profilePhotos.length + files.length > 20) {
+      setWalletError("You can add up to 20 photos to a profile.");
       return;
     }
-
-    const activeWallet = wallet || (await connectWallet());
-    if (!activeWallet) return;
-    const treasury = process.env.NEXT_PUBLIC_PLATFORM_TREASURY;
-    if (!treasury || !isAddress(treasury) || /^0x0{40}$/i.test(treasury)) {
-      setWalletError("Add the platform treasury address to .env.local before enabling live payments.");
+    if (files.some((file) => !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024)) {
+      setWalletError("Choose JPG, PNG, or WebP images smaller than 5 MB each.");
       return;
     }
+    setWalletError("");
+    Promise.all(files.map((file) => new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    }))).then((photos) => setProfilePhotos((current) => [...current, ...photos]));
+  }
 
-    setPaymentState("sending");
-    try {
-      await switchToBase(provider);
-      const data = encodeFunctionData({
-        abi: [
-          {
-            type: "function",
-            name: "transfer",
-            stateMutability: "nonpayable",
-            inputs: [
-              { name: "to", type: "address" },
-              { name: "value", type: "uint256" }
-            ],
-            outputs: [{ name: "", type: "bool" }]
-          }
-        ],
-        functionName: "transfer",
-        args: [getAddress(treasury), parseUnits(BOOST_PRICE, 6)]
-      });
-      const hash = (await provider.request({
-        method: "eth_sendTransaction",
-        params: [{ from: activeWallet, to: USDC_BASE, data }]
-      })) as string;
-      setPaymentHash(hash);
-      setPaymentState("submitted");
-    } catch (error) {
-      setPaymentState("idle");
-      setWalletError(error instanceof Error ? error.message : "The payment was cancelled.");
+  function engagementFor(profile: Profile) {
+    const extra = engagement[profile.id] || { received: 0, likes: 0 };
+    const sent = profile.messagesSent || 0;
+    const received = (profile.messagesReceived || 0) + extra.received;
+    const points = creatorRatingPoints(sent, received);
+    return {
+      sent,
+      received,
+      points,
+      price: messagePriceUsdc(points),
+      likes: (profile.photoLikes || 0) + extra.likes,
+      progress: (sent + received) % 100
+    };
+  }
+
+  function openMessage(profile: Profile) {
+    if (!wallet) {
+      setWalletError("Connect a wallet before starting a paid conversation.");
+      setWalletPickerOpen(true);
+      return;
     }
+    setMessageText("");
+    setMessageTarget(profile);
+  }
+
+  function sendTestMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!messageTarget || !messageText.trim()) return;
+    setEngagement((current) => ({
+      ...current,
+      [messageTarget.id]: {
+        received: (current[messageTarget.id]?.received || 0) + 1,
+        likes: current[messageTarget.id]?.likes || 0
+      }
+    }));
+    setMessageTarget(null);
+    setMessageText("");
+    setNotice("Test message recorded. Live USDC settlement is intentionally disabled.");
+  }
+
+  function likeFeaturedPhoto(profile: Profile) {
+    if (!wallet) {
+      setWalletError("Connect a wallet before sending a paid photo-like.");
+      setWalletPickerOpen(true);
+      return;
+    }
+    setEngagement((current) => ({
+      ...current,
+      [profile.id]: {
+        received: current[profile.id]?.received || 0,
+        likes: (current[profile.id]?.likes || 0) + 1
+      }
+    }));
+    setNotice("Test photo-like recorded: 0.10 USDC creator share + 0.01 platform fee. No funds moved.");
+  }
+
+  function submitProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setWalletError("");
+    if (!wallet) {
+      setWalletError("Connect and verify a wallet before saving your profile.");
+      setWalletPickerOpen(true);
+      return;
+    }
+    const age = Number(profileForm.age);
+    if (!Number.isInteger(age) || age < 18) {
+      setWalletError("Crypto Sugar is strictly for adults aged 18 and over.");
+      return;
+    }
+    const tags = profileForm.interests.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 5);
+    const name = profileForm.name.trim();
+    const draft: Profile = {
+      id: `draft-${Date.now()}`,
+      name,
+      age,
+      city: profileForm.city.trim(),
+      country: profileForm.country.trim(),
+      headline: profileForm.headline.trim(),
+      bio: profileForm.bio.trim(),
+      initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(),
+      verified: false,
+      online: true,
+      tags: tags.length ? tags : ["New member"],
+      colors: ["#d69286", "#6e2949", "#1d1019"],
+      motif: "night",
+      imageUrl: profilePhotos[0] || undefined,
+      photos: profilePhotos,
+      messagesSent: 0,
+      messagesReceived: 0,
+      photoLikes: 0
+    };
+    setCustomProfiles((current) => [draft, ...current]);
+    setProfileForm(emptyProfile);
+    setProfilePhotos([]);
+    setProfileOpen(false);
+    setCity("Anywhere");
+    setQuery("");
+    window.setTimeout(() => document.querySelector("#discover")?.scrollIntoView({ behavior: "smooth" }), 80);
+    setNotice("Your free profile draft is ready. Identity review is the next production step.");
   }
 
   return (
     <main>
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
+      <div className="ambient ambient-one"/><div className="ambient ambient-two"/>
 
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="Crypto Sugar home">
-          <span className="brand-mark"><Icon name="compass" size={21} /></span>
-          <span>CRYPTO SUGAR</span>
-        </a>
-        <nav aria-label="Main navigation">
-          <a href="#discover">Discover</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#safety">Safety</a>
-        </nav>
+        <a className="brand" href="#top" aria-label="Crypto Sugar home"><span className="brand-mark"><Icon name="compass" size={21}/></span><span>CRYPTO SUGAR</span></a>
+        <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
         <div className="header-actions">
-          <button className="text-button" onClick={() => setNotice("Profile onboarding is queued for the next build.")}>Create profile</button>
-          {wallet ? (
-            <button className="wallet-button connected" onClick={disconnectWallet} title="Click to sign out">
-              <span className="online-dot" /> {shortAddress(wallet)}
-            </button>
-          ) : (
-            <button className="wallet-button" onClick={connectWallet} disabled={walletBusy}>
-              <Icon name="wallet" size={17} /> {walletBusy ? "Check wallet…" : "Connect wallet"}
-            </button>
-          )}
+          <button className="text-button" onClick={openProfileCreator}>Create profile</button>
+          {wallet ? <button className="wallet-button connected" onClick={disconnectWallet} title="Click to sign out"><span className="online-dot"/>{walletName || (walletChain === "solana" ? "Solana" : "Base")} · {shortAddress(wallet)}</button>
+            : <button className="wallet-button" onClick={() => { setWalletError(""); setWalletPickerOpen(true); }}><Icon name="wallet" size={17}/>Connect wallet</button>}
         </div>
       </header>
 
       <section className="hero" id="top">
-        <div className="eyebrow"><span /> Verified adults. Global connections. <span /></div>
-        <h1>Go where <em>chemistry</em><br />takes you.</h1>
-        <p className="hero-copy">
-          A private, adults-only social discovery space for exceptional people, thoughtful experiences,
-          and connections that cross borders.
-        </p>
-        <div className="hero-actions">
-          <a className="primary-button" href="#discover">Explore profiles <Icon name="arrow" size={18} /></a>
-          <button className="secondary-button" onClick={() => setNotice("Profile onboarding is queued for the next build.")}>Create your profile</button>
+        <div className="hero-copy-block">
+          <div className="eyebrow"><span/> PRIVATE. MAGNETIC. CRYPTO-NATIVE. <span/></div>
+          <h1>Meet your next<br/><em>beautiful distraction.</em></h1>
+          <p className="hero-copy">A discreet, adults-only circle for exceptional people, electric chemistry, and connections worth crossing borders for.</p>
+          <div className="hero-actions"><a className="primary-button" href="#discover">Explore profiles <Icon name="arrow" size={18}/></a><button className="secondary-button" onClick={openProfileCreator}>Create your profile — free</button></div>
+          <div className="trust-row"><span><Icon name="shield" size={17}/>Adults verified</span><span><Icon name="lock" size={17}/>Wallet-secured</span><span><Icon name="globe" size={17}/>Global access</span></div>
         </div>
-        <div className="trust-row">
-          <span><Icon name="shield" size={17} /> Identity checked</span>
-          <span><Icon name="lock" size={17} /> Wallet-secured access</span>
-          <span><Icon name="globe" size={17} /> Crypto-native</span>
+        <div className="hero-editorial" aria-label="Glamorous private rooftop lounge">
+          <div className="editorial-city"><i/><i/><i/><i/><i/></div>
+          <div className="editorial-figure" aria-hidden="true"><span className="figure-hair"/><span className="figure-face"/><span className="figure-neck"/><span className="figure-dress"/><span className="figure-highlight"/></div>
+          <div className="hero-frame"/>
+          <div className="hero-caption"><span>MEMBERS&apos; EDIT</span><strong>Midnight in Europe</strong></div>
+          <div className="hero-age">18+</div>
         </div>
       </section>
 
+      <section className="desire-strip" aria-label="Platform values"><span>Private introductions</span><i/><span>Verified adults</span><i/><span>Global chemistry</span><i/><span>USDC-ready</span></section>
+
       <section className="discovery-section" id="discover">
-        <div className="section-heading">
-          <div>
-            <span className="section-kicker">CURATED DISCOVERY</span>
-            <h2>Meet someone remarkable.</h2>
-          </div>
-          <p>Every public profile is reviewed before it appears in discovery.</p>
-        </div>
-
+        <div className="section-heading"><div><span className="section-kicker">CURATED DISCOVERY</span><h2>Someone unforgettable is closer than you think.</h2></div><p>Every public profile is reviewed before it appears in discovery.</p></div>
         <div className="filter-bar">
-          <label className="search-field">
-            <Icon name="search" size={19} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search interests or destinations" />
-          </label>
-          <label className="select-field">
-            <span>LOCATION</span>
-            <select value={city} onChange={(event) => setCity(event.target.value)}>
-              {cities.map((item) => <option key={item}>{item}</option>)}
-            </select>
-          </label>
-          <div className="filter-meta"><Icon name="check" size={16} /> Verified profiles only</div>
+          <label className="search-field"><Icon name="search" size={19}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search interests or destinations"/></label>
+          <label className="select-field"><span>LOCATION</span><select value={city} onChange={(event) => setCity(event.target.value)}>{cities.map((item) => <option key={item}>{item}</option>)}</select></label>
+          <div className="filter-meta"><Icon name="check" size={16}/>Reviewed profiles</div>
         </div>
-
         <div className="profile-grid">
-          {filteredProfiles.map((profile) => (
-            <article className="profile-card" key={profile.id}>
-              <button
-                className={`favorite-button ${favorites.has(profile.id) ? "active" : ""}`}
-                onClick={() => toggleFavorite(profile.id)}
-                aria-label={`${favorites.has(profile.id) ? "Remove" : "Add"} ${profile.name} ${favorites.has(profile.id) ? "from" : "to"} favorites`}
-              >
-                <Icon name="heart" size={18} filled={favorites.has(profile.id)} />
-              </button>
-              <button className="profile-open" onClick={() => setActiveProfile(profile)} aria-label={`View ${profile.name}'s profile`}>
-                <div
-                  className={`profile-visual motif-${profile.motif}`}
-                  style={{ "--tone-one": profile.colors[0], "--tone-two": profile.colors[1], "--tone-three": profile.colors[2] } as React.CSSProperties}
-                >
-                  <div className="moon" />
-                  <div className="horizon horizon-back" />
-                  <div className="horizon horizon-front" />
-                  <span className="profile-monogram">{profile.initials}</span>
-                  {profile.online && <span className="profile-online">ONLINE</span>}
-                </div>
-                <div className="profile-content">
-                  <div className="profile-name-row">
-                    <h3>{profile.name}, {profile.age}</h3>
-                    {profile.verified && <span className="verified-badge" title="Identity verified"><Icon name="check" size={12} /></span>}
-                  </div>
-                  <p className="location">{profile.city} · {profile.country}</p>
-                  <p className="headline">{profile.headline}</p>
-                  <div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
-                </div>
-              </button>
-            </article>
-          ))}
+          {filteredProfiles.map((profile) => <article className="profile-card" key={profile.id}>
+            <button className={`favorite-button ${favorites.has(profile.id) ? "active" : ""}`} onClick={() => toggleFavorite(profile.id)} aria-label={`${favorites.has(profile.id) ? "Remove" : "Add"} ${profile.name} ${favorites.has(profile.id) ? "from" : "to"} favorites`}><Icon name="heart" size={18} filled={favorites.has(profile.id)}/></button>
+            <button className="profile-open" onClick={() => setActiveProfile(profile)} aria-label={`View ${profile.name}'s profile`}>
+              <ProfileArtwork profile={profile}/>
+              <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.verified ? <span className="verified-badge" title="Identity verified"><Icon name="check" size={12}/></span> : <span className="draft-badge">DRAFT</span>}</div><p className="location">{profile.city} · {profile.country}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
+            </button>
+          </article>)}
         </div>
         {filteredProfiles.length === 0 && <div className="empty-state">No profiles match those filters yet.</div>}
       </section>
 
       <section className="steps-section" id="how-it-works">
-        <div className="section-heading compact">
-          <div><span className="section-kicker">PRIVATE BY DESIGN</span><h2>Simple, secure, intentional.</h2></div>
-        </div>
+        <div className="section-heading compact"><div><span className="section-kicker">DESIRE, WITH STANDARDS</span><h2>Private by design. Free to join.</h2></div></div>
         <div className="steps-grid">
-          <div className="step-card"><span className="step-number">01</span><Icon name="wallet" size={26} /><h3>Connect privately</h3><p>Use your wallet and sign a free message. No blockchain transaction is made during sign-in.</p></div>
-          <div className="step-card"><span className="step-number">02</span><Icon name="user" size={26} /><h3>Verify once</h3><p>Age and identity checks keep discovery adult-only and make every public profile accountable.</p></div>
-          <div className="step-card"><span className="step-number">03</span><Icon name="message" size={26} /><h3>Connect with intent</h3><p>Explore thoughtfully, favorite privately, and start conversations with clear boundaries.</p></div>
+          <div className="step-card"><span className="step-number">01</span><Icon name="wallet" size={26}/><h3>Choose your wallet</h3><p>Connect Base, Solflare, or Phantom and sign a free message. No payment or blockchain transaction is made.</p></div>
+          <div className="step-card"><span className="step-number">02</span><Icon name="user" size={26}/><h3>Create your profile</h3><p>Introduce yourself, add your style and interests, then submit for adult identity review. Women are never charged to publish.</p></div>
+          <div className="step-card"><span className="step-number">03</span><Icon name="message" size={26}/><h3>Follow the chemistry</h3><p>Discover privately, favorite discreetly, and begin conversations with clear intentions and boundaries.</p></div>
         </div>
       </section>
 
       <section className="crypto-section">
-        <div className="crypto-copy">
-          <span className="section-kicker">BUILT ON BASE</span>
-          <h2>One currency.<br />No payment theatre.</h2>
-          <p>Crypto Sugar starts with USDC on Base: stable pricing, low network fees, and transparent transaction receipts.</p>
-          <ul>
-            <li><Icon name="check" size={16} /> Wallet ownership verified by signature</li>
-            <li><Icon name="check" size={16} /> USDC settlement on Base</li>
-            <li><Icon name="check" size={16} /> No platform custody for direct wallet payments</li>
-          </ul>
-        </div>
-        <div className="boost-card">
-          <div className="boost-icon"><Icon name="spark" size={24} /></div>
-          <span>PROFILE BOOST</span>
-          <h3>Be seen first for 7 days.</h3>
-          <p>Move your approved profile to the front of discovery in your selected city.</p>
-          <div className="price-line"><strong>20</strong><span>USDC<br /><small>on Base</small></span></div>
-          <button className="primary-button full" onClick={() => { setCheckoutOpen(true); setPaymentState("idle"); setPaymentHash(""); setWalletError(""); }}>
-            Pay with crypto <Icon name="arrow" size={18} />
-          </button>
-        </div>
+        <div className="crypto-copy"><span className="section-kicker">USDC-READY ACCESS</span><h2>Your wallet is the key.<br/>Not the price of entry.</h2><p>Crypto Sugar supports free wallet authentication on Base and Solana. Connecting proves wallet ownership; it never gives us custody or permission to move funds.</p><ul><li><Icon name="check" size={16}/>MetaMask, Rabby, and Coinbase Wallet on Base</li><li><Icon name="check" size={16}/>Solflare and Phantom on Solana</li><li><Icon name="check" size={16}/>No charge to create or publish an approved profile</li></ul></div>
+        <div className="access-card"><div className="access-orbit"><Icon name="spark" size={28}/></div><span>FREE MEMBERSHIP</span><h3>Make an entrance.</h3><p>Create a private draft, preview it instantly, and submit it for review when you are ready.</p><div className="access-networks"><span><i className="base-symbol">B</i>Base</span><span><i className="solana-symbol">S</i>Solana</span></div><button className="primary-button full" onClick={openProfileCreator}>Create your profile <Icon name="arrow" size={18}/></button><small>No profile fees. No boost charges. No recovery phrase—ever.</small></div>
       </section>
 
-      <section className="safety-section" id="safety">
-        <div className="safety-mark"><Icon name="shield" size={31} /></div>
-        <div><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Consent always.</h2></div>
-        <p>Crypto Sugar is designed for lawful social discovery and companionship. Solicitation, coercion, trafficking, underage users, and non-consensual content are prohibited and subject to immediate removal.</p>
-        <a href="mailto:safety@example.com">Contact safety <Icon name="arrow" size={16} /></a>
-      </section>
+      <section className="safety-section" id="safety"><div className="safety-mark"><Icon name="shield" size={31}/></div><div><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Consent always.</h2></div><p>Crypto Sugar is designed for lawful social discovery and companionship. Solicitation, coercion, trafficking, underage users, and non-consensual content are prohibited and subject to immediate removal.</p><a href="mailto:safety@cryptosugarbabes.com">Contact safety <Icon name="arrow" size={16}/></a></section>
 
-      <footer>
-        <a className="brand" href="#top"><span className="brand-mark"><Icon name="compass" size={19} /></span><span>CRYPTO SUGAR</span></a>
-        <p>© 2026 Crypto Sugar Babes. Demo profiles are fictional.</p>
-        <div><a href="#safety">Safety</a><a href="#top">Terms</a><a href="#top">Privacy</a></div>
-      </footer>
+      <footer><a className="brand" href="#top"><span className="brand-mark"><Icon name="compass" size={19}/></span><span>CRYPTO SUGAR</span></a><p>© 2026 Crypto Sugar Babes. Demo profiles are fictional.</p><div><a href="#safety">Safety</a><a href="#top">Terms</a><a href="#top">Privacy</a></div></footer>
 
-      {activeProfile && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveProfile(null); }}>
+      {activeProfile && (() => {
+        const stats = engagementFor(activeProfile);
+        return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveProfile(null); }}>
           <section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
-            <button className="modal-close" onClick={() => setActiveProfile(null)} aria-label="Close profile"><Icon name="close" size={20} /></button>
-            <div
-              className={`modal-visual motif-${activeProfile.motif}`}
-              style={{ "--tone-one": activeProfile.colors[0], "--tone-two": activeProfile.colors[1], "--tone-three": activeProfile.colors[2] } as React.CSSProperties}
-            >
-              <div className="moon" /><div className="horizon horizon-back" /><div className="horizon horizon-front" />
-              <span className="modal-monogram">{activeProfile.initials}</span>
+            <button className="modal-close" onClick={() => setActiveProfile(null)} aria-label="Close profile"><Icon name="close" size={20}/></button>
+            <div className="profile-media-column">
+              <ProfileArtwork profile={activeProfile} large/>
+              <button className="photo-like-button" onClick={() => likeFeaturedPhoto(activeProfile)}><Icon name="heart" size={17}/><span>Like featured photo</span><strong>{PHOTO_LIKE_PRICE_USDC.toFixed(2)} USDC</strong></button>
+              <small>{stats.likes.toLocaleString()} paid likes · Creator receives {PHOTO_LIKE_CREATOR_SHARE_USDC.toFixed(2)} USDC</small>
             </div>
             <div className="modal-content">
-              <span className="verified-line"><Icon name="shield" size={15} /> Identity verified · 18+</span>
-              <h2 id="profile-modal-title">{activeProfile.name}, {activeProfile.age}</h2>
-              <p className="location">{activeProfile.city} · {activeProfile.country}</p>
-              <h3>{activeProfile.headline}</h3>
-              <p className="modal-bio">{activeProfile.bio}</p>
+              <span className="verified-line"><Icon name="shield" size={15}/>{activeProfile.verified ? "Identity verified · 18+" : "Private draft · Not yet reviewed"}</span>
+              <h2 id="profile-modal-title">{activeProfile.name}, {activeProfile.age}</h2><p className="location">{activeProfile.city} · {activeProfile.country}</p>
+              <h3>{activeProfile.headline}</h3><p className="modal-bio">{activeProfile.bio}</p>
+              <div className="creator-stats"><div><span>RATING</span><strong>{stats.points} pts</strong></div><div><span>MESSAGES</span><strong>{(stats.sent + stats.received).toLocaleString()}</strong></div><div><span>YOUR MESSAGE</span><strong>{formatUsdc(stats.price)} USDC</strong></div></div>
+              <div className="rating-progress"><span style={{ width: `${stats.progress}%` }}/></div><p className="rating-note">{100 - stats.progress} more messages until the next +5 rating points.</p>
               <div className="tag-row large">{activeProfile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-              <div className="modal-actions">
-                <button className="primary-button" onClick={() => wallet ? setNotice("Private messaging is next in the build queue.") : connectWallet()}>
-                  <Icon name="message" size={17} /> {wallet ? "Start a conversation" : "Connect to message"}
-                </button>
-                <button className={`heart-action ${favorites.has(activeProfile.id) ? "active" : ""}`} onClick={() => toggleFavorite(activeProfile.id)}><Icon name="heart" size={19} filled={favorites.has(activeProfile.id)} /></button>
-              </div>
-                <p className="modal-footnote">Never send funds to arrange prohibited or unlawful services. Report suspicious requests to Safety.</p>
+              <div className="modal-actions"><button className="primary-button" onClick={() => openMessage(activeProfile)}><Icon name="message" size={17}/>Message · {formatUsdc(stats.price)} USDC</button><button className={`heart-action ${favorites.has(activeProfile.id) ? "active" : ""}`} onClick={() => toggleFavorite(activeProfile.id)}><Icon name="heart" size={19} filled={favorites.has(activeProfile.id)}/></button></div>
+              <p className="modal-footnote">Creators send messages free. Incoming message price rises 0.1% per rating point. Test mode does not move funds.</p>
             </div>
           </section>
-        </div>
-      )}
+        </div>;
+      })()}
 
-      {checkoutOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCheckoutOpen(false); }}>
-          <section className="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
-            <button className="modal-close" onClick={() => setCheckoutOpen(false)} aria-label="Close checkout"><Icon name="close" size={20} /></button>
-            {paymentState === "submitted" ? (
-              <div className="payment-success">
-                <span className="success-icon"><Icon name="check" size={26} /></span>
-                <span className="section-kicker">TRANSACTION SUBMITTED</span>
-                <h2 id="checkout-title">Your boost is on its way.</h2>
-                <p>We’ll activate it after the USDC transfer is confirmed on Base.</p>
-                <a className="primary-button full" href={`https://basescan.org/tx/${paymentHash}`} target="_blank" rel="noreferrer">View transaction <Icon name="arrow" size={17} /></a>
-              </div>
-            ) : (
-              <>
-                <span className="section-kicker">SECURE CHECKOUT</span>
-                <h2 id="checkout-title">7-day profile boost</h2>
-                <p className="checkout-subtitle">Featured placement in one selected city after profile approval.</p>
-                <div className="checkout-summary">
-                  <div><span>Product</span><strong>Discovery boost</strong></div>
-                  <div><span>Network</span><strong><i className="base-dot" /> Base</strong></div>
-                  <div className="total"><span>Total</span><strong>20.00 USDC</strong></div>
-                </div>
-                {wallet && <div className="paying-wallet"><Icon name="wallet" size={16} /> Paying from {shortAddress(wallet)}</div>}
-                {walletError && <div className="form-error">{walletError}</div>}
-                <button className="primary-button full" onClick={sendBoostPayment} disabled={paymentState === "sending" || walletBusy}>
-                  {paymentState === "sending" ? "Confirm in wallet…" : wallet ? "Pay 20 USDC" : "Connect wallet to pay"}
-                  {paymentState !== "sending" && <Icon name="arrow" size={18} />}
-                </button>
-                <p className="checkout-note"><Icon name="lock" size={13} /> Crypto Sugar never requests your recovery phrase or private key.</p>
-              </>
-            )}
+      {messageTarget && (() => {
+        const stats = engagementFor(messageTarget);
+        return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setMessageTarget(null); }}>
+          <section className="message-modal" role="dialog" aria-modal="true" aria-labelledby="message-title">
+            <button className="modal-close" onClick={() => setMessageTarget(null)} aria-label="Close message"><Icon name="close" size={20}/></button>
+            <span className="section-kicker">PRIVATE INTRODUCTION</span><h2 id="message-title">Message {messageTarget.name}.</h2>
+            <p className="wallet-intro">Creators reply free. Your message price reflects {messageTarget.name}&apos;s current engagement rating.</p>
+            <form onSubmit={sendTestMessage}><label className="message-field"><span>YOUR MESSAGE</span><textarea required maxLength={800} autoFocus value={messageText} onChange={(event) => setMessageText(event.target.value)} placeholder="Start with something thoughtful…"/><small>{messageText.length}/800</small></label>
+              <div className="message-checkout"><div><span>Creator rating</span><strong>{stats.points} points</strong></div><div><span>Base price</span><strong>0.30 USDC</strong></div><div className="message-total"><span>Your message</span><strong>{formatUsdc(stats.price)} USDC</strong></div></div>
+              <button className="primary-button full" type="submit">Test send · {formatUsdc(stats.price)} USDC <Icon name="arrow" size={18}/></button><p className="checkout-note"><Icon name="lock" size={13}/>Test mode records engagement but does not transfer USDC.</p>
+            </form>
           </section>
-        </div>
-      )}
+        </div>;
+      })()}
 
-      {(notice || walletError) && !checkoutOpen && <div className={`toast ${walletError ? "error" : ""}`}>{walletError || notice}</div>}
+      {walletPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !walletBusy) setWalletPickerOpen(false); }}><section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title"><button className="modal-close" onClick={() => setWalletPickerOpen(false)} aria-label="Close wallet options"><Icon name="close" size={20}/></button><span className="section-kicker">SIGN IN WITHOUT GAS</span><h2 id="wallet-title">Choose your wallet.</h2><p className="wallet-intro">Every option supports USDC. Connecting only requests a free signature to verify ownership.</p><div className="wallet-options"><button onClick={connectEvmWallet} disabled={walletBusy}><span className="wallet-logo base-logo">B</span><span><strong>Base / EVM wallet</strong><small>MetaMask · Rabby · Coinbase</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("solflare")} disabled={walletBusy}><span className="wallet-logo solflare-logo">S</span><span><strong>Solflare</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("phantom")} disabled={walletBusy}><span className="wallet-logo phantom-logo">P</span><span><strong>Phantom</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button></div>{walletError && <div className="form-error">{walletError}</div>}<p className="wallet-safety"><Icon name="lock" size={14}/>We never request your seed phrase or private key.</p></section></div>}
+
+      {profileOpen && <div className="modal-backdrop profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}><section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><button className="modal-close" onClick={() => setProfileOpen(false)} aria-label="Close profile creator"><Icon name="close" size={20}/></button><div className="create-heading"><span className="section-kicker">YOUR PRIVATE INTRODUCTION</span><h2 id="create-title">Create your profile.</h2><p>Preview a free draft now. Public profiles require adult identity review before discovery.</p></div><form onSubmit={submitProfile}>
+        <div className="photo-field"><label className={profilePhotos.length ? "has-photo" : ""}>{profilePhotos.length ? <div className="photo-preview-grid">{profilePhotos.slice(0, 4).map((photo, index) => <img src={photo} alt={`Profile preview ${index + 1}`} key={`${photo.slice(-24)}-${index}`}/>)}</div> : <span><Icon name="camera" size={28}/><strong>Add up to 20 photos</strong><small>JPG, PNG or WebP · 5 MB each</small></span>}<input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => handlePhotos(event.target.files)}/></label><div><strong>Your photo collection</strong><p>Your first image becomes the featured photo. Explicit imagery is not accepted.</p><small>{profilePhotos.length}/20 photos selected</small>{profilePhotos.length > 0 && <button type="button" onClick={() => setProfilePhotos([])}>Remove all</button>}</div></div>
+        <div className="form-grid"><label><span>DISPLAY NAME</span><input required value={profileForm.name} onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })} placeholder="Your first name"/></label><label><span>AGE</span><input required type="number" min="18" max="99" value={profileForm.age} onChange={(event) => setProfileForm({ ...profileForm, age: event.target.value })} placeholder="18+"/></label><label><span>CITY</span><input required value={profileForm.city} onChange={(event) => setProfileForm({ ...profileForm, city: event.target.value })} placeholder="Lisbon"/></label><label><span>COUNTRY</span><input required value={profileForm.country} onChange={(event) => setProfileForm({ ...profileForm, country: event.target.value })} placeholder="Portugal"/></label><label className="wide"><span>HEADLINE</span><input required maxLength={90} value={profileForm.headline} onChange={(event) => setProfileForm({ ...profileForm, headline: event.target.value })} placeholder="A little intrigue goes a long way"/></label><label className="wide"><span>ABOUT YOU</span><textarea required maxLength={500} value={profileForm.bio} onChange={(event) => setProfileForm({ ...profileForm, bio: event.target.value })} placeholder="Your world, your style, and the kind of connection you value…"/></label><label className="wide"><span>INTERESTS</span><input value={profileForm.interests} onChange={(event) => setProfileForm({ ...profileForm, interests: event.target.value })} placeholder="Travel, art, fine dining, wellness"/><small>Separate up to five interests with commas.</small></label></div>
+        {walletError && !walletPickerOpen && <div className="form-error">{walletError}</div>}<div className="form-footer"><p><Icon name="shield" size={15}/>{wallet ? `Connected with ${walletName || walletChain}` : "A verified wallet is required to save"}</p><button className="primary-button" type="submit">{wallet ? "Save free profile" : "Connect & save"}<Icon name="arrow" size={18}/></button></div>
+      </form></section></div>}
+
+      {(notice || (walletError && !walletPickerOpen && !profileOpen)) && <div className={`toast ${walletError ? "error" : ""}`}>{walletError || notice}</div>}
     </main>
   );
 }

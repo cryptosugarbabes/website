@@ -12,6 +12,11 @@ export type Profile = {
   tags: string[];
   colors: [string, string, string];
   motif: string;
+  imageUrl?: string;
+  photos?: string[];
+  messagesSent?: number;
+  messagesReceived?: number;
+  photoLikes?: number;
 };
 
 export const profiles: Profile[] = [
@@ -28,7 +33,10 @@ export const profiles: Profile[] = [
     online: true,
     tags: ["Art", "Sailing", "Fine dining"],
     colors: ["#c99579", "#55304a", "#1d1321"],
-    motif: "coast"
+    motif: "coast",
+    messagesSent: 162,
+    messagesReceived: 214,
+    photoLikes: 438
   },
   {
     id: "celine-paris",
@@ -43,7 +51,10 @@ export const profiles: Profile[] = [
     online: false,
     tags: ["Architecture", "Jazz", "Travel"],
     colors: ["#bf9084", "#3c3142", "#15151a"],
-    motif: "city"
+    motif: "city",
+    messagesSent: 91,
+    messagesReceived: 108,
+    photoLikes: 286
   },
   {
     id: "sofia-milan",
@@ -58,7 +69,10 @@ export const profiles: Profile[] = [
     online: true,
     tags: ["Fashion", "Books", "Weekends away"],
     colors: ["#d8b079", "#784b49", "#23161d"],
-    motif: "sunset"
+    motif: "sunset",
+    messagesSent: 334,
+    messagesReceived: 477,
+    photoLikes: 913
   },
   {
     id: "maya-dubai",
@@ -73,7 +87,10 @@ export const profiles: Profile[] = [
     online: false,
     tags: ["Startups", "Wellness", "Design"],
     colors: ["#e1bc8d", "#7a5647", "#251b21"],
-    motif: "dunes"
+    motif: "dunes",
+    messagesSent: 58,
+    messagesReceived: 75,
+    photoLikes: 167
   },
   {
     id: "elena-barcelona",
@@ -88,7 +105,10 @@ export const profiles: Profile[] = [
     online: true,
     tags: ["Food", "Photography", "Culture"],
     colors: ["#dc8d76", "#6b3547", "#23151f"],
-    motif: "terrace"
+    motif: "terrace",
+    messagesSent: 219,
+    messagesReceived: 301,
+    photoLikes: 641
   },
   {
     id: "naomi-london",
@@ -103,6 +123,9 @@ export const profiles: Profile[] = [
     online: false,
     tags: ["Theatre", "Museums", "Country escapes"],
     colors: ["#b9908d", "#493847", "#17151c"],
-    motif: "night"
+    motif: "night",
+    messagesSent: 703,
+    messagesReceived: 818,
+    photoLikes: 1284
   }
 ];

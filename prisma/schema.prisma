@@ -29,9 +29,28 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum WalletChain {
+  EVM
+  SOLANA
+}
+
+enum PaymentKind {
+  MESSAGE
+  PHOTO_LIKE
+  OTHER
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  MODERATED
+}
+
 model User {
   id                 String             @id @default(cuid())
-  walletAddress      String             @unique
+  walletAddress      String
+  walletChain        WalletChain        @default(EVM)
   email              String?            @unique
   status             UserStatus         @default(PENDING)
   verificationStatus VerificationStatus @default(UNVERIFIED)
@@ -43,6 +62,11 @@ model User {
   payments           Payment[]          @relation("PaymentBuyer")
   receivedPayments   Payment[]          @relation("PaymentCreator")
   referrals          Referral[]         @relation("AffiliateReferrals")
+  sentMessages       Message[]          @relation("MessageSender")
+  receivedMessages   Message[]          @relation("MessageRecipient")
+  photoLikes         PhotoLike[]
+
+  @@unique([walletChain, walletAddress])
 }
 
 model Profile {
@@ -60,6 +84,10 @@ model Profile {
   updatedAt   DateTime @updatedAt
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   media       Media[]
+  messagesSent     BigInt   @default(0)
+  messagesReceived BigInt   @default(0)
+  ratingPoints     BigInt   @default(0)
+  baseMessagePrice Decimal  @default(0.300000) @db.Decimal(36, 6)
 }
 
 model Media {
@@ -71,6 +99,9 @@ model Media {
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
   profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  paidLikes  PhotoLike[]
+
+  @@index([profileId, sortOrder])
 }
 
 model Favorite {
@@ -87,7 +118,9 @@ model Payment {
   id                String        @id @default(cuid())
   buyerId           String
   creatorId         String?
-  chainId           Int
+  kind              PaymentKind  @default(OTHER)
+  network           String
+  chainId           Int?
   tokenAddress      String
   grossAmount       Decimal       @db.Decimal(36, 6)
   creatorAmount     Decimal       @db.Decimal(36, 6)
@@ -102,6 +135,44 @@ model Payment {
   creator           User?         @relation("PaymentCreator", fields: [creatorId], references: [id])
   couponRedemption  CouponRedemption?
   referral          Referral?
+  message           Message?
+  photoLike         PhotoLike?
+}
+
+model Message {
+  id                String        @id @default(cuid())
+  senderId          String
+  recipientId       String
+  ciphertext        String
+  priceUsdc         Decimal       @db.Decimal(36, 6)
+  creatorPointsWhenSent BigInt
+  status            MessageStatus @default(SENT)
+  paymentId         String?       @unique
+  createdAt         DateTime      @default(now())
+  readAt            DateTime?
+  sender            User          @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient         User          @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  payment           Payment?      @relation(fields: [paymentId], references: [id])
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, createdAt])
+}
+
+model PhotoLike {
+  id             String   @id @default(cuid())
+  userId         String
+  mediaId        String
+  paymentId      String   @unique
+  grossAmount    Decimal  @default(0.110000) @db.Decimal(36, 6)
+  creatorAmount  Decimal  @default(0.100000) @db.Decimal(36, 6)
+  platformAmount Decimal  @default(0.010000) @db.Decimal(36, 6)
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media          Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  payment        Payment  @relation(fields: [paymentId], references: [id])
+
+  @@unique([userId, mediaId])
+  @@index([mediaId, createdAt])
 }
 
 model Coupon {

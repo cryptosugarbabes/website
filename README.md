@@ -1,6 +1,6 @@
 # Crypto Sugar Babes
 
-Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The current foundation includes a responsive discovery experience, fictional demo profiles, server-verified Ethereum wallet sign-in, a PostgreSQL-ready marketplace schema, and a Base USDC checkout for platform profile boosts.
+Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The current foundation includes a responsive discovery experience, fictional demo profiles, server-verified Base/EVM and Solana wallet sign-in, free profile onboarding with up to 20 photos, and a PostgreSQL-ready creator economy schema.
 
 ## Run locally
 
@@ -9,14 +9,25 @@ Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`.
 3. Start the website with `pnpm dev`.
 4. Visit `http://localhost:3000`.
 
-The checkout stays safely disabled while `NEXT_PUBLIC_PLATFORM_TREASURY` is the zero address. Add a Base wallet controlled by the operating company to enable the 20 USDC profile-boost transfer.
+Payment controls are intentionally in test mode. Wallet signatures are real and server-verified, but test messages and photo-likes never move funds.
+
+## Creator economy rules
+
+- Incoming messages start at `0.30 USDC`; creators send and reply for free.
+- Every 100 messages sent plus received adds 5 creator rating points.
+- Each rating point increases the incoming-message price by 0.1%, using `0.30 × (1 + points × 0.001)`.
+- Rating points have no maximum.
+- A paid photo-like costs `0.11 USDC`: `0.10` creator share and `0.01` platform fee.
+- Message revenue splitting remains configurable until the operating rule is chosen.
+- Profile boosts and creator profile fees are not part of the product.
 
 ## Payment boundaries
 
-- Base is chain ID `8453`.
-- USDC is `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` on Base.
+- Base/EVM wallets and Solana wallets (including Solflare and Phantom) can authenticate by signing a free message.
+- Base is chain ID `8453`; Solana authentication uses Ed25519 signature verification.
 - Platform products can transfer directly to the platform treasury.
-- Creator payments, coupons, affiliate fees, and commission splits must use a separately audited payment-router contract. They should not be implemented as untracked direct wallet transfers.
+- High-frequency micro-payments should use prepaid USDC credits or batched settlement. Requiring a blockchain transaction for every message or like is not acceptable UX.
+- Creator payments, message charges, photo-like splits, coupons, affiliate fees, and commissions must use an audited settlement contract and immutable internal ledger. They should not be implemented as untracked direct wallet transfers.
 - A future card-to-crypto on-ramp requires the provider's written approval for the product category and operating jurisdictions.
 
 ## Before production
