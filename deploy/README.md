@@ -24,3 +24,8 @@ certbot --nginx \
 ```
 
 Certificate notices go to `cryptosugarbabes@gmail.com`.
+# Persistent data
+
+Run `deploy/bootstrap-vps.sh` to install PostgreSQL, create the persistent upload directory, and schedule daily database backups. Profile photos use the existing Droplet disk at `/opt/cryptosugarbabes/shared/uploads`; no Spaces subscription is required.
+
+The administrator review screen is available at `https://cryptosugarbabes.com/admin`. Its password is stored as `ADMIN_PASSWORD` in `/opt/cryptosugarbabes/shared/.env`.

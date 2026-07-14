@@ -1,6 +1,6 @@
 # Crypto Sugar Babes
 
-Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The current foundation includes a responsive discovery experience, fictional demo profiles, server-verified Base/EVM and Solana wallet sign-in, free profile onboarding with up to 20 photos, and a PostgreSQL-ready creator economy schema.
+Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes responsive discovery, fictional demo profiles, server-verified Base/EVM and Solana wallet sign-in, permanent creator profiles, private photo processing, PostgreSQL storage, and an administrator approval queue.
 
 ## Run locally
 
@@ -10,6 +10,18 @@ Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`.
 4. Visit `http://localhost:3000`.
 
 Payment controls are intentionally in test mode. Wallet signatures are real and server-verified, but test messages and photo-likes never move funds.
+
+## Profile and photo flow
+
+- A verified Base or Solana wallet owns one creator profile.
+- Saving creates or updates a permanent PostgreSQL record with `PENDING_REVIEW` status.
+- The creator can upload up to 20 JPG, PNG, or WebP files of 5 MB each.
+- Uploads are re-encoded as WebP, resized to a maximum of 2400×2400, and stripped of embedded metadata.
+- Unapproved images are served only to their owning wallet and administrators.
+- An administrator reviews profiles at `/admin`; approval makes the profile and approved images public.
+- Production uploads live under `/opt/cryptosugarbabes/shared/uploads`, outside release folders, so deployments do not remove them.
+
+The current storage uses the existing Droplet disk and does not require DigitalOcean Spaces. Database dumps run daily and are retained for 14 days. Photo disaster recovery still requires either DigitalOcean Droplet Backups or external object storage; local disk alone cannot protect against complete Droplet loss.
 
 ## Creator economy rules
 
@@ -30,11 +42,11 @@ Payment controls are intentionally in test mode. Wallet signatures are real and 
 - Creator payments, message charges, photo-like splits, coupons, affiliate fees, and commissions must use an audited settlement contract and immutable internal ledger. They should not be implemented as untracked direct wallet transfers.
 - A future card-to-crypto on-ramp requires the provider's written approval for the product category and operating jurisdictions.
 
-## Before production
+## Before accepting real customers
 
-- Replace the fictional in-code profiles with database-backed, reviewed profiles.
-- Add specialist age and identity verification.
-- Put uploads in private object storage, strip metadata, scan files, and moderate before publication.
+- Remove the fictional demo profiles when enough reviewed profiles exist.
+- Add specialist age and identity verification; administrator approval is content review, not KYC.
+- Add malware scanning and automated image moderation before publication.
 - Add a database-backed nonce store, rate limiting, CSRF/origin checks, and passkey or recovery flows.
 - Deploy an audited payment router and index confirmed chain events before enabling creator payments.
 - Add immutable ledger entries, refunds, sanctions screening, abuse reporting, and moderator audit logs.

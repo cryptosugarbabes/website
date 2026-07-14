@@ -25,6 +25,16 @@ mkdir -p "$RELEASE_DIR"
 tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
 chown -R cryptosugar:cryptosugar "$RELEASE_DIR"
 
+set -a
+. "${APP_ROOT}/shared/.env"
+set +a
+
+if [ -d "${RELEASE_DIR}/db/migrations" ]; then
+  for migration in "${RELEASE_DIR}"/db/migrations/*.sql; do
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
+  done
+fi
+
 install -m 0644 "$SERVICE_SOURCE" /etc/systemd/system/cryptosugarbabes.service
 systemctl daemon-reload
 

@@ -17,6 +17,8 @@ export type Profile = {
   messagesSent?: number;
   messagesReceived?: number;
   photoLikes?: number;
+  reviewStatus?: "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+  isOwn?: boolean;
 };
 
 export const profiles: Profile[] = [

@@ -45,6 +45,7 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
   border-bottom: 1px solid rgba(255, 255, 255, .06);
 }
 .brand { display: inline-flex; align-items: center; gap: 11px; letter-spacing: .2em; font-size: 14px; font-weight: 600; width: fit-content; }
+.brand-logo-image { width: 54px; height: 54px; object-fit: cover; border-radius: 15px; box-shadow: 0 0 24px rgba(238,74,143,.2); }
 .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid rgba(214,178,118,.7); border-radius: 50%; color: var(--gold); }
 .site-header nav { display: flex; gap: 34px; color: #d6cdd3; font-size: 13px; }
 .site-header nav a { transition: color .2s ease; }
@@ -320,6 +321,22 @@ footer > div { display: flex; gap: 24px; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes slide-in { from { transform: translateY(10px); opacity: 0; } }
 
+.admin-shell { min-height: 100vh; background: #0d090d; color: #f4eef1; padding: 55px max(24px, 6vw); }
+.admin-login { width: min(440px, 100%); margin: 9vh auto 0; padding: 40px; border: 1px solid var(--line); border-radius: 20px; background: #171117; box-shadow: 0 35px 100px rgba(0,0,0,.4); }
+.admin-login > span, .admin-header span { color: var(--gold); font-size: 10px; letter-spacing: .2em; }
+.admin-login h1, .admin-header h1 { font-family: "Playfair Display", serif; font-weight: 500; font-size: 42px; margin: 10px 0; }
+.admin-login p { color: var(--muted); font-size: 12px; }.admin-login form { display: grid; gap: 12px; margin-top: 25px; }
+.admin-login input { background: rgba(255,255,255,.04); color: white; border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.admin-login button, .admin-header button, .review-actions button { border: 0; border-radius: 9px; padding: 13px 17px; background: var(--gold); color: #1a1116; cursor: pointer; font-weight: 600; }
+.admin-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 25px; margin-bottom: 30px; }.admin-header h1 { margin-bottom: 0; }
+.admin-header button { background: transparent; border: 1px solid var(--line); color: #d8cad1; }
+.review-list { display: grid; gap: 22px; }.admin-empty { color: var(--muted); padding: 45px 0; }
+.review-card { display: grid; grid-template-columns: minmax(240px, 360px) 1fr; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: #161016; }
+.review-photos { min-height: 300px; display: grid; grid-template-columns: repeat(2, 1fr); background: #0b080b; gap: 2px; }.review-photos img { width: 100%; height: 100%; min-height: 150px; object-fit: cover; }.review-photos > div { display: grid; place-items: center; color: #756873; }
+.review-copy { padding: 28px; }.review-copy h2 { font-family: "Playfair Display", serif; font-size: 34px; margin: 9px 0 2px; }.review-copy h3 { margin: 20px 0 8px; font-size: 17px; }.review-copy > p { color: #ad9faa; line-height: 1.65; font-size: 12px; }
+.review-status { display: inline-flex; padding: 6px 9px; border-radius: 999px; color: var(--gold); background: rgba(224,186,120,.1); font-size: 8px; letter-spacing: .12em; }.status-approved { color: #9ee2b0; background: rgba(91,190,118,.1); }.status-rejected { color: #efa0b1; background: rgba(210,76,106,.11); }
+.review-actions { display: flex; gap: 10px; margin-top: 25px; }.review-actions .reject { background: transparent; color: #efa0b1; border: 1px solid rgba(239,160,177,.3); }.review-actions button:disabled { opacity: .5; cursor: wait; }.rejection-note { color: #efa0b1 !important; }
+
 @media (max-width: 900px) {
   .site-header { grid-template-columns: 1fr auto; padding: 0 22px; }
   .site-header nav, .text-button { display: none; }
@@ -344,6 +361,7 @@ footer > div { display: flex; gap: 24px; }
 }
 
 @media (max-width: 620px) {
+  .site-header { padding: 0 16px; }.brand { gap: 8px; font-size: 11px; letter-spacing: .14em; }.brand-logo-image { width: 48px; height: 48px; border-radius: 13px; }
   .wallet-button { padding: 0 12px; }
   .wallet-button svg { display: none; }
   .hero { padding-left: 20px; padding-right: 20px; }
@@ -372,4 +390,5 @@ footer > div { display: flex; gap: 24px; }
   .checkout-modal { padding: 37px 23px 27px; }
   .wallet-modal, .message-modal { padding: 38px 22px 28px; }.wallet-modal h2, .message-modal h2 { font-size: 36px; }
   .create-modal { padding: 40px 19px 25px; border-radius: 18px; }.create-heading h2 { font-size: 39px; }.photo-field { grid-template-columns: 1fr; }.photo-field > label { min-height: 170px; }.form-grid { grid-template-columns: 1fr 90px; }.form-grid label:nth-child(3), .form-grid label:nth-child(4) { grid-column: span 1; }.form-footer { align-items: stretch; flex-direction: column; }.form-footer .primary-button { width: 100%; }.creator-stats { grid-template-columns: 1fr 1fr; }.creator-stats > div:nth-child(2) { border-right: 0; }.creator-stats > div:last-child { grid-column: 1 / -1; border-top: 1px solid var(--line); }.profile-media-column .modal-visual { min-height: 300px; }
+  .admin-shell { padding: 30px 16px; }.admin-header { align-items: flex-start; gap: 20px; }.admin-header h1 { font-size: 32px; }.review-card { grid-template-columns: 1fr; }.review-photos { min-height: 220px; }.review-copy { padding: 22px; }.review-actions { flex-direction: column; }
 }

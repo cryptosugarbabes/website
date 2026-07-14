@@ -114,6 +114,8 @@ export function DiscoveryApp() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileForm, setProfileForm] = useState(emptyProfile);
   const [profilePhotos, setProfilePhotos] = useState<string[]>([]);
+  const [profileFiles, setProfileFiles] = useState<File[]>([]);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [customProfiles, setCustomProfiles] = useState<Profile[]>([]);
   const [engagement, setEngagement] = useState<Record<string, { received: number; likes: number }>>({});
   const [messageTarget, setMessageTarget] = useState<Profile | null>(null);
@@ -126,6 +128,17 @@ export function DiscoveryApp() {
       setWalletChain(data.chain);
       if (data.chain) setWalletName(data.chain === "solana" ? "Solana" : "Base");
     }).catch(() => undefined);
+  }, []);
+
+  async function loadPersistedProfiles() {
+    const response = await fetch("/api/profiles", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json() as { profiles?: Profile[] };
+    setCustomProfiles(data.profiles || []);
+  }
+
+  useEffect(() => {
+    loadPersistedProfiles().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -161,6 +174,7 @@ export function DiscoveryApp() {
     setWalletName(name);
     setWalletPickerOpen(false);
     setNotice(`${name} verified. Welcome to Crypto Sugar.`);
+    await loadPersistedProfiles();
   }
 
   async function connectEvmWallet() {
@@ -216,6 +230,7 @@ export function DiscoveryApp() {
     setWallet(null);
     setWalletChain(null);
     setWalletName("");
+    await loadPersistedProfiles();
     setNotice("Signed out of Crypto Sugar.");
   }
 
@@ -248,7 +263,10 @@ export function DiscoveryApp() {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ""));
       reader.readAsDataURL(file);
-    }))).then((photos) => setProfilePhotos((current) => [...current, ...photos]));
+    }))).then((photos) => {
+      setProfileFiles((current) => [...current, ...files]);
+      setProfilePhotos((current) => [...current, ...photos]);
+    });
   }
 
   function engagementFor(profile: Profile) {
@@ -307,7 +325,7 @@ export function DiscoveryApp() {
     setNotice("Test photo-like recorded: 0.10 USDC creator share + 0.01 platform fee. No funds moved.");
   }
 
-  function submitProfile(event: FormEvent<HTMLFormElement>) {
+  async function submitProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setWalletError("");
     if (!wallet) {
@@ -320,36 +338,42 @@ export function DiscoveryApp() {
       setWalletError("Crypto Sugar is strictly for adults aged 18 and over.");
       return;
     }
-    const tags = profileForm.interests.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 5);
-    const name = profileForm.name.trim();
-    const draft: Profile = {
-      id: `draft-${Date.now()}`,
-      name,
-      age,
-      city: profileForm.city.trim(),
-      country: profileForm.country.trim(),
-      headline: profileForm.headline.trim(),
-      bio: profileForm.bio.trim(),
-      initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(),
-      verified: false,
-      online: true,
-      tags: tags.length ? tags : ["New member"],
-      colors: ["#d69286", "#6e2949", "#1d1019"],
-      motif: "night",
-      imageUrl: profilePhotos[0] || undefined,
-      photos: profilePhotos,
-      messagesSent: 0,
-      messagesReceived: 0,
-      photoLikes: 0
-    };
-    setCustomProfiles((current) => [draft, ...current]);
-    setProfileForm(emptyProfile);
-    setProfilePhotos([]);
-    setProfileOpen(false);
-    setCity("Anywhere");
-    setQuery("");
-    window.setTimeout(() => document.querySelector("#discover")?.scrollIntoView({ behavior: "smooth" }), 80);
-    setNotice("Your free profile draft is ready. Identity review is the next production step.");
+    setProfileSaving(true);
+    try {
+      const response = await fetch("/api/profiles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...profileForm,
+          age,
+          interests: profileForm.interests.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 5)
+        })
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Your profile could not be saved.");
+
+      for (let index = 0; index < profileFiles.length; index += 1) {
+        const form = new FormData();
+        form.append("photo", profileFiles[index]);
+        const photoResponse = await fetch("/api/profile/photos", { method: "POST", body: form });
+        const photoData = await photoResponse.json() as { error?: string };
+        if (!photoResponse.ok) throw new Error(`Profile saved, but photo ${index + 1} failed: ${photoData.error || "upload error"}`);
+      }
+
+      await loadPersistedProfiles();
+      setProfileForm(emptyProfile);
+      setProfilePhotos([]);
+      setProfileFiles([]);
+      setProfileOpen(false);
+      setCity("Anywhere");
+      setQuery("");
+      window.setTimeout(() => document.querySelector("#discover")?.scrollIntoView({ behavior: "smooth" }), 80);
+      setNotice("Your profile is saved permanently and is waiting for review.");
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : "Your profile could not be saved.");
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   return (
@@ -357,7 +381,7 @@ export function DiscoveryApp() {
       <div className="ambient ambient-one"/><div className="ambient ambient-two"/>
 
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="Crypto Sugar home"><span className="brand-mark"><Icon name="compass" size={21}/></span><span>CRYPTO SUGAR</span></a>
+        <a className="brand" href="#top" aria-label="Crypto Sugar home"><img className="brand-logo-image" src="/csb-logo.png" alt=""/><span>CRYPTO SUGAR</span></a>
         <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
         <div className="header-actions">
           <button className="text-button" onClick={openProfileCreator}>Create profile</button>
@@ -397,7 +421,7 @@ export function DiscoveryApp() {
             <button className={`favorite-button ${favorites.has(profile.id) ? "active" : ""}`} onClick={() => toggleFavorite(profile.id)} aria-label={`${favorites.has(profile.id) ? "Remove" : "Add"} ${profile.name} ${favorites.has(profile.id) ? "from" : "to"} favorites`}><Icon name="heart" size={18} filled={favorites.has(profile.id)}/></button>
             <button className="profile-open" onClick={() => setActiveProfile(profile)} aria-label={`View ${profile.name}'s profile`}>
               <ProfileArtwork profile={profile}/>
-              <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.verified ? <span className="verified-badge" title="Identity verified"><Icon name="check" size={12}/></span> : <span className="draft-badge">DRAFT</span>}</div><p className="location">{profile.city} · {profile.country}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
+              <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.verified ? <span className="verified-badge" title="Identity verified"><Icon name="check" size={12}/></span> : <span className="draft-badge">{profile.reviewStatus === "PENDING_REVIEW" ? "IN REVIEW" : profile.reviewStatus === "REJECTED" ? "CHANGES NEEDED" : "DRAFT"}</span>}</div><p className="location">{profile.city} · {profile.country}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
             </button>
           </article>)}
         </div>
@@ -420,7 +444,7 @@ export function DiscoveryApp() {
 
       <section className="safety-section" id="safety"><div className="safety-mark"><Icon name="shield" size={31}/></div><div><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Consent always.</h2></div><p>Crypto Sugar is designed for lawful social discovery and companionship. Solicitation, coercion, trafficking, underage users, and non-consensual content are prohibited and subject to immediate removal.</p><a href="mailto:safety@cryptosugarbabes.com">Contact safety <Icon name="arrow" size={16}/></a></section>
 
-      <footer><a className="brand" href="#top"><span className="brand-mark"><Icon name="compass" size={19}/></span><span>CRYPTO SUGAR</span></a><p>© 2026 Crypto Sugar Babes. Demo profiles are fictional.</p><div><a href="#safety">Safety</a><a href="#top">Terms</a><a href="#top">Privacy</a></div></footer>
+      <footer><a className="brand" href="#top"><img className="brand-logo-image" src="/csb-logo.png" alt=""/><span>CRYPTO SUGAR</span></a><p>© 2026 Crypto Sugar Babes. Demo profiles are fictional.</p><div><a href="#safety">Safety</a><a href="#top">Terms</a><a href="#top">Privacy</a></div></footer>
 
       {activeProfile && (() => {
         const stats = engagementFor(activeProfile);
@@ -464,9 +488,9 @@ export function DiscoveryApp() {
       {walletPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !walletBusy) setWalletPickerOpen(false); }}><section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title"><button className="modal-close" onClick={() => setWalletPickerOpen(false)} aria-label="Close wallet options"><Icon name="close" size={20}/></button><span className="section-kicker">SIGN IN WITHOUT GAS</span><h2 id="wallet-title">Choose your wallet.</h2><p className="wallet-intro">Every option supports USDC. Connecting only requests a free signature to verify ownership.</p><div className="wallet-options"><button onClick={connectEvmWallet} disabled={walletBusy}><span className="wallet-logo base-logo">B</span><span><strong>Base / EVM wallet</strong><small>MetaMask · Rabby · Coinbase</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("solflare")} disabled={walletBusy}><span className="wallet-logo solflare-logo">S</span><span><strong>Solflare</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("phantom")} disabled={walletBusy}><span className="wallet-logo phantom-logo">P</span><span><strong>Phantom</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button></div>{walletError && <div className="form-error">{walletError}</div>}<p className="wallet-safety"><Icon name="lock" size={14}/>We never request your seed phrase or private key.</p></section></div>}
 
       {profileOpen && <div className="modal-backdrop profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}><section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><button className="modal-close" onClick={() => setProfileOpen(false)} aria-label="Close profile creator"><Icon name="close" size={20}/></button><div className="create-heading"><span className="section-kicker">YOUR PRIVATE INTRODUCTION</span><h2 id="create-title">Create your profile.</h2><p>Preview a free draft now. Public profiles require adult identity review before discovery.</p></div><form onSubmit={submitProfile}>
-        <div className="photo-field"><label className={profilePhotos.length ? "has-photo" : ""}>{profilePhotos.length ? <div className="photo-preview-grid">{profilePhotos.slice(0, 4).map((photo, index) => <img src={photo} alt={`Profile preview ${index + 1}`} key={`${photo.slice(-24)}-${index}`}/>)}</div> : <span><Icon name="camera" size={28}/><strong>Add up to 20 photos</strong><small>JPG, PNG or WebP · 5 MB each</small></span>}<input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => handlePhotos(event.target.files)}/></label><div><strong>Your photo collection</strong><p>Your first image becomes the featured photo. Explicit imagery is not accepted.</p><small>{profilePhotos.length}/20 photos selected</small>{profilePhotos.length > 0 && <button type="button" onClick={() => setProfilePhotos([])}>Remove all</button>}</div></div>
+        <div className="photo-field"><label className={profilePhotos.length ? "has-photo" : ""}>{profilePhotos.length ? <div className="photo-preview-grid">{profilePhotos.slice(0, 4).map((photo, index) => <img src={photo} alt={`Profile preview ${index + 1}`} key={`${photo.slice(-24)}-${index}`}/>)}</div> : <span><Icon name="camera" size={28}/><strong>Add up to 20 photos</strong><small>JPG, PNG or WebP · 5 MB each</small></span>}<input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={profileSaving} onChange={(event) => handlePhotos(event.target.files)}/></label><div><strong>Your photo collection</strong><p>Photos are optimized, stripped of location metadata, and kept private until approval.</p><small>{profilePhotos.length}/20 photos selected</small>{profilePhotos.length > 0 && <button type="button" disabled={profileSaving} onClick={() => { setProfilePhotos([]); setProfileFiles([]); }}>Remove all</button>}</div></div>
         <div className="form-grid"><label><span>DISPLAY NAME</span><input required value={profileForm.name} onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })} placeholder="Your first name"/></label><label><span>AGE</span><input required type="number" min="18" max="99" value={profileForm.age} onChange={(event) => setProfileForm({ ...profileForm, age: event.target.value })} placeholder="18+"/></label><label><span>CITY</span><input required value={profileForm.city} onChange={(event) => setProfileForm({ ...profileForm, city: event.target.value })} placeholder="Lisbon"/></label><label><span>COUNTRY</span><input required value={profileForm.country} onChange={(event) => setProfileForm({ ...profileForm, country: event.target.value })} placeholder="Portugal"/></label><label className="wide"><span>HEADLINE</span><input required maxLength={90} value={profileForm.headline} onChange={(event) => setProfileForm({ ...profileForm, headline: event.target.value })} placeholder="A little intrigue goes a long way"/></label><label className="wide"><span>ABOUT YOU</span><textarea required maxLength={500} value={profileForm.bio} onChange={(event) => setProfileForm({ ...profileForm, bio: event.target.value })} placeholder="Your world, your style, and the kind of connection you value…"/></label><label className="wide"><span>INTERESTS</span><input value={profileForm.interests} onChange={(event) => setProfileForm({ ...profileForm, interests: event.target.value })} placeholder="Travel, art, fine dining, wellness"/><small>Separate up to five interests with commas.</small></label></div>
-        {walletError && !walletPickerOpen && <div className="form-error">{walletError}</div>}<div className="form-footer"><p><Icon name="shield" size={15}/>{wallet ? `Connected with ${walletName || walletChain}` : "A verified wallet is required to save"}</p><button className="primary-button" type="submit">{wallet ? "Save free profile" : "Connect & save"}<Icon name="arrow" size={18}/></button></div>
+        {walletError && !walletPickerOpen && <div className="form-error">{walletError}</div>}<div className="form-footer"><p><Icon name="shield" size={15}/>{wallet ? `Connected with ${walletName || walletChain}` : "A verified wallet is required to save"}</p><button className="primary-button" type="submit" disabled={profileSaving}>{profileSaving ? `Saving${profileFiles.length ? " & uploading…" : "…"}` : wallet ? "Save & submit for review" : "Connect & save"}<Icon name="arrow" size={18}/></button></div>
       </form></section></div>}
 
       {(notice || (walletError && !walletPickerOpen && !profileOpen)) && <div className={`toast ${walletError ? "error" : ""}`}>{walletError || notice}</div>}

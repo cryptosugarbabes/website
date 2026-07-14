@@ -45,6 +45,11 @@ jobs:
           cp -a .next/standalone/. release/
           cp -a .next/static release/.next/static
           if [ -d public ]; then cp -a public release/public; fi
+          mkdir -p release/db
+          cp -a db/migrations release/db/migrations
+          for native_package in node_modules/.pnpm/@img+sharp-linux-x64@* node_modules/.pnpm/@img+sharp-libvips-linux-x64@*; do
+            if [ -d "$native_package" ]; then cp -a "$native_package" release/node_modules/.pnpm/; fi
+          done
           tar -C release -czf cryptosugarbabes-release.tgz .
 
       - name: Configure VPS access

@@ -10,7 +10,10 @@ SSH_OPTS=(-i "$SSH_KEY" -o BatchMode=yes -o IdentitiesOnly=yes)
 ssh "${SSH_OPTS[@]}" "$TARGET" "mkdir -p /tmp/cryptosugarbabes-bootstrap"
 scp "${SSH_OPTS[@]}" \
   deploy/server/bootstrap.sh \
+  deploy/server/setup-data.sh \
+  deploy/server/backup-data.sh \
   deploy/server/cryptosugarbabes.service \
   deploy/server/cryptosugarbabes.nginx \
   "${TARGET}:/tmp/cryptosugarbabes-bootstrap/"
 ssh "${SSH_OPTS[@]}" "$TARGET" "bash /tmp/cryptosugarbabes-bootstrap/bootstrap.sh"
+ssh "${SSH_OPTS[@]}" "$TARGET" "bash /tmp/cryptosugarbabes-bootstrap/setup-data.sh"
