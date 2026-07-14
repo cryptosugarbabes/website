@@ -45,7 +45,7 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
   border-bottom: 1px solid rgba(255, 255, 255, .06);
 }
 .brand { display: inline-flex; align-items: center; gap: 11px; letter-spacing: .2em; font-size: 14px; font-weight: 600; width: fit-content; }
-.brand-logo-image { width: 54px; height: 54px; object-fit: cover; border-radius: 15px; box-shadow: 0 0 24px rgba(238,74,143,.2); }
+.brand-logo-image { width: 58px; height: 58px; object-fit: contain; border-radius: 50%; filter: drop-shadow(0 0 13px rgba(238,74,143,.22)); }
 .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid rgba(214,178,118,.7); border-radius: 50%; color: var(--gold); }
 .site-header nav { display: flex; gap: 34px; color: #d6cdd3; font-size: 13px; }
 .site-header nav a { transition: color .2s ease; }
@@ -375,7 +375,7 @@ footer > div { display: flex; gap: 24px; }
 }
 
 @media (max-width: 620px) {
-  .site-header { padding: 0 16px; }.brand { gap: 8px; font-size: 11px; letter-spacing: .14em; }.brand-logo-image { width: 48px; height: 48px; border-radius: 13px; }
+  .site-header { padding: 0 16px; }.brand { gap: 8px; font-size: 11px; letter-spacing: .14em; }.brand-logo-image { width: 50px; height: 50px; }
   .wallet-button { padding: 0 12px; }
   .wallet-button svg { display: none; }
   .hero { padding-left: 20px; padding-right: 20px; }

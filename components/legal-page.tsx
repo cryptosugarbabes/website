@@ -17,7 +17,7 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: {
     <main className="legal-shell">
       <header className="legal-header">
         <Link className="brand" href="/" aria-label="Crypto Sugar home">
-          <img className="brand-logo-image" src="/csb-logo.png" alt=""/>
+          <img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/>
           <span>CRYPTO SUGAR</span>
         </Link>
         <Link className="legal-back" href="/">Back to the site</Link>
