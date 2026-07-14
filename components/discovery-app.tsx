@@ -445,7 +445,7 @@ export function DiscoveryApp() {
       <section className="hero" id="top">
         <div className="hero-copy-block">
           <div className="eyebrow"><span/> PRIVATE. MAGNETIC. CRYPTO-NATIVE. <span/></div>
-          <h1>Go where <em>desire</em><br/>takes you.</h1>
+          <h1>Crypto is the<br/>ultimate <em>sugar.</em></h1>
           <p className="hero-copy">A discreet, adults-only circle for exceptional people, electric chemistry, and connections worth crossing borders for.</p>
           <div className="hero-actions"><a className="primary-button" href="#discover">Explore profiles <Icon name="arrow" size={18}/></a><button className="secondary-button" onClick={openProfileCreator}>Create your profile — free</button></div>
           <div className="trust-row"><span><Icon name="shield" size={17}/>Adults verified</span><span><Icon name="lock" size={17}/>Wallet-secured</span><span><Icon name="globe" size={17}/>Global access</span></div>
