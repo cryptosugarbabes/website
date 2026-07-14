@@ -433,7 +433,7 @@ export function DiscoveryApp() {
       <div className="ambient ambient-one"/><div className="ambient ambient-two"/>
 
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="Crypto Sugar home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>CRYPTO SUGAR</span></a>
+        <a className="brand" href="#top" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a>
         <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
         <div className="header-actions">
           <button className="text-button" onClick={openProfileCreator}>Create profile</button>
@@ -496,7 +496,7 @@ export function DiscoveryApp() {
 
       <section className="safety-section" id="safety"><div className="safety-mark"><Icon name="shield" size={31}/></div><div><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Consent always.</h2></div><p>Crypto Sugar is designed for lawful social discovery and companionship. Solicitation, coercion, trafficking, underage users, and non-consensual content are prohibited and subject to immediate removal.</p><a href="mailto:cryptosugarbabes@gmail.com?subject=Safety%20report">Contact safety <Icon name="arrow" size={16}/></a></section>
 
-      <footer><a className="brand" href="#top"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>CRYPTO SUGAR</span></a><p>© 2026 Crypto Sugar Babes. Adults only.</p><div><a href="/safety">Safety</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div></footer>
+      <footer><a className="brand" href="#top"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><p>© 2026 Crypto Sugar Babes. Adults only.</p><div><a href="/safety">Safety</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div></footer>
 
       {activeProfile && (() => {
         const stats = engagementFor(activeProfile);
