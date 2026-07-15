@@ -19,6 +19,8 @@ export type Profile = {
   messagesReceived?: number;
   photoLikes?: number;
   giftsUsdc?: number;
+  creatorPoints?: number;
+  points24h?: number;
   reviewStatus?: "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
   isOwn?: boolean;
 };

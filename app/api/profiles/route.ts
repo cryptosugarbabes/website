@@ -18,6 +18,8 @@ type ProfileRow = {
   messages_received: string;
   photo_likes: string;
   support_usdc: string;
+  creator_points: string;
+  points_24h: string;
   is_own: boolean;
   media: Array<{ id: string; approved: boolean }>;
 };
@@ -45,6 +47,8 @@ function publicProfile(row: ProfileRow) {
     messagesReceived: Number(row.messages_received),
     photoLikes: Number(row.photo_likes),
     giftsUsdc: Number(row.support_usdc),
+    creatorPoints: Number(row.creator_points),
+    points24h: Number(row.points_24h),
     reviewStatus: row.review_status,
     isOwn: row.is_own
   };
@@ -63,17 +67,44 @@ export async function GET(request: NextRequest) {
     const result = await query<ProfileRow>(`
       SELECT p.id, p.display_name, p.declared_age, p.city, p.country, p.headline, p.bio,
         p.interests, p.review_status, p.messages_sent, p.messages_received, p.photo_likes,
-        COALESCE((SELECT SUM(se.gross_amount_usdc) FROM support_events se WHERE se.creator_profile_id = p.id AND se.kind IN ('GIFT', 'MESSAGE_BOOST')), 0)::text AS support_usdc,
+        support_stats.support_total AS support_usdc,
+        (floor(p.photo_likes::numeric / 100) * 5 + floor(support_stats.support_total)) AS creator_points,
+        (
+          (
+            floor(p.photo_likes::numeric / 100)
+            - floor(GREATEST(p.photo_likes - support_stats.likes_24h, 0)::numeric / 100)
+          ) * 5
+          + floor(support_stats.support_total)
+          - floor(GREATEST(support_stats.support_total - support_stats.support_24h, 0))
+        ) AS points_24h,
         ${ownerClause} AS is_own,
         COALESCE(json_agg(json_build_object('id', m.id, 'approved', m.is_approved)
           ORDER BY m.sort_order, m.created_at) FILTER (WHERE m.id IS NOT NULL), '[]') AS media
       FROM profiles p
       JOIN users u ON u.id = p.user_id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) FILTER (
+            WHERE se.kind = 'PAID_LIKE'
+              AND se.created_at >= now() - interval '24 hours'
+          ) AS likes_24h,
+          COALESCE(SUM(se.gross_amount_usdc) FILTER (
+            WHERE se.kind IN ('GIFT', 'MESSAGE_BOOST')
+          ), 0) AS support_total,
+          COALESCE(SUM(se.gross_amount_usdc) FILTER (
+            WHERE se.kind IN ('GIFT', 'MESSAGE_BOOST')
+              AND se.created_at >= now() - interval '24 hours'
+          ), 0) AS support_24h
+        FROM support_events se
+        WHERE se.creator_profile_id = p.id
+      ) support_stats ON TRUE
       LEFT JOIN profile_media m ON m.profile_id = p.id
         AND (p.review_status <> 'APPROVED' OR m.is_approved = TRUE)
       WHERE (p.review_status = 'APPROVED' AND u.account_type = 'CREATOR') OR ${ownerClause}
-      GROUP BY p.id, u.wallet_chain, u.wallet_address
-      ORDER BY CASE WHEN ${ownerClause} THEN 0 ELSE 1 END, p.updated_at DESC
+      GROUP BY p.id, u.wallet_chain, u.wallet_address,
+        support_stats.likes_24h, support_stats.support_total, support_stats.support_24h
+      ORDER BY CASE WHEN ${ownerClause} THEN 0 ELSE 1 END,
+        points_24h DESC, creator_points DESC, p.updated_at DESC
     `, values);
     return NextResponse.json({ profiles: result.rows.map(publicProfile) });
   } catch (error) {
