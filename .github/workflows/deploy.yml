@@ -84,6 +84,7 @@ jobs:
             deploy/server/cryptosugarbabes.service \
             deploy/server/backup-data.sh \
             deploy/server/verify-backup.sh \
+            deploy/server/cryptosugar-backup.cron \
             root@161.35.17.40:/tmp/cryptosugarbabes-deploy/
 
       - name: Activate release and verify health

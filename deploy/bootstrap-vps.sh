@@ -12,6 +12,8 @@ scp "${SSH_OPTS[@]}" \
   deploy/server/bootstrap.sh \
   deploy/server/setup-data.sh \
   deploy/server/backup-data.sh \
+  deploy/server/verify-backup.sh \
+  deploy/server/cryptosugar-backup.cron \
   deploy/server/cryptosugarbabes.service \
   deploy/server/cryptosugarbabes.nginx \
   "${TARGET}:/tmp/cryptosugarbabes-bootstrap/"

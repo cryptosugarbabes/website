@@ -45,9 +45,7 @@ if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='
 fi
 
 install -m 0750 /tmp/cryptosugarbabes-bootstrap/backup-data.sh /usr/local/sbin/cryptosugar-backup
-cat > /etc/cron.d/cryptosugar-backup <<'EOF'
-17 3 * * * root /usr/local/sbin/cryptosugar-backup >/var/log/cryptosugar-backup.log 2>&1
-EOF
-chmod 0644 /etc/cron.d/cryptosugar-backup
+install -m 0750 /tmp/cryptosugarbabes-bootstrap/verify-backup.sh /usr/local/sbin/cryptosugar-verify-backup
+install -m 0644 /tmp/cryptosugarbabes-bootstrap/cryptosugar-backup.cron /etc/cron.d/cryptosugar-backup
 
 echo "Persistent database, uploads, and local backups are ready."
