@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin-session";
+import { adminIdentity, isAdminRequest } from "@/lib/admin-session";
 import { query, transaction } from "@/lib/db";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 
@@ -64,8 +64,8 @@ export async function GET(request: NextRequest) {
         GROUP BY se.id, q.id, p.id, buyer.id
         ORDER BY se.created_at DESC LIMIT 250
       `),
-      query<{ id: string; action: string; note: string | null; created_at: Date; display_name: string | null; email: string | null }>(`
-        SELECT a.id, a.action, a.note, a.created_at, COALESCE(p.display_name, cp.display_name) AS display_name, u.email
+      query<{ id: string; action: string; note: string | null; created_at: Date; display_name: string | null; email: string | null; actor_email: string | null }>(`
+        SELECT a.id, a.action, a.note, a.created_at, a.actor_email, COALESCE(p.display_name, cp.display_name) AS display_name, u.email
         FROM admin_user_audit a
         LEFT JOIN users u ON u.id = a.user_id
         LEFT JOIN profiles p ON p.user_id = u.id
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
       })),
       audit: audit.rows.map((item) => ({
         id: item.id, action: item.action, note: item.note, createdAt: item.created_at,
-        displayName: item.display_name, email: item.email
+        displayName: item.display_name, email: item.email, actorEmail: item.actor_email
       }))
     });
   } catch (error) {
@@ -108,7 +108,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Administrator access required." }, { status: 401 });
+  const actor = adminIdentity(request);
+  if (!actor) return NextResponse.json({ error: "Administrator access required." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const input = await request.json().catch(() => null) as { userId?: string; action?: string; note?: string } | null;
   const action = String(input?.action || "");
@@ -127,8 +128,8 @@ export async function POST(request: NextRequest) {
           WHERE id = $1 RETURNING id
         `, [input.userId, action === "SUSPEND" ? "SUSPENDED" : "ACTIVE", note || null]);
     if (!result.rowCount) return false;
-    await client.query(`INSERT INTO admin_user_audit (id, user_id, action, note) VALUES ($1, $2, $3, $4)`, [
-      randomUUID(), input.userId, action === "CLEAR_DELETION_REQUEST" ? "CLEAR_DELETION_REQUEST" : action, note || null
+    await client.query(`INSERT INTO admin_user_audit (id, user_id, action, note, actor_email) VALUES ($1, $2, $3, $4, $5)`, [
+      randomUUID(), input.userId, action === "CLEAR_DELETION_REQUEST" ? "CLEAR_DELETION_REQUEST" : action, note || null, actor
     ]);
     return true;
   });

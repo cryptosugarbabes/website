@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin-session";
+import { adminIdentity, isAdminRequest } from "@/lib/admin-session";
 import { query } from "@/lib/db";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 import { decryptMessage } from "@/lib/message-crypto";
@@ -51,7 +51,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Administrator access required." }, { status: 401 });
+  const actor = adminIdentity(request);
+  if (!actor) return NextResponse.json({ error: "Administrator access required." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const input = await request.json().catch(() => null) as { id?: string; status?: string; note?: string } | null;
   const allowed = new Set(["OPEN", "REVIEWING", "RESOLVED", "DISMISSED"]);
@@ -59,10 +60,10 @@ export async function POST(request: NextRequest) {
   const note = String(input?.note || "").trim().slice(0, 1500);
   if (!input?.id || !allowed.has(status)) return NextResponse.json({ error: "Choose a report and valid status." }, { status: 400 });
   const result = await query(`
-    UPDATE safety_reports SET status = $2, admin_note = $3,
+    UPDATE safety_reports SET status = $2, admin_note = $3, reviewed_by = $4,
       reviewed_at = CASE WHEN $2 IN ('RESOLVED', 'DISMISSED') THEN now() ELSE reviewed_at END
     WHERE id = $1
-  `, [input.id, status, note || null]);
+  `, [input.id, status, note || null, actor]);
   if (!result.rowCount) return NextResponse.json({ error: "That report was not found." }, { status: 404 });
   return NextResponse.json({ updated: true });
 }

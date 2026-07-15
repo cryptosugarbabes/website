@@ -6,7 +6,7 @@ import { query } from "@/lib/db";
 import { clientAddress, takeRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
-  const rate = takeRateLimit(`auth-nonce:${clientAddress(request)}`, 12, 10 * 60 * 1000);
+  const rate = await takeRateLimit(`auth-nonce:${clientAddress(request)}`, 12, 10 * 60 * 1000);
   if (!rate.allowed) return NextResponse.json({ error: "Too many sign-in requests. Try again shortly." }, { status: 429, headers: { "retry-after": String(rate.retryAfterSeconds) } });
   const body = (await request.json().catch(() => null)) as { address?: string; chain?: "evm" | "solana" } | null;
   const chain = body?.chain === "solana" ? "solana" : "evm";

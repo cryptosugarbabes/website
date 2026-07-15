@@ -13,6 +13,7 @@ ARCHIVE="/tmp/cryptosugarbabes-deploy/cryptosugarbabes-release.tgz"
 SERVICE_SOURCE="/tmp/cryptosugarbabes-deploy/cryptosugarbabes.service"
 BACKUP_SOURCE="/tmp/cryptosugarbabes-deploy/backup-data.sh"
 VERIFY_BACKUP_SOURCE="/tmp/cryptosugarbabes-deploy/verify-backup.sh"
+MONITOR_SOURCE="/tmp/cryptosugarbabes-deploy/monitor-health.sh"
 BACKUP_CRON_SOURCE="/tmp/cryptosugarbabes-deploy/cryptosugar-backup.cron"
 PREVIOUS_TARGET=""
 
@@ -21,6 +22,7 @@ test -f "$ARCHIVE" || { echo "Release archive is missing."; exit 1; }
 test -f "${APP_ROOT}/shared/.env" || { echo "Production environment file is missing."; exit 1; }
 test -f "$BACKUP_SOURCE" || { echo "Backup script is missing."; exit 1; }
 test -f "$VERIFY_BACKUP_SOURCE" || { echo "Backup verification script is missing."; exit 1; }
+test -f "$MONITOR_SOURCE" || { echo "Monitoring script is missing."; exit 1; }
 test -f "$BACKUP_CRON_SOURCE" || { echo "Backup schedule is missing."; exit 1; }
 
 if [ -L "${APP_ROOT}/current" ]; then
@@ -44,6 +46,7 @@ fi
 install -m 0644 "$SERVICE_SOURCE" /etc/systemd/system/cryptosugarbabes.service
 install -m 0750 "$BACKUP_SOURCE" /usr/local/sbin/cryptosugar-backup
 install -m 0750 "$VERIFY_BACKUP_SOURCE" /usr/local/sbin/cryptosugar-verify-backup
+install -m 0750 "$MONITOR_SOURCE" /usr/local/sbin/cryptosugar-monitor
 install -m 0644 "$BACKUP_CRON_SOURCE" /etc/cron.d/cryptosugar-backup
 systemctl daemon-reload
 

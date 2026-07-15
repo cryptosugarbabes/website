@@ -692,7 +692,7 @@ export function DiscoveryApp() {
     if (!response.ok || !data.confirmed) throw new Error(data.error || "The payment could not be confirmed on-chain.");
   }
 
-  async function settleBasePayment(quote: PaymentQuote, profileId: string) {
+  async function settleBasePayment(quote: PaymentQuote) {
     const provider = evmProviderRef.current || injectedEvmProvider("browser");
     if (!provider || !wallet) throw new Error("Reconnect your Base wallet so it can approve the USDC transfers.");
     await switchToBase(provider);
@@ -701,52 +701,26 @@ export function DiscoveryApp() {
     const walletClient = createWalletClient({ account: getAddress(wallet), chain: base, transport: custom(provider) });
     const publicClient = createPublicClient({ chain: base, transport: http("https://mainnet.base.org") });
     const token = getAddress(quote.tokenAddress);
-    if (quote.splitterAddress) {
-      if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("That payment quote expired. Start again to receive a current price.");
-      const splitter = getAddress(quote.splitterAddress);
-      const owner = getAddress(wallet);
-      const allowance = await publicClient.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [owner, splitter] });
-      if (allowance < BigInt(quote.grossMicros)) {
-        const approvalHash = await walletClient.writeContract({ account: owner, chain: base, address: token, abi: erc20Abi, functionName: "approve", args: [splitter, BigInt(quote.grossMicros)] });
-        const approval = await publicClient.waitForTransactionReceipt({ hash: approvalHash, confirmations: 1 });
-        if (approval.status !== "success") throw new Error("The Base USDC approval reverted.");
-      }
-      if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("The quote expired during approval. Start again; the approval did not move any USDC.");
-      const splitterAbi = [{ type: "function", name: "payAndSplit", stateMutability: "nonpayable", inputs: [{ name: "quoteId", type: "bytes32" }, { name: "creator", type: "address" }, { name: "grossAmount", type: "uint256" }], outputs: [] }] as const;
-      const args = [keccak256(stringToHex(quote.quoteId)), getAddress(quote.creatorAddress), BigInt(quote.grossMicros)] as const;
-      await publicClient.simulateContract({ account: owner, address: splitter, abi: splitterAbi, functionName: "payAndSplit", args });
-      const hash = await walletClient.writeContract({ account: owner, chain: base, address: splitter, abi: splitterAbi, functionName: "payAndSplit", args });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
-      if (receipt.status !== "success") throw new Error("The atomic Base USDC payment reverted.");
-      await confirmPayment(quote, [hash]);
-      return;
+    if (!quote.splitterAddress) {
+      throw new Error("Base payments are temporarily unavailable while atomic 90/10 settlement is being completed.");
     }
-    const transfer = async (recipient: string, amount: string) => {
-      const args = [getAddress(recipient), BigInt(amount)] as const;
-      await publicClient.simulateContract({ account: getAddress(wallet), address: token, abi: erc20Abi, functionName: "transfer", args });
-      const hash = await walletClient.writeContract({ account: getAddress(wallet), chain: base, address: token, abi: erc20Abi, functionName: "transfer", args });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
-      if (receipt.status !== "success") throw new Error("A Base USDC transfer reverted.");
-      return hash;
-    };
-
-    const storageKey = "crypto-sugar-pending-base-payment";
-    const stored = (() => { try { return JSON.parse(window.localStorage.getItem(storageKey) || "null") as { profileId: string; quote: PaymentQuote; creatorHash?: string } | null; } catch { return null; } })();
-    const pending = stored?.profileId === profileId && stored.quote.quoteId === quote.quoteId ? stored : { profileId, quote };
-    let creatorHash = pending.creatorHash;
-    const expiresAt = new Date(quote.expiresAt).getTime();
-    if (!creatorHash && Date.now() >= expiresAt) {
-      window.localStorage.removeItem(storageKey);
-      throw new Error("That payment quote expired. Start again to receive a current price.");
+    if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("That payment quote expired. Start again to receive a current price.");
+    const splitter = getAddress(quote.splitterAddress);
+    const owner = getAddress(wallet);
+    const allowance = await publicClient.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [owner, splitter] });
+    if (allowance < BigInt(quote.grossMicros)) {
+      const approvalHash = await walletClient.writeContract({ account: owner, chain: base, address: token, abi: erc20Abi, functionName: "approve", args: [splitter, BigInt(quote.grossMicros)] });
+      const approval = await publicClient.waitForTransactionReceipt({ hash: approvalHash, confirmations: 1 });
+      if (approval.status !== "success") throw new Error("The Base USDC approval reverted.");
     }
-    if (creatorHash && Date.now() >= expiresAt + 2 * 60 * 1000) throw new Error("The partial Base payment quote expired. Contact support with the creator transaction hash before continuing.");
-    if (!creatorHash) {
-      creatorHash = await transfer(quote.creatorAddress, quote.creatorMicros);
-      window.localStorage.setItem(storageKey, JSON.stringify({ ...pending, creatorHash }));
-    }
-    const platformHash = await transfer(quote.treasuryAddress, quote.platformMicros);
-    await confirmPayment(quote, [creatorHash, platformHash]);
-    window.localStorage.removeItem(storageKey);
+    if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("The quote expired during approval. Start again; the approval did not move any USDC.");
+    const splitterAbi = [{ type: "function", name: "payAndSplit", stateMutability: "nonpayable", inputs: [{ name: "quoteId", type: "bytes32" }, { name: "creator", type: "address" }, { name: "grossAmount", type: "uint256" }], outputs: [] }] as const;
+    const args = [keccak256(stringToHex(quote.quoteId)), getAddress(quote.creatorAddress), BigInt(quote.grossMicros)] as const;
+    await publicClient.simulateContract({ account: owner, address: splitter, abi: splitterAbi, functionName: "payAndSplit", args });
+    const hash = await walletClient.writeContract({ account: owner, chain: base, address: splitter, abi: splitterAbi, functionName: "payAndSplit", args });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+    if (receipt.status !== "success") throw new Error("The atomic Base USDC payment reverted.");
+    await confirmPayment(quote, [hash]);
   }
 
   async function settleSolanaPayment(quote: PaymentQuote) {
@@ -787,17 +761,11 @@ export function DiscoveryApp() {
     if (accountType !== "CUSTOMER") { setNotice("Only private customer accounts can send paid support."); return; }
     setPaymentBusy(true); setWalletError("");
     try {
-      const pending = walletChain === "evm" ? (() => { try { return JSON.parse(window.localStorage.getItem("crypto-sugar-pending-base-payment") || "null") as { profileId: string; quote: PaymentQuote } | null; } catch { return null; } })() : null;
-      if (pending && (pending.profileId !== profile.id || pending.quote.kind !== kind)) {
-        throw new Error("Finish the pending Base payment before starting another one.");
-      }
-      const quote = pending?.profileId === profile.id && pending.quote.kind === kind
-        ? pending.quote
-        : await paymentQuote(profile, kind, amountUsdc, link);
+      const quote = await paymentQuote(profile, kind, amountUsdc, link);
       setPaymentExpiresAt(quote.expiresAt);
       setPaymentClock(Date.now());
       setNotice("Secure payment quote created. Complete the wallet approval within 15 minutes.");
-      if (quote.network === "BASE") await settleBasePayment(quote, profile.id);
+      if (quote.network === "BASE") await settleBasePayment(quote);
       else await settleSolanaPayment(quote);
       const amount = Number(quote.grossAmountUsdc);
       setSupportGivenUsdc((current) => current + amount);

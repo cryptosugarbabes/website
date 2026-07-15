@@ -5,7 +5,7 @@ Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`.
 ## Dashboards
 
 - `/dashboard` is the private role-aware member area. Customers can manage their private profile, favorites, conversations, support history, safety reports, linked identities, and deletion requests. Creators additionally see profile review status, photo management, earnings, paid likes, creator points, 24-hour discovery position, and their confirmed 90% payment share.
-- `/admin` is the password-protected operations console. It includes platform metrics, creator profile approval, account search and suspension, deletion-request review, confirmed payment reconciliation, safety cases, and an administrator action audit trail.
+- `/admin` is the protected operations console. Named administrators sign in with an allowlisted email code; an emergency password remains available during the transition. The console includes platform metrics, creator profile approval, account search and suspension, deletion-request review, confirmed payment reconciliation, safety cases, and an administrator action audit trail.
 - Suspended accounts are removed from public discovery and cannot sign in, message, receive new paid support, or expose public media while suspended.
 
 ## Run locally
@@ -35,7 +35,7 @@ Passwordless email access uses a six-digit, ten-minute code. Configure the `EMAI
 - An administrator reviews profiles at `/admin`; approval makes the profile and approved images public.
 - Production uploads live under `/opt/cryptosugarbabes/shared/uploads`, outside release folders, so deployments do not remove them.
 
-The current storage uses the existing Droplet disk and does not require DigitalOcean Spaces. Database dumps run daily and are retained for 14 days. Photo disaster recovery still requires either DigitalOcean Droplet Backups or external object storage; local disk alone cannot protect against complete Droplet loss.
+The current storage uses the existing Droplet disk and does not require DigitalOcean Spaces. Database dumps run daily and are retained for 14 days. `BACKUP_S3_URI` can be configured for an additional encrypted offsite copy; local disk alone cannot protect against complete Droplet loss.
 
 ## Creator economy rules
 
@@ -55,10 +55,10 @@ The current storage uses the existing Droplet disk and does not require DigitalO
 - WalletConnect uses the public Crypto Sugar Reown project ID, with an optional `NEXT_PUBLIC_REOWN_PROJECT_ID` build-time override. The GitHub workflow can read that override from the `REOWN_PROJECT_ID` repository secret.
 - Base is chain ID `8453`; Solana authentication uses Ed25519 signature verification.
 - Base platform fees are assigned to `0x7293F09B131B99D564c602538D0777b18075c9b4`; Solana platform fees are assigned to `EjkzchC98rxfQzHgmXD5cCbBQmhp1csqbPHkpXEA9shL`. These public destinations can be overridden at build time with `NEXT_PUBLIC_BASE_TREASURY_ADDRESS` and `NEXT_PUBLIC_SOLANA_TREASURY_ADDRESS`.
-- `/api/payments/config` publishes the active treasury destinations and split policy for clients. `settlementEnabled` remains `false` until an audited payment router and ledger are deployed.
+- `/api/payments/config` publishes the active treasury destinations and split policy for clients. Solana settlement is enabled and verified as one atomic transaction. Base payment settlement remains disabled until an independently reviewed splitter is deployed and `BASE_SPLITTER_ADDRESS` is configured; Base authentication and free messaging are unaffected.
 - Platform products can transfer directly to the platform treasury.
 - High-frequency micro-payments should use prepaid USDC credits or batched settlement. Requiring a blockchain transaction for every message or like is not acceptable UX.
-- Creator payments, message charges, photo-like splits, coupons, affiliate fees, and commissions must use an audited settlement contract and immutable internal ledger. They should not be implemented as untracked direct wallet transfers.
+- Paid likes, gifts, and message boosts are recorded only after server-side chain verification. Base must use the reviewed atomic splitter and never falls back to two independent transfers.
 - A future card-to-crypto on-ramp requires the provider's written approval for the product category and operating jurisdictions.
 
 ## Before accepting real customers
@@ -66,7 +66,7 @@ The current storage uses the existing Droplet disk and does not require DigitalO
 - Replace the starter discovery profiles as reviewed member profiles are approved.
 - Add specialist age and identity verification; administrator approval is content review, not KYC.
 - Add malware scanning and automated image moderation before publication.
-- Add a database-backed nonce store, rate limiting, CSRF/origin checks, and passkey or recovery flows.
-- Deploy an audited payment router and index confirmed chain events before enabling creator payments.
+- Add passkey or documented account-recovery flows. Nonces, rate limits, origin checks, and confirmed payment records are database-backed.
+- Independently review and deploy the Base splitter before enabling Base creator payments.
 - Add immutable ledger entries, refunds, sanctions screening, abuse reporting, and moderator audit logs.
 - Complete jurisdiction-specific legal review and publish terms, privacy, safety, and prohibited-activity policies.

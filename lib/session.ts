@@ -3,7 +3,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function secret() {
-  return process.env.AUTH_SECRET || "velora-local-development-secret-change-before-deploy";
+  if (process.env.AUTH_SECRET) return process.env.AUTH_SECRET;
+  if (process.env.NODE_ENV === "production") throw new Error("AUTH_SECRET is required in production.");
+  return "velora-local-development-secret-change-before-deploy";
 }
 
 function sign(payload: string) {

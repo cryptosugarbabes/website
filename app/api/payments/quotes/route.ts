@@ -3,30 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { accountForSession } from "@/lib/accounts";
 import { PAYMENT_CONFIG } from "@/lib/payment-config";
 import { query } from "@/lib/db";
+import { decimalToMicros, microsToDecimal, paidLikePriceMicros, splitPaymentMicros } from "@/lib/payment-math";
 import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
 
 type PaymentKind = "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST";
-const MICRO_USDC = BigInt(1_000_000);
-
 type CreatorRow = {
   id: string;
   photo_likes: string;
   wallet_chain: "evm" | "solana";
   wallet_address: string;
 };
-
-function decimalToMicros(value: unknown) {
-  const source = typeof value === "number" || typeof value === "string" ? String(value).trim() : "";
-  if (!/^\d+(\.\d{1,6})?$/.test(source)) return null;
-  const [whole, fraction = ""] = source.split(".");
-  return BigInt(whole) * MICRO_USDC + BigInt(fraction.padEnd(6, "0"));
-}
-
-function microsToDecimal(value: bigint) {
-  const whole = value / MICRO_USDC;
-  const fraction = (value % MICRO_USDC).toString().padStart(6, "0");
-  return `${whole}.${fraction}`;
-}
 
 export async function POST(request: NextRequest) {
   const session = walletSession(request);
@@ -55,6 +41,11 @@ export async function POST(request: NextRequest) {
     if (target.wallet_chain !== session.chain) {
       return NextResponse.json({ error: `This creator receives on ${target.wallet_chain === "solana" ? "Solana" : "Base"}. Connect a matching wallet to pay.` }, { status: 409 });
     }
+    if (session.chain === "evm" && !PAYMENT_CONFIG.base.atomicSettlementEnabled) {
+      return NextResponse.json({
+        error: "Base payments are temporarily unavailable while atomic 90/10 settlement is being completed. Base login and free messaging still work."
+      }, { status: 503 });
+    }
     if (target.wallet_address.toLowerCase() === session.address.toLowerCase()) {
       return NextResponse.json({ error: "You cannot pay your own wallet." }, { status: 409 });
     }
@@ -81,8 +72,7 @@ export async function POST(request: NextRequest) {
 
     let grossMicros: bigint;
     if (kind === "PAID_LIKE") {
-      const completedHundreds = BigInt(Math.floor(Number(target.photo_likes) / 100));
-      grossMicros = BigInt(5_000_000) + completedHundreds * BigInt(5_000);
+      grossMicros = paidLikePriceMicros(BigInt(target.photo_likes));
     } else {
       const parsed = decimalToMicros(input.amountUsdc);
       if (parsed === null || parsed < BigInt(1_000_000) || parsed > BigInt(100_000_000_000)) {
@@ -91,8 +81,7 @@ export async function POST(request: NextRequest) {
       grossMicros = parsed;
     }
 
-    const platformMicros = (grossMicros + BigInt(5)) / BigInt(10);
-    const creatorMicros = grossMicros - platformMicros;
+    const { creatorMicros, platformMicros } = splitPaymentMicros(grossMicros);
     const id = randomUUID();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE buyer_user_id = $1 AND status = 'QUOTED' AND expires_at < now()`, [account.id]);

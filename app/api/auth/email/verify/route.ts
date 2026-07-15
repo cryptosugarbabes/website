@@ -8,7 +8,7 @@ import { createEmailSessionToken } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
-  const rate = takeRateLimit(`email-verify:${clientAddress(request)}`, 20, 15 * 60 * 1000);
+  const rate = await takeRateLimit(`email-verify:${clientAddress(request)}`, 20, 15 * 60 * 1000);
   if (!rate.allowed) return NextResponse.json({ error: "Too many verification attempts. Please wait and try again." }, { status: 429 });
 
   const body = await request.json().catch(() => null) as { email?: string; code?: string; challengeId?: string } | null;

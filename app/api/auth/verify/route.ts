@@ -7,7 +7,7 @@ import { query, transaction } from "@/lib/db";
 import { clientAddress, takeRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
-  const rate = takeRateLimit(`auth-verify:${clientAddress(request)}`, 20, 10 * 60 * 1000);
+  const rate = await takeRateLimit(`auth-verify:${clientAddress(request)}`, 20, 10 * 60 * 1000);
   if (!rate.allowed) return NextResponse.json({ error: "Too many verification attempts. Try again shortly." }, { status: 429, headers: { "retry-after": String(rate.retryAfterSeconds) } });
   const body = (await request.json().catch(() => null)) as {
     address?: string;

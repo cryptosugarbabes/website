@@ -42,23 +42,6 @@ function decimalToMicros(value: string) {
   return BigInt(whole) * MICRO_USDC + BigInt(fraction.padEnd(6, "0").slice(0, 6));
 }
 
-async function verifyBaseTransfer(hash: `0x${string}`, from: string, to: string, amount: bigint) {
-  const client = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org") });
-  const [receipt, sent] = await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
-  if (receipt.status !== "success" || getAddress(sent.from) !== getAddress(from) || !sent.to || getAddress(sent.to) !== PAYMENT_CONFIG.base.usdcContractAddress) return { valid: false, timestampMs: 0 };
-  const valid = receipt.logs.some((log) => {
-    if (getAddress(log.address) !== PAYMENT_CONFIG.base.usdcContractAddress) return false;
-    try {
-      const decoded = decodeEventLog({ abi: transferEvent, data: log.data, topics: log.topics });
-      return decoded.eventName === "Transfer" && getAddress(decoded.args.from) === getAddress(from) && getAddress(decoded.args.to) === getAddress(to) && decoded.args.value === amount;
-    } catch {
-      return false;
-    }
-  });
-  const block = valid ? await client.getBlock({ blockNumber: receipt.blockNumber }) : null;
-  return { valid, timestampMs: block ? Number(block.timestamp) * 1000 : 0 };
-}
-
 async function verifyBaseAtomicTransfer(hash: `0x${string}`, from: string, creator: string, creatorAmount: bigint, platformAmount: bigint, grossAmount: bigint, splitterAddress: string) {
   const client = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org") });
   const [receipt, sent] = await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
@@ -126,7 +109,11 @@ export async function POST(request: NextRequest) {
 
     let purposes: Array<{ purpose: "CREATOR" | "PLATFORM" | "ATOMIC"; hash: string }>;
     if (quote.network === "BASE") {
-      if (PAYMENT_CONFIG.base.splitterAddress) {
+      if (!PAYMENT_CONFIG.base.splitterAddress) {
+        return NextResponse.json({
+          error: "Base settlement is disabled until the atomic splitter is configured. No non-atomic payment will be accepted."
+        }, { status: 503 });
+      } else {
         if (input.transactionHashes.length !== 1 || !isHash(input.transactionHashes[0])) return NextResponse.json({ error: "One atomic Base payment hash is required." }, { status: 400 });
         const hash = input.transactionHashes[0] as `0x${string}`;
         const transfer = await verifyBaseAtomicTransfer(hash, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount, grossAmount, PAYMENT_CONFIG.base.splitterAddress);
@@ -136,20 +123,6 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "That payment quote expired before the atomic transfer was confirmed." }, { status: 409 });
         }
         purposes = [{ purpose: "ATOMIC", hash }];
-      } else {
-        if (input.transactionHashes.length !== 2 || !input.transactionHashes.every((hash) => isHash(hash))) return NextResponse.json({ error: "Both Base transfer hashes are required." }, { status: 400 });
-        const creatorHash = input.transactionHashes[0] as `0x${string}`;
-        const platformHash = input.transactionHashes[1] as `0x${string}`;
-        const [creatorTransfer, platformTransfer] = await Promise.all([
-          verifyBaseTransfer(creatorHash, quote.buyer_address, quote.creator_address, creatorAmount),
-          verifyBaseTransfer(platformHash, quote.buyer_address, PAYMENT_CONFIG.base.treasuryAddress, platformAmount)
-        ]);
-        if (!creatorTransfer.valid || !platformTransfer.valid) return NextResponse.json({ error: "The Base transfers could not be verified on-chain." }, { status: 409 });
-        if (!creatorTransfer.timestampMs || !platformTransfer.timestampMs || creatorTransfer.timestampMs > quote.expires_at.getTime() + expiryGraceMs || platformTransfer.timestampMs > quote.expires_at.getTime() + expiryGraceMs) {
-          await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);
-          return NextResponse.json({ error: "That payment quote expired before both transfers were confirmed." }, { status: 409 });
-        }
-        purposes = [{ purpose: "CREATOR", hash: creatorHash }, { purpose: "PLATFORM", hash: platformHash }];
       }
     } else {
       if (input.transactionHashes.length !== 1) return NextResponse.json({ error: "One Solana transaction signature is required." }, { status: 400 });

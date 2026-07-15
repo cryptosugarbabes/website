@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminRequest } from "@/lib/admin-session";
+import { adminIdentity } from "@/lib/admin-session";
 import { transaction } from "@/lib/db";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  if (!isAdminRequest(request)) return NextResponse.json({ error: "Administrator sign-in required." }, { status: 401 });
+  const actor = adminIdentity(request);
+  if (!actor) return NextResponse.json({ error: "Administrator sign-in required." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const { id } = await context.params;
   const body = await request.json().catch(() => null) as { action?: string; reason?: string } | null;
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     `, [id, action, action === "REJECTED" ? reason : null]);
     if (!result.rowCount) return false;
     await client.query("UPDATE profile_media SET is_approved = $2 WHERE profile_id = $1", [id, action === "APPROVED"]);
-    await client.query("INSERT INTO moderation_audit (id, profile_id, action, note) VALUES ($1, $2, $3, $4)", [randomUUID(), id, action, reason || null]);
+    await client.query("INSERT INTO moderation_audit (id, profile_id, action, note, actor_email) VALUES ($1, $2, $3, $4, $5)", [randomUUID(), id, action, reason || null, actor]);
     return true;
   });
   return updated ? NextResponse.json({ ok: true, status: action }) : NextResponse.json({ error: "Profile not found." }, { status: 404 });

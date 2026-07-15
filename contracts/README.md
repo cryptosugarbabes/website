@@ -11,5 +11,4 @@ Production activation requirements:
 5. Set `BASE_SPLITTER_ADDRESS` in the VPS environment.
 6. Make a controlled low-value payment and verify the event and both transfers before enabling general Base payments.
 
-The application keeps the existing two-transfer fallback while `BASE_SPLITTER_ADDRESS` is absent. Do not configure an unreviewed or unverified deployment.
-
+The application disables Base payments while `BASE_SPLITTER_ADDRESS` is absent. Base wallet authentication and free messaging remain available. There is no two-transfer payment fallback.

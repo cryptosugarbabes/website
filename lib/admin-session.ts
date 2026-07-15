@@ -1,10 +1,13 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest } from "next/server";
+import { readSessionToken } from "@/lib/session";
 
 const ADMIN_TTL_MS = 12 * 60 * 60 * 1000;
 
 function signature(payload: string) {
-  return createHmac("sha256", process.env.AUTH_SECRET || "local-only")
+  const secret = process.env.AUTH_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") throw new Error("AUTH_SECRET is required in production.");
+  return createHmac("sha256", secret || "local-only")
     .update(`admin:${payload}`)
     .digest("base64url");
 }
@@ -15,18 +18,31 @@ export function createAdminToken() {
 }
 
 export function isAdminRequest(request: NextRequest) {
+  return Boolean(adminIdentity(request));
+}
+
+export function adminIdentity(request: NextRequest) {
+  const member = readSessionToken(request.cookies.get("velora_session")?.value);
+  const allowedEmails = new Set((process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean));
+  if (member?.email && allowedEmails.has(member.email.toLowerCase())) return member.email.toLowerCase();
+
   const token = request.cookies.get("crypto_sugar_admin")?.value;
-  if (!token) return false;
+  if (!token) return null;
   const [payload, provided] = token.split(".");
-  if (!payload || !provided) return false;
+  if (!payload || !provided) return null;
   const expected = signature(payload);
   const left = Buffer.from(provided);
   const right = Buffer.from(expected);
-  if (left.length !== right.length || !timingSafeEqual(left, right)) return false;
+  if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
   try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")).expiresAt > Date.now();
+    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")).expiresAt > Date.now()
+      ? "emergency-password"
+      : null;
   } catch {
-    return false;
+    return null;
   }
 }
 

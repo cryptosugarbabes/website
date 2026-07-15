@@ -1,8 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 function key() {
-  const source = process.env.MESSAGE_ENCRYPTION_SECRET || process.env.AUTH_SECRET;
-  if (!source) throw new Error("MESSAGE_ENCRYPTION_SECRET or AUTH_SECRET is required.");
+  const source = process.env.MESSAGE_ENCRYPTION_SECRET
+    || (process.env.NODE_ENV === "production" ? undefined : process.env.AUTH_SECRET);
+  if (!source) throw new Error("MESSAGE_ENCRYPTION_SECRET is required in production.");
   return createHash("sha256").update(`crypto-sugar-messages:${source}`).digest();
 }
 
@@ -32,4 +33,3 @@ export function decryptMessage(row: { body: string; body_ciphertext?: string | n
     return "[Message unavailable]";
   }
 }
-

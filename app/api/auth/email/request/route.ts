@@ -11,8 +11,10 @@ export async function POST(request: NextRequest) {
   const email = normalizeEmail(body?.email);
   if (!email) return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
 
-  const ipRate = takeRateLimit(`email-request-ip:${clientAddress(request)}`, 8, 15 * 60 * 1000);
-  const emailRate = takeRateLimit(`email-request-address:${email}`, 4, 15 * 60 * 1000);
+  const [ipRate, emailRate] = await Promise.all([
+    takeRateLimit(`email-request-ip:${clientAddress(request)}`, 8, 15 * 60 * 1000),
+    takeRateLimit(`email-request-address:${email}`, 4, 15 * 60 * 1000)
+  ]);
   if (!ipRate.allowed || !emailRate.allowed) {
     return NextResponse.json({ error: "Too many code requests. Please wait and try again." }, { status: 429 });
   }
