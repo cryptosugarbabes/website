@@ -19,7 +19,7 @@ if (!isSolanaAddress(configuredSolanaTreasury)) {
 }
 
 export const PAYMENT_CONFIG = {
-  settlementEnabled: false,
+  settlementEnabled: true,
   platformShareBps: 1_000,
   creatorShareBps: 9_000,
   base: {
@@ -29,6 +29,7 @@ export const PAYMENT_CONFIG = {
   },
   solana: {
     cluster: "mainnet-beta",
-    treasuryAddress: configuredSolanaTreasury
+    treasuryAddress: configuredSolanaTreasury,
+    usdcMintAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
   }
 } as const;

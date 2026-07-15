@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         p.interests, p.review_status, p.rejection_reason, p.updated_at,
         COALESCE(array_agg(m.id::text ORDER BY m.sort_order) FILTER (WHERE m.id IS NOT NULL), '{}') AS media_ids
       FROM profiles p
+      JOIN users u ON u.id = p.user_id AND u.account_type = 'CREATOR'
       LEFT JOIN profile_media m ON m.profile_id = p.id
       GROUP BY p.id
       ORDER BY CASE p.review_status WHEN 'PENDING_REVIEW' THEN 0 WHEN 'REJECTED' THEN 1 ELSE 2 END, p.updated_at DESC

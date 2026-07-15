@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { PoolClient } from "pg";
 import { query, transaction } from "@/lib/db";
+import { ensureUser } from "@/lib/accounts";
 import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
 
 type ProfileRow = {
@@ -17,6 +17,7 @@ type ProfileRow = {
   messages_sent: string;
   messages_received: string;
   photo_likes: string;
+  support_usdc: string;
   is_own: boolean;
   media: Array<{ id: string; approved: boolean }>;
 };
@@ -43,6 +44,7 @@ function publicProfile(row: ProfileRow) {
     messagesSent: Number(row.messages_sent),
     messagesReceived: Number(row.messages_received),
     photoLikes: Number(row.photo_likes),
+    giftsUsdc: Number(row.support_usdc),
     reviewStatus: row.review_status,
     isOwn: row.is_own
   };
@@ -61,6 +63,7 @@ export async function GET(request: NextRequest) {
     const result = await query<ProfileRow>(`
       SELECT p.id, p.display_name, p.declared_age, p.city, p.country, p.headline, p.bio,
         p.interests, p.review_status, p.messages_sent, p.messages_received, p.photo_likes,
+        COALESCE((SELECT SUM(se.gross_amount_usdc) FROM support_events se WHERE se.creator_profile_id = p.id AND se.kind IN ('GIFT', 'MESSAGE_BOOST')), 0)::text AS support_usdc,
         ${ownerClause} AS is_own,
         COALESCE(json_agg(json_build_object('id', m.id, 'approved', m.is_approved)
           ORDER BY m.sort_order, m.created_at) FILTER (WHERE m.id IS NOT NULL), '[]') AS media
@@ -68,7 +71,7 @@ export async function GET(request: NextRequest) {
       JOIN users u ON u.id = p.user_id
       LEFT JOIN profile_media m ON m.profile_id = p.id
         AND (p.review_status <> 'APPROVED' OR m.is_approved = TRUE)
-      WHERE p.review_status = 'APPROVED' OR ${ownerClause}
+      WHERE (p.review_status = 'APPROVED' AND u.account_type = 'CREATOR') OR ${ownerClause}
       GROUP BY p.id, u.wallet_chain, u.wallet_address
       ORDER BY CASE WHEN ${ownerClause} THEN 0 ELSE 1 END, p.updated_at DESC
     `, values);
@@ -81,18 +84,6 @@ export async function GET(request: NextRequest) {
 
 function text(value: unknown, maximum: number) {
   return typeof value === "string" ? value.trim().slice(0, maximum) : "";
-}
-
-async function upsertUser(client: PoolClient, chain: string, address: string) {
-  const id = randomUUID();
-  const result = await client.query<{ id: string }>(`
-    INSERT INTO users (id, wallet_address, wallet_chain)
-    VALUES ($1, $2, $3)
-    ON CONFLICT (wallet_chain, wallet_address)
-    DO UPDATE SET updated_at = now()
-    RETURNING id
-  `, [id, address, chain]);
-  return result.rows[0].id;
 }
 
 export async function POST(request: NextRequest) {
@@ -117,7 +108,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const profile = await transaction(async (client) => {
-      const userId = await upsertUser(client, session.chain, session.address);
+      const user = await ensureUser(client, session);
+      if (user.account_type === "CUSTOMER") throw new Error("CUSTOMER_PROFILE");
+      if (!user.account_type) await client.query(`UPDATE users SET account_type = 'CREATOR', updated_at = now() WHERE id = $1`, [user.id]);
+      const userId = user.id;
       const profileId = randomUUID();
       const result = await client.query<{ id: string; review_status: string }>(`
         INSERT INTO profiles (id, user_id, display_name, declared_age, city, country, headline, bio, interests, review_status)
@@ -140,6 +134,9 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ profileId: profile.id, reviewStatus: profile.review_status });
   } catch (error) {
+    if (error instanceof Error && error.message === "CUSTOMER_PROFILE") {
+      return NextResponse.json({ error: "Customer accounts stay private and cannot publish creator profiles." }, { status: 409 });
+    }
     console.error("Profile save failed", error);
     return NextResponse.json({ error: "Your profile could not be saved. Please try again." }, { status: 503 });
   }
