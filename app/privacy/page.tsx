@@ -55,7 +55,8 @@ export default function PrivacyPage() {
       },
       {
         title: "7. Adults only",
-        paragraphs: ["The platform is intended only for adults aged 18 or older. We do not knowingly permit minors to use the service. Report suspected underage use immediately to cryptosugarbabes@gmail.com."]
+        paragraphs: ["The platform is intended only for adults aged 18 or older who have reached the legal age of majority where they live. We do not knowingly permit minors to use the service. Report suspected underage use immediately."],
+        action: { label: "Report suspected underage use", href: "mailto:email@cryptosugarbabes.com?subject=Urgent%20underage%20use%20report" }
       },
       {
         title: "8. International use and updates",
@@ -63,7 +64,8 @@ export default function PrivacyPage() {
       },
       {
         title: "9. Contact",
-        paragraphs: ["Privacy questions, rights requests, and safety concerns can be sent to cryptosugarbabes@gmail.com."]
+        paragraphs: ["Contact us with privacy questions, rights requests, or safety concerns."],
+        action: { label: "Email Crypto Sugar Babes", href: "mailto:email@cryptosugarbabes.com?subject=Privacy%20request" }
       }
     ]}
   />;
