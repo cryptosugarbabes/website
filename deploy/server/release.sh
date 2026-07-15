@@ -11,11 +11,15 @@ RELEASE_SHA="$1"
 RELEASE_DIR="${APP_ROOT}/releases/${RELEASE_SHA}"
 ARCHIVE="/tmp/cryptosugarbabes-deploy/cryptosugarbabes-release.tgz"
 SERVICE_SOURCE="/tmp/cryptosugarbabes-deploy/cryptosugarbabes.service"
+BACKUP_SOURCE="/tmp/cryptosugarbabes-deploy/backup-data.sh"
+VERIFY_BACKUP_SOURCE="/tmp/cryptosugarbabes-deploy/verify-backup.sh"
 PREVIOUS_TARGET=""
 
 test -x /usr/bin/node || { echo "Node.js is missing. Run deploy/bootstrap-vps.sh first."; exit 1; }
 test -f "$ARCHIVE" || { echo "Release archive is missing."; exit 1; }
 test -f "${APP_ROOT}/shared/.env" || { echo "Production environment file is missing."; exit 1; }
+test -f "$BACKUP_SOURCE" || { echo "Backup script is missing."; exit 1; }
+test -f "$VERIFY_BACKUP_SOURCE" || { echo "Backup verification script is missing."; exit 1; }
 
 if [ -L "${APP_ROOT}/current" ]; then
   PREVIOUS_TARGET="$(readlink "${APP_ROOT}/current")"
@@ -36,6 +40,8 @@ if [ -d "${RELEASE_DIR}/db/migrations" ]; then
 fi
 
 install -m 0644 "$SERVICE_SOURCE" /etc/systemd/system/cryptosugarbabes.service
+install -m 0750 "$BACKUP_SOURCE" /usr/local/sbin/cryptosugar-backup
+install -m 0750 "$VERIFY_BACKUP_SOURCE" /usr/local/sbin/cryptosugar-verify-backup
 systemctl daemon-reload
 
 ln -sfn "$RELEASE_DIR" "${APP_ROOT}/current.next"

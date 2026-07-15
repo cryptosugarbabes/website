@@ -15,6 +15,7 @@ export type Profile = {
   imageUrl?: string;
   sample?: boolean;
   photos?: string[];
+  media?: Array<{ id: string; url: string; paidLikes: number }>;
   messagesSent?: number;
   messagesReceived?: number;
   photoLikes?: number;

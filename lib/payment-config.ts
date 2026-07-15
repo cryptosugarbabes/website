@@ -9,6 +9,7 @@ const configuredBaseTreasury =
   process.env.NEXT_PUBLIC_BASE_TREASURY_ADDRESS || DEFAULT_BASE_TREASURY_ADDRESS;
 const configuredSolanaTreasury =
   process.env.NEXT_PUBLIC_SOLANA_TREASURY_ADDRESS || DEFAULT_SOLANA_TREASURY_ADDRESS;
+const configuredBaseSplitter = process.env.BASE_SPLITTER_ADDRESS || "";
 
 if (!isAddress(configuredBaseTreasury, { strict: false })) {
   throw new Error("NEXT_PUBLIC_BASE_TREASURY_ADDRESS is not a valid EVM address.");
@@ -18,6 +19,10 @@ if (!isSolanaAddress(configuredSolanaTreasury)) {
   throw new Error("NEXT_PUBLIC_SOLANA_TREASURY_ADDRESS is not a valid Solana address.");
 }
 
+if (configuredBaseSplitter && !isAddress(configuredBaseSplitter, { strict: false })) {
+  throw new Error("BASE_SPLITTER_ADDRESS is not a valid EVM address.");
+}
+
 export const PAYMENT_CONFIG = {
   settlementEnabled: true,
   platformShareBps: 1_000,
@@ -25,7 +30,9 @@ export const PAYMENT_CONFIG = {
   base: {
     chainId: 8_453,
     treasuryAddress: getAddress(configuredBaseTreasury),
-    usdcContractAddress: getAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+    usdcContractAddress: getAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"),
+    splitterAddress: configuredBaseSplitter ? getAddress(configuredBaseSplitter) : null,
+    atomicSettlementEnabled: Boolean(configuredBaseSplitter)
   },
   solana: {
     cluster: "mainnet-beta",

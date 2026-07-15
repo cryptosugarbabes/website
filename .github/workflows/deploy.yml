@@ -82,6 +82,8 @@ jobs:
             cryptosugarbabes-release.tgz \
             deploy/server/release.sh \
             deploy/server/cryptosugarbabes.service \
+            deploy/server/backup-data.sh \
+            deploy/server/verify-backup.sh \
             root@161.35.17.40:/tmp/cryptosugarbabes-deploy/
 
       - name: Activate release and verify health

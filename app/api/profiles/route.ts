@@ -21,11 +21,12 @@ type ProfileRow = {
   creator_points: string;
   points_24h: string;
   is_own: boolean;
-  media: Array<{ id: string; approved: boolean }>;
+  media: Array<{ id: string; approved: boolean; paidLikes: number }>;
 };
 
 function publicProfile(row: ProfileRow) {
   const photos = row.media.map((item) => `/api/media/${item.id}`);
+  const media = row.media.map((item) => ({ id: item.id, url: `/api/media/${item.id}`, paidLikes: Number(item.paidLikes || 0) }));
   const name = row.display_name;
   return {
     id: row.id,
@@ -43,6 +44,7 @@ function publicProfile(row: ProfileRow) {
     motif: "night",
     imageUrl: photos[0],
     photos,
+    media,
     messagesSent: Number(row.messages_sent),
     messagesReceived: Number(row.messages_received),
     photoLikes: Number(row.photo_likes),
@@ -78,7 +80,7 @@ export async function GET(request: NextRequest) {
           - floor(GREATEST(support_stats.support_total - support_stats.support_24h, 0))
         ) AS points_24h,
         ${ownerClause} AS is_own,
-        COALESCE(json_agg(json_build_object('id', m.id, 'approved', m.is_approved)
+        COALESCE(json_agg(json_build_object('id', m.id, 'approved', m.is_approved, 'paidLikes', m.paid_likes)
           ORDER BY m.sort_order, m.created_at) FILTER (WHERE m.id IS NOT NULL), '[]') AS media
       FROM profiles p
       JOIN users u ON u.id = p.user_id

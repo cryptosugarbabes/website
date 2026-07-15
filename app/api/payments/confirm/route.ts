@@ -20,6 +20,8 @@ type QuoteRow = {
   platform_amount_usdc: string;
   status: string;
   expires_at: Date;
+  message_id: string | null;
+  media_id: string | null;
   buyer_address: string;
   creator_address: string;
 };
@@ -43,8 +45,8 @@ function decimalToMicros(value: string) {
 async function verifyBaseTransfer(hash: `0x${string}`, from: string, to: string, amount: bigint) {
   const client = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org") });
   const [receipt, sent] = await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
-  if (receipt.status !== "success" || getAddress(sent.from) !== getAddress(from) || !sent.to || getAddress(sent.to) !== PAYMENT_CONFIG.base.usdcContractAddress) return false;
-  return receipt.logs.some((log) => {
+  if (receipt.status !== "success" || getAddress(sent.from) !== getAddress(from) || !sent.to || getAddress(sent.to) !== PAYMENT_CONFIG.base.usdcContractAddress) return { valid: false, timestampMs: 0 };
+  const valid = receipt.logs.some((log) => {
     if (getAddress(log.address) !== PAYMENT_CONFIG.base.usdcContractAddress) return false;
     try {
       const decoded = decodeEventLog({ abi: transferEvent, data: log.data, topics: log.topics });
@@ -53,12 +55,34 @@ async function verifyBaseTransfer(hash: `0x${string}`, from: string, to: string,
       return false;
     }
   });
+  const block = valid ? await client.getBlock({ blockNumber: receipt.blockNumber }) : null;
+  return { valid, timestampMs: block ? Number(block.timestamp) * 1000 : 0 };
+}
+
+async function verifyBaseAtomicTransfer(hash: `0x${string}`, from: string, creator: string, creatorAmount: bigint, platformAmount: bigint, grossAmount: bigint, splitterAddress: string) {
+  const client = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org") });
+  const [receipt, sent] = await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
+  if (receipt.status !== "success" || getAddress(sent.from) !== getAddress(from) || !sent.to || getAddress(sent.to) !== getAddress(splitterAddress)) return { valid: false, timestampMs: 0 };
+  const transfers = receipt.logs.flatMap((log) => {
+    if (getAddress(log.address) !== PAYMENT_CONFIG.base.usdcContractAddress) return [];
+    try {
+      const decoded = decodeEventLog({ abi: transferEvent, data: log.data, topics: log.topics });
+      return decoded.eventName === "Transfer" ? [{ from: getAddress(decoded.args.from), to: getAddress(decoded.args.to), value: decoded.args.value }] : [];
+    } catch { return []; }
+  });
+  const splitter = getAddress(splitterAddress);
+  const matches = (source: string, destination: string, amount: bigint) => transfers.some((item) => item.from === getAddress(source) && item.to === getAddress(destination) && item.value === amount);
+  const valid = matches(from, splitter, grossAmount)
+    && matches(splitter, creator, creatorAmount)
+    && matches(splitter, PAYMENT_CONFIG.base.treasuryAddress, platformAmount);
+  const block = valid ? await client.getBlock({ blockNumber: receipt.blockNumber }) : null;
+  return { valid, timestampMs: block ? Number(block.timestamp) * 1000 : 0 };
 }
 
 async function verifySolanaTransfer(signature: string, buyer: string, creator: string, creatorAmount: bigint, platformAmount: bigint) {
   const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com", "confirmed");
   const parsed = await connection.getParsedTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
-  if (!parsed || parsed.meta?.err) return false;
+  if (!parsed || parsed.meta?.err) return { valid: false, timestampMs: 0 };
   const mint = new PublicKey(PAYMENT_CONFIG.solana.usdcMintAddress);
   const creatorAta = getAssociatedTokenAddressSync(mint, new PublicKey(creator)).toString();
   const platformAta = getAssociatedTokenAddressSync(mint, new PublicKey(PAYMENT_CONFIG.solana.treasuryAddress)).toString();
@@ -70,7 +94,7 @@ async function verifySolanaTransfer(signature: string, buyer: string, creator: s
     const info = instruction.parsed.info as { authority?: string; destination?: string; mint?: string; tokenAmount?: { amount?: string } };
     return info.authority === buyer && info.destination === destination && info.mint === mint.toString() && info.tokenAmount?.amount === amount.toString();
   });
-  return matches(creatorAta, creatorAmount) && matches(platformAta, platformAmount);
+  return { valid: matches(creatorAta, creatorAmount) && matches(platformAta, platformAmount), timestampMs: (parsed.blockTime || 0) * 1000 };
 }
 
 export async function POST(request: NextRequest) {
@@ -97,36 +121,67 @@ export async function POST(request: NextRequest) {
     if (quote.status !== "QUOTED") return NextResponse.json({ error: "That quote is no longer payable." }, { status: 409 });
     const creatorAmount = decimalToMicros(quote.creator_amount_usdc);
     const platformAmount = decimalToMicros(quote.platform_amount_usdc);
+    const grossAmount = decimalToMicros(quote.gross_amount_usdc);
+    const expiryGraceMs = 2 * 60 * 1000;
 
     let purposes: Array<{ purpose: "CREATOR" | "PLATFORM" | "ATOMIC"; hash: string }>;
     if (quote.network === "BASE") {
-      if (input.transactionHashes.length !== 2 || !input.transactionHashes.every((hash) => isHash(hash))) return NextResponse.json({ error: "Both Base transfer hashes are required." }, { status: 400 });
-      const creatorHash = input.transactionHashes[0] as `0x${string}`;
-      const platformHash = input.transactionHashes[1] as `0x${string}`;
-      const [creatorValid, platformValid] = await Promise.all([
-        verifyBaseTransfer(creatorHash, quote.buyer_address, quote.creator_address, creatorAmount),
-        verifyBaseTransfer(platformHash, quote.buyer_address, PAYMENT_CONFIG.base.treasuryAddress, platformAmount)
-      ]);
-      if (!creatorValid || !platformValid) return NextResponse.json({ error: "The Base transfers could not be verified on-chain." }, { status: 409 });
-      purposes = [{ purpose: "CREATOR", hash: creatorHash }, { purpose: "PLATFORM", hash: platformHash }];
+      if (PAYMENT_CONFIG.base.splitterAddress) {
+        if (input.transactionHashes.length !== 1 || !isHash(input.transactionHashes[0])) return NextResponse.json({ error: "One atomic Base payment hash is required." }, { status: 400 });
+        const hash = input.transactionHashes[0] as `0x${string}`;
+        const transfer = await verifyBaseAtomicTransfer(hash, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount, grossAmount, PAYMENT_CONFIG.base.splitterAddress);
+        if (!transfer.valid) return NextResponse.json({ error: "The atomic Base payment could not be verified on-chain." }, { status: 409 });
+        if (!transfer.timestampMs || transfer.timestampMs > quote.expires_at.getTime() + expiryGraceMs) {
+          await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);
+          return NextResponse.json({ error: "That payment quote expired before the atomic transfer was confirmed." }, { status: 409 });
+        }
+        purposes = [{ purpose: "ATOMIC", hash }];
+      } else {
+        if (input.transactionHashes.length !== 2 || !input.transactionHashes.every((hash) => isHash(hash))) return NextResponse.json({ error: "Both Base transfer hashes are required." }, { status: 400 });
+        const creatorHash = input.transactionHashes[0] as `0x${string}`;
+        const platformHash = input.transactionHashes[1] as `0x${string}`;
+        const [creatorTransfer, platformTransfer] = await Promise.all([
+          verifyBaseTransfer(creatorHash, quote.buyer_address, quote.creator_address, creatorAmount),
+          verifyBaseTransfer(platformHash, quote.buyer_address, PAYMENT_CONFIG.base.treasuryAddress, platformAmount)
+        ]);
+        if (!creatorTransfer.valid || !platformTransfer.valid) return NextResponse.json({ error: "The Base transfers could not be verified on-chain." }, { status: 409 });
+        if (!creatorTransfer.timestampMs || !platformTransfer.timestampMs || creatorTransfer.timestampMs > quote.expires_at.getTime() + expiryGraceMs || platformTransfer.timestampMs > quote.expires_at.getTime() + expiryGraceMs) {
+          await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);
+          return NextResponse.json({ error: "That payment quote expired before both transfers were confirmed." }, { status: 409 });
+        }
+        purposes = [{ purpose: "CREATOR", hash: creatorHash }, { purpose: "PLATFORM", hash: platformHash }];
+      }
     } else {
       if (input.transactionHashes.length !== 1) return NextResponse.json({ error: "One Solana transaction signature is required." }, { status: 400 });
       const signature = input.transactionHashes[0];
-      const valid = await verifySolanaTransfer(signature, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount);
-      if (!valid) return NextResponse.json({ error: "The Solana transfer could not be verified on-chain." }, { status: 409 });
+      const transfer = await verifySolanaTransfer(signature, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount);
+      if (!transfer.valid) return NextResponse.json({ error: "The Solana transfer could not be verified on-chain." }, { status: 409 });
+      if (!transfer.timestampMs || transfer.timestampMs > quote.expires_at.getTime() + expiryGraceMs) {
+        await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);
+        return NextResponse.json({ error: "That payment quote expired before the transfer was confirmed." }, { status: 409 });
+      }
       purposes = [{ purpose: "ATOMIC", hash: signature }];
     }
 
     await transaction(async (client) => {
       const locked = await client.query<{ status: string }>(`SELECT status FROM payment_quotes WHERE id = $1 FOR UPDATE`, [quote.id]);
       if (locked.rows[0]?.status === "CONFIRMED") return;
+      if (locked.rows[0]?.status !== "QUOTED") throw new Error("QUOTE_NO_LONGER_PAYABLE");
       for (const item of purposes) await client.query(`INSERT INTO payment_transactions (quote_id, purpose, transaction_hash) VALUES ($1, $2, $3)`, [quote.id, item.purpose, item.hash]);
       await client.query(`UPDATE payment_quotes SET status = 'CONFIRMED', confirmed_at = now() WHERE id = $1`, [quote.id]);
       await client.query(`
-        INSERT INTO support_events (id, quote_id, supporter_user_id, creator_profile_id, kind, gross_amount_usdc)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `, [randomUUID(), quote.id, quote.buyer_user_id, quote.creator_profile_id, quote.kind, quote.gross_amount_usdc]);
-      if (quote.kind === "PAID_LIKE") await client.query(`UPDATE profiles SET photo_likes = photo_likes + 1, updated_at = now() WHERE id = $1`, [quote.creator_profile_id]);
+        INSERT INTO support_events (id, quote_id, supporter_user_id, creator_profile_id, kind, gross_amount_usdc, media_id, message_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [randomUUID(), quote.id, quote.buyer_user_id, quote.creator_profile_id, quote.kind, quote.gross_amount_usdc, quote.media_id, quote.message_id]);
+      if (quote.kind === "PAID_LIKE") {
+        if (!quote.media_id) throw new Error("PAID_LIKE_MEDIA_REQUIRED");
+        await client.query(`UPDATE profile_media SET paid_likes = paid_likes + 1 WHERE id = $1 AND profile_id = $2`, [quote.media_id, quote.creator_profile_id]);
+        await client.query(`UPDATE profiles SET photo_likes = photo_likes + 1, updated_at = now() WHERE id = $1`, [quote.creator_profile_id]);
+      }
+      if (quote.kind === "MESSAGE_BOOST") {
+        if (!quote.message_id) throw new Error("MESSAGE_BOOST_LINK_REQUIRED");
+        await client.query(`UPDATE messages SET boost_amount_usdc = $1, boosted_at = now() WHERE id = $2`, [quote.gross_amount_usdc, quote.message_id]);
+      }
       await client.query(`UPDATE customer_profiles SET generosity_points = generosity_points + floor($1::numeric)::bigint, updated_at = now() WHERE user_id = $2`, [quote.gross_amount_usdc, quote.buyer_user_id]);
     });
     return NextResponse.json({ confirmed: true, quoteId: quote.id, kind: quote.kind });

@@ -2,8 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { base } from "viem/chains";
-import { createPublicClient, createWalletClient, custom, erc20Abi, getAddress, http } from "viem";
-import { Profile, profiles } from "@/lib/profiles";
+import { createPublicClient, createWalletClient, custom, erc20Abi, getAddress, http, keccak256, stringToHex } from "viem";
+import { Profile } from "@/lib/profiles";
 import {
   creatorShareUsdc,
   creatorSupportPoints,
@@ -35,8 +35,8 @@ type SolanaProvider = {
 };
 
 type AccountType = "CREATOR" | "CUSTOMER";
-type ConversationMessage = { id: string; body: string; mine: boolean; status: string; createdAt: string };
-type Conversation = { id: string; profileId: string; counterpartName: string; creatorName: string; imageUrl?: string | null; updatedAt: string; messages: ConversationMessage[] };
+type ConversationMessage = { id: string; body: string; mine: boolean; status: string; boostAmountUsdc?: number; boostedAt?: string | null; createdAt: string };
+type Conversation = { id: string; profileId: string; counterpartName: string; creatorName: string; imageUrl?: string | null; blockedByMe?: boolean; blockedMe?: boolean; priorityBoostUsdc?: number; updatedAt: string; messages: ConversationMessage[] };
 type PaymentKind = "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST";
 type PaymentQuote = {
   quoteId: string;
@@ -51,6 +51,9 @@ type PaymentQuote = {
   creatorAddress: string;
   treasuryAddress: string;
   tokenAddress: string;
+  splitterAddress?: string | null;
+  mediaId?: string | null;
+  messageId?: string | null;
   expiresAt: string;
 };
 
@@ -155,6 +158,7 @@ export function DiscoveryApp() {
   const [walletContext, setWalletContext] = useState<"general" | "profile">("general");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
+  const [selectedMediaId, setSelectedMediaId] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileForm, setProfileForm] = useState(emptyProfile);
   const [profilePhotos, setProfilePhotos] = useState<string[]>([]);
@@ -179,10 +183,19 @@ export function DiscoveryApp() {
   const [activeConversationId, setActiveConversationId] = useState("");
   const [replyText, setReplyText] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [reportTarget, setReportTarget] = useState<{ profileId?: string; conversationId?: string; messageId?: string; label: string } | null>(null);
+  const [reportCategory, setReportCategory] = useState("HARASSMENT");
+  const [reportDetails, setReportDetails] = useState("");
+  const [safetyBusy, setSafetyBusy] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentExpiresAt, setPaymentExpiresAt] = useState<string | null>(null);
+  const [paymentClock, setPaymentClock] = useState(Date.now());
   const evmProviderRef = useRef<EthereumProvider | null>(null);
   const solanaProviderRef = useRef<SolanaProvider | null>(null);
   const profileIntentRef = useRef(false);
+  const lastUnreadRef = useRef(0);
 
   function showWalletPicker(context: "general" | "profile" = "general") {
     setWalletContext(context);
@@ -232,8 +245,29 @@ export function DiscoveryApp() {
     if (!response.ok) throw new Error(data.error || "Messages could not be loaded.");
     const next = data.conversations || [];
     setConversations(next);
+    setUnreadCount(0);
+    lastUnreadRef.current = 0;
     if (!activeConversationId && next[0]) setActiveConversationId(next[0].id);
     if (open) setInboxOpen(true);
+  }
+
+  async function loadUnread() {
+    const response = await fetch("/api/messages/unread", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json() as { unreadCount?: number };
+    const next = data.unreadCount || 0;
+    if (next > lastUnreadRef.current && typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification("Crypto Sugar Babes", { body: `You have ${next} unread message${next === 1 ? "" : "s"}.`, icon: "/icon.png" });
+    }
+    lastUnreadRef.current = next;
+    setUnreadCount(next);
+  }
+
+  async function enableNotifications() {
+    if (typeof Notification === "undefined") { setNotice("Browser notifications are not supported on this device."); return; }
+    const permission = await Notification.requestPermission();
+    setNotificationsEnabled(permission === "granted");
+    setNotice(permission === "granted" ? "Private unread-message alerts are enabled on this device." : "Notification permission was not enabled.");
   }
 
   async function openInbox() {
@@ -256,9 +290,59 @@ export function DiscoveryApp() {
     finally { setMessageBusy(false); }
   }
 
+  async function toggleBlock(conversation: Conversation) {
+    const blocked = !conversation.blockedByMe;
+    if (blocked && !window.confirm(`Block ${conversation.counterpartName}? Neither account will be able to send new messages until you unblock them.`)) return;
+    setSafetyBusy(true); setWalletError("");
+    try {
+      const response = await fetch("/api/blocks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ conversationId: conversation.id, blocked }) });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "The block setting could not be changed.");
+      await loadMessages(false);
+      setNotice(blocked ? `${conversation.counterpartName} was blocked.` : `${conversation.counterpartName} was unblocked.`);
+    } catch (error) { setWalletError(error instanceof Error ? error.message : "The block setting could not be changed."); }
+    finally { setSafetyBusy(false); }
+  }
+
+  function openReport(target: { profileId?: string; conversationId?: string; messageId?: string; label: string }) {
+    if (!wallet) { setWalletError("Connect your wallet before submitting a safety report."); showWalletPicker(); return; }
+    setReportTarget(target); setReportCategory("HARASSMENT"); setReportDetails("");
+  }
+
+  async function submitReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!reportTarget) return;
+    setSafetyBusy(true); setWalletError("");
+    try {
+      const response = await fetch("/api/reports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...reportTarget, category: reportCategory, details: reportDetails }) });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "The safety report could not be submitted.");
+      setReportTarget(null); setReportDetails("");
+      setNotice("Your safety report was submitted for administrator review.");
+    } catch (error) { setWalletError(error instanceof Error ? error.message : "The safety report could not be submitted."); }
+    finally { setSafetyBusy(false); }
+  }
+
   useEffect(() => {
     loadPersistedProfiles().catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!wallet || !accountType) { setUnreadCount(0); return; }
+    loadUnread().catch(() => undefined);
+    const timer = window.setInterval(() => loadUnread().catch(() => undefined), 30_000);
+    return () => window.clearInterval(timer);
+  }, [wallet, accountType]);
+
+  useEffect(() => {
+    setNotificationsEnabled(typeof Notification !== "undefined" && Notification.permission === "granted");
+  }, []);
+
+  useEffect(() => {
+    if (!paymentExpiresAt) return;
+    const timer = window.setInterval(() => setPaymentClock(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [paymentExpiresAt]);
 
   useEffect(() => {
     if (!notice) return;
@@ -266,7 +350,7 @@ export function DiscoveryApp() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
-  const allProfiles = useMemo(() => [...customProfiles, ...profiles], [customProfiles]);
+  const allProfiles = useMemo(() => customProfiles, [customProfiles]);
   const cities = useMemo(() => ["Anywhere", ...new Set(allProfiles.map((profile) => profile.city))], [allProfiles]);
   const filteredProfiles = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -522,19 +606,19 @@ export function DiscoveryApp() {
     setMessageBusy(true); setWalletError("");
     try {
       const response = await fetch("/api/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profileId: messageTarget.id, body: messageText }) });
-      const data = await response.json() as { conversationId?: string; error?: string };
+      const data = await response.json() as { id?: string; conversationId?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Your message could not be sent.");
       const target = messageTarget;
       setMessageTarget(null); setMessageText("");
       await loadMessages(false);
-      if (boostAmount > 0) await settlePayment(target, "MESSAGE_BOOST", String(boostAmount));
+      if (boostAmount > 0 && data.id) await settlePayment(target, "MESSAGE_BOOST", String(boostAmount), { messageId: data.id });
       else setNotice(`Your message to ${target.name} was delivered.`);
     } catch (error) { setWalletError(error instanceof Error ? error.message : "Your message could not be sent."); }
     finally { setMessageBusy(false); setMessageBoostAmount(""); }
   }
 
-  async function paymentQuote(profile: Profile, kind: PaymentKind, amountUsdc?: string) {
-    const response = await fetch("/api/payments/quotes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profileId: profile.id, kind, amountUsdc }) });
+  async function paymentQuote(profile: Profile, kind: PaymentKind, amountUsdc?: string, link?: { mediaId?: string; messageId?: string }) {
+    const response = await fetch("/api/payments/quotes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profileId: profile.id, kind, amountUsdc, ...link }) });
     const data = await response.json() as PaymentQuote & { error?: string };
     if (!response.ok) throw new Error(data.error || "A secure payment quote could not be created.");
     return data;
@@ -555,6 +639,26 @@ export function DiscoveryApp() {
     const walletClient = createWalletClient({ account: getAddress(wallet), chain: base, transport: custom(provider) });
     const publicClient = createPublicClient({ chain: base, transport: http("https://mainnet.base.org") });
     const token = getAddress(quote.tokenAddress);
+    if (quote.splitterAddress) {
+      if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("That payment quote expired. Start again to receive a current price.");
+      const splitter = getAddress(quote.splitterAddress);
+      const owner = getAddress(wallet);
+      const allowance = await publicClient.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [owner, splitter] });
+      if (allowance < BigInt(quote.grossMicros)) {
+        const approvalHash = await walletClient.writeContract({ account: owner, chain: base, address: token, abi: erc20Abi, functionName: "approve", args: [splitter, BigInt(quote.grossMicros)] });
+        const approval = await publicClient.waitForTransactionReceipt({ hash: approvalHash, confirmations: 1 });
+        if (approval.status !== "success") throw new Error("The Base USDC approval reverted.");
+      }
+      if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("The quote expired during approval. Start again; the approval did not move any USDC.");
+      const splitterAbi = [{ type: "function", name: "payAndSplit", stateMutability: "nonpayable", inputs: [{ name: "quoteId", type: "bytes32" }, { name: "creator", type: "address" }, { name: "grossAmount", type: "uint256" }], outputs: [] }] as const;
+      const args = [keccak256(stringToHex(quote.quoteId)), getAddress(quote.creatorAddress), BigInt(quote.grossMicros)] as const;
+      await publicClient.simulateContract({ account: owner, address: splitter, abi: splitterAbi, functionName: "payAndSplit", args });
+      const hash = await walletClient.writeContract({ account: owner, chain: base, address: splitter, abi: splitterAbi, functionName: "payAndSplit", args });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+      if (receipt.status !== "success") throw new Error("The atomic Base USDC payment reverted.");
+      await confirmPayment(quote, [hash]);
+      return;
+    }
     const transfer = async (recipient: string, amount: string) => {
       const args = [getAddress(recipient), BigInt(amount)] as const;
       await publicClient.simulateContract({ account: getAddress(wallet), address: token, abi: erc20Abi, functionName: "transfer", args });
@@ -568,6 +672,12 @@ export function DiscoveryApp() {
     const stored = (() => { try { return JSON.parse(window.localStorage.getItem(storageKey) || "null") as { profileId: string; quote: PaymentQuote; creatorHash?: string } | null; } catch { return null; } })();
     const pending = stored?.profileId === profileId && stored.quote.quoteId === quote.quoteId ? stored : { profileId, quote };
     let creatorHash = pending.creatorHash;
+    const expiresAt = new Date(quote.expiresAt).getTime();
+    if (!creatorHash && Date.now() >= expiresAt) {
+      window.localStorage.removeItem(storageKey);
+      throw new Error("That payment quote expired. Start again to receive a current price.");
+    }
+    if (creatorHash && Date.now() >= expiresAt + 2 * 60 * 1000) throw new Error("The partial Base payment quote expired. Contact support with the creator transaction hash before continuing.");
     if (!creatorHash) {
       creatorHash = await transfer(quote.creatorAddress, quote.creatorMicros);
       window.localStorage.setItem(storageKey, JSON.stringify({ ...pending, creatorHash }));
@@ -580,6 +690,7 @@ export function DiscoveryApp() {
   async function settleSolanaPayment(quote: PaymentQuote) {
     const provider = solanaProviderRef.current || window.solflare || window.phantom?.solana || window.solana;
     if (!provider?.signAndSendTransaction || !wallet) throw new Error("Reconnect Solflare or Phantom so it can approve the USDC transaction.");
+    if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("That payment quote expired. Start again to receive a current price.");
     const [{ Connection, PublicKey, Transaction }, token] = await Promise.all([import("@solana/web3.js"), import("@solana/spl-token")]);
     const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
     const owner = new PublicKey(wallet);
@@ -607,7 +718,7 @@ export function DiscoveryApp() {
     await confirmPayment(quote, [signature]);
   }
 
-  async function settlePayment(profile: Profile, kind: PaymentKind, amountUsdc?: string) {
+  async function settlePayment(profile: Profile, kind: PaymentKind, amountUsdc?: string, link?: { mediaId?: string; messageId?: string }) {
     if (profile.sample) { setNotice("Editorial samples cannot receive real payments."); return; }
     if (!wallet) { setWalletError("Connect a matching wallet before paying."); showWalletPicker(); return; }
     if (!accountType) { setAccountOpen(true); return; }
@@ -620,20 +731,31 @@ export function DiscoveryApp() {
       }
       const quote = pending?.profileId === profile.id && pending.quote.kind === kind
         ? pending.quote
-        : await paymentQuote(profile, kind, amountUsdc);
+        : await paymentQuote(profile, kind, amountUsdc, link);
+      setPaymentExpiresAt(quote.expiresAt);
+      setPaymentClock(Date.now());
+      setNotice("Secure payment quote created. Complete the wallet approval within 15 minutes.");
       if (quote.network === "BASE") await settleBasePayment(quote, profile.id);
       else await settleSolanaPayment(quote);
       const amount = Number(quote.grossAmountUsdc);
       setSupportGivenUsdc((current) => current + amount);
       await Promise.all([loadPersistedProfiles(), loadAccount()]);
+      setActiveProfile((current) => current?.id === profile.id ? {
+        ...current,
+        photoLikes: (current.photoLikes || 0) + (kind === "PAID_LIKE" ? 1 : 0),
+        giftsUsdc: (current.giftsUsdc || 0) + (kind === "GIFT" || kind === "MESSAGE_BOOST" ? amount : 0),
+        media: current.media?.map((item) => item.id === link?.mediaId ? { ...item, paidLikes: item.paidLikes + 1 } : item)
+      } : current);
       setNotice(`${kind === "PAID_LIKE" ? "Paid like" : kind === "GIFT" ? "Gift" : "Message boost"} confirmed on-chain: ${formatUsdc(amount)} USDC split 90/10.`);
     } catch (error) {
       setWalletError(error instanceof Error ? error.message : "The payment was not completed.");
-    } finally { setPaymentBusy(false); }
+    } finally { setPaymentBusy(false); setPaymentExpiresAt(null); }
   }
 
-  async function likeFeaturedPhoto(profile: Profile) {
-    await settlePayment(profile, "PAID_LIKE");
+  async function likeFeaturedPhoto(profile: Profile, requestedMediaId?: string) {
+    const mediaId = requestedMediaId || profile.media?.[0]?.id;
+    if (!mediaId) { setNotice("This profile does not have an approved photograph available for paid likes."); return; }
+    await settlePayment(profile, "PAID_LIKE", undefined, { mediaId });
   }
 
   function openGift(profile: Profile) {
@@ -721,7 +843,7 @@ export function DiscoveryApp() {
         <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
         <div className="header-actions">
           {accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
-          {wallet && accountType && <button className="text-button inbox-button" onClick={openInbox}>Inbox</button>}
+          {wallet && accountType && <button className="text-button inbox-button" onClick={openInbox}>Inbox{unreadCount > 0 && <span className="unread-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}</button>}
           {wallet && !accountType && <button className="text-button" onClick={() => setAccountOpen(true)}>Choose account</button>}
           {wallet ? <button className="wallet-button connected" onClick={disconnectWallet} title="Click to sign out"><span className="online-dot"/>{accountType === "CREATOR" ? "Creator" : accountType === "CUSTOMER" ? "Customer" : walletName || (walletChain === "solana" ? "Solana" : "Base")} · {shortAddress(wallet)}</button>
             : <button className="wallet-button" onClick={() => { setWalletError(""); showWalletPicker(); }}><Icon name="wallet" size={17}/>Connect wallet</button>}
@@ -750,7 +872,7 @@ export function DiscoveryApp() {
         <div className="profile-grid">
           {filteredProfiles.map((profile) => <article className="profile-card" key={profile.id}>
             <button className={`favorite-button ${favorites.has(profile.id) ? "active" : ""}`} onClick={() => toggleFavorite(profile)} aria-label={`${favorites.has(profile.id) ? "Remove" : "Add"} ${profile.name} ${favorites.has(profile.id) ? "from" : "to"} favorites`}><Icon name="heart" size={18} filled={favorites.has(profile.id)}/></button>
-            <button className="profile-open" onClick={() => setActiveProfile(profile)} aria-label={`View ${profile.name}'s profile`}>
+            <button className="profile-open" onClick={() => { setActiveProfile(profile); setSelectedMediaId(profile.media?.[0]?.id || ""); }} aria-label={`View ${profile.name}'s profile`}>
               <ProfileArtwork profile={profile}/>
               <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.sample ? <span className="sample-badge">SAMPLE</span> : profile.verified ? <span className="verified-badge" title="Profile reviewed"><Icon name="check" size={12}/></span> : <span className="draft-badge">{profile.reviewStatus === "PENDING_REVIEW" ? "IN REVIEW" : profile.reviewStatus === "REJECTED" ? "CHANGES NEEDED" : "DRAFT"}</span>}</div><p className="location">{profile.city} · {profile.country}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
             </button>
@@ -779,13 +901,16 @@ export function DiscoveryApp() {
 
       {activeProfile && (() => {
         const stats = engagementFor(activeProfile);
+        const selectedMedia = activeProfile.media?.find((item) => item.id === selectedMediaId) || activeProfile.media?.[0];
+        const displayedProfile = selectedMedia ? { ...activeProfile, imageUrl: selectedMedia.url } : activeProfile;
         return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveProfile(null); }}>
           <section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
             <button className="modal-close" onClick={() => setActiveProfile(null)} aria-label="Close profile"><Icon name="close" size={20}/></button>
             <div className="profile-media-column">
-              <ProfileArtwork profile={activeProfile} large/>
-              <button className="photo-like-button" disabled={paymentBusy} onClick={() => likeFeaturedPhoto(activeProfile)}><Icon name="heart" size={17}/><span>{paymentBusy ? "Confirming…" : "Send a paid like"}</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></button>
-              <small>{stats.likes.toLocaleString()} paid likes · Creator receives {formatUsdc(creatorShareUsdc(stats.likePrice))} USDC</small>
+              <ProfileArtwork profile={displayedProfile} large/>
+              {Boolean(activeProfile.media?.length && activeProfile.media.length > 1) && <div className="profile-photo-thumbnails">{activeProfile.media?.map((item, index) => <button className={item.id === selectedMedia?.id ? "active" : ""} onClick={() => setSelectedMediaId(item.id)} key={item.id}><img src={item.url} alt={`${activeProfile.name} photo ${index + 1}`}/><span>{item.paidLikes} likes</span></button>)}</div>}
+              <button className="photo-like-button" disabled={paymentBusy || !selectedMedia} onClick={() => likeFeaturedPhoto(activeProfile, selectedMedia?.id)}><Icon name="heart" size={17}/><span>{paymentBusy ? "Confirming…" : "Send this photo a paid like"}</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></button>
+              <small>{selectedMedia ? `${selectedMedia.paidLikes.toLocaleString()} on this photo · ` : ""}{stats.likes.toLocaleString()} profile paid likes · Creator receives {formatUsdc(creatorShareUsdc(stats.likePrice))} USDC</small>
             </div>
             <div className="modal-content">
               <span className="verified-line"><Icon name="shield" size={15}/>{activeProfile.sample ? "Editorial sample · Not a real member" : activeProfile.verified ? "Profile reviewed · Adult self-attested" : "Private draft · Not yet reviewed"}</span>
@@ -796,6 +921,7 @@ export function DiscoveryApp() {
               <div className="tag-row large">{activeProfile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
               {wallet && supportGivenUsdc > 0 && <div className="generosity-badge"><Icon name="spark" size={15}/><span>Your generosity</span><strong>{generosityLevel(generosityPoints(supportGivenUsdc))} · {generosityPoints(supportGivenUsdc)} pts</strong></div>}
               <div className="modal-actions"><button className="primary-button" onClick={() => openMessage(activeProfile)}><Icon name="message" size={17}/>Message · Free</button><button className="gift-action" disabled={paymentBusy} onClick={() => openGift(activeProfile)}><Icon name="spark" size={16}/>Gift</button><button className={`heart-action ${favorites.has(activeProfile.id) ? "active" : ""}`} onClick={() => toggleFavorite(activeProfile)}><Icon name="heart" size={19} filled={favorites.has(activeProfile.id)}/></button></div>
+              {!activeProfile.sample && !activeProfile.isOwn && <button className="report-link" onClick={() => openReport({ profileId: activeProfile.id, label: `${activeProfile.name}'s profile` })}>Report this profile</button>}
               <p className="modal-footnote">Messages are delivered free. Paid likes, gifts, and boosts use USDC and are split 90% to the creator and 10% to the platform after on-chain confirmation.</p>
             </div>
           </section>
@@ -837,8 +963,10 @@ export function DiscoveryApp() {
 
       {inboxOpen && (() => {
         const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) || conversations[0];
-        return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInboxOpen(false); }}><section className="inbox-modal" role="dialog" aria-modal="true" aria-labelledby="inbox-title"><button className="modal-close" onClick={() => setInboxOpen(false)} aria-label="Close inbox"><Icon name="close" size={20}/></button><div className="inbox-sidebar"><span className="section-kicker">PRIVATE MESSAGES</span><h2 id="inbox-title">Inbox</h2>{conversations.length ? conversations.map((conversation) => <button className={conversation.id === activeConversation?.id ? "active" : ""} onClick={() => setActiveConversationId(conversation.id)} key={conversation.id}>{conversation.imageUrl ? <img src={conversation.imageUrl} alt=""/> : <span>{conversation.counterpartName.slice(0, 1).toUpperCase()}</span>}<div><strong>{conversation.counterpartName}</strong><small>{conversation.messages.at(-1)?.body || "New conversation"}</small></div></button>) : <p className="inbox-empty">No conversations yet.</p>}</div><div className="conversation-panel">{activeConversation ? <><header><strong>{activeConversation.counterpartName}</strong><span>Wallet-authenticated conversation</span></header><div className="message-thread">{activeConversation.messages.map((message) => <div className={message.mine ? "message-bubble mine" : "message-bubble"} key={message.id}><p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small></div>)}</div><form onSubmit={sendReply}><textarea required maxLength={800} value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply…"/><button className="primary-button" type="submit" disabled={messageBusy}>{messageBusy ? "Sending…" : "Send"}</button></form></> : <div className="conversation-empty"><Icon name="message" size={31}/><h3>Your private conversations</h3><p>Open an approved creator profile to begin a free conversation.</p></div>}</div></section></div>;
+        return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInboxOpen(false); }}><section className="inbox-modal" role="dialog" aria-modal="true" aria-labelledby="inbox-title"><button className="modal-close" onClick={() => setInboxOpen(false)} aria-label="Close inbox"><Icon name="close" size={20}/></button><div className="inbox-sidebar"><span className="section-kicker">PRIVATE MESSAGES</span><h2 id="inbox-title">Inbox</h2>{!notificationsEnabled && <button className="notification-opt-in" onClick={enableNotifications}>Enable private message alerts</button>}{conversations.length ? conversations.map((conversation) => <button className={conversation.id === activeConversation?.id ? "active" : ""} onClick={() => setActiveConversationId(conversation.id)} key={conversation.id}>{conversation.imageUrl ? <img src={conversation.imageUrl} alt=""/> : <span>{conversation.counterpartName.slice(0, 1).toUpperCase()}</span>}<div><strong>{conversation.counterpartName}{Boolean(conversation.priorityBoostUsdc) && <em className="boost-list-badge">BOOST</em>}</strong><small>{conversation.messages.at(-1)?.body || "New conversation"}</small></div></button>) : <p className="inbox-empty">No conversations yet.</p>}</div><div className="conversation-panel">{activeConversation ? <><header><div><strong>{activeConversation.counterpartName}</strong><span>{activeConversation.blockedByMe ? "You blocked this account" : activeConversation.blockedMe ? "This account has blocked messaging" : "Wallet-authenticated conversation"}</span></div><div className="conversation-safety-actions"><button onClick={() => openReport({ conversationId: activeConversation.id, label: `conversation with ${activeConversation.counterpartName}` })}>Report</button><button disabled={safetyBusy} onClick={() => toggleBlock(activeConversation)}>{activeConversation.blockedByMe ? "Unblock" : "Block"}</button></div></header><div className="message-thread">{activeConversation.messages.map((message) => <div className={message.mine ? "message-bubble mine" : "message-bubble"} key={message.id}>{Boolean(message.boostAmountUsdc) && <span className="message-boost-badge">BOOSTED · {formatUsdc(message.boostAmountUsdc || 0)} USDC</span>}<p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small>{!message.mine && <button className="message-report" onClick={() => openReport({ conversationId: activeConversation.id, messageId: message.id, label: "message" })}>Report</button>}</div>)}</div>{activeConversation.blockedByMe || activeConversation.blockedMe ? <div className="messaging-disabled">Messaging is disabled for this conversation.</div> : <form onSubmit={sendReply}><textarea required maxLength={800} value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply…"/><button className="primary-button" type="submit" disabled={messageBusy}>{messageBusy ? "Sending…" : "Send"}</button></form>}</> : <div className="conversation-empty"><Icon name="message" size={31}/><h3>Your private conversations</h3><p>Open an approved creator profile to begin a free conversation.</p></div>}</div></section></div>;
       })()}
+
+      {reportTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !safetyBusy) setReportTarget(null); }}><section className="message-modal report-modal" role="dialog" aria-modal="true" aria-labelledby="report-title"><button className="modal-close" onClick={() => setReportTarget(null)} aria-label="Close report"><Icon name="close" size={20}/></button><span className="section-kicker">CONFIDENTIAL SAFETY REPORT</span><h2 id="report-title">Report {reportTarget.label}.</h2><p className="wallet-intro">Reports are reviewed by an administrator. Use immediate local emergency or trafficking services when someone may be in danger.</p><form onSubmit={submitReport}><label><span>CATEGORY</span><select value={reportCategory} onChange={(event) => setReportCategory(event.target.value)}><option value="HARASSMENT">Harassment or threats</option><option value="SPAM">Spam</option><option value="SCAM">Scam or fraud</option><option value="EXTORTION">Extortion</option><option value="UNDERAGE">Suspected underage user</option><option value="TRAFFICKING">Trafficking or coercion</option><option value="IMPERSONATION">Impersonation</option><option value="OTHER">Other safety concern</option></select></label><label className="message-field"><span>WHAT HAPPENED?</span><textarea required minLength={10} maxLength={1500} value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} placeholder="Add dates, context, and specific conduct. Never include a recovery phrase or private key."/><small>{reportDetails.length}/1500</small></label><button className="primary-button full" type="submit" disabled={safetyBusy}>{safetyBusy ? "Submitting…" : "Submit confidential report"}</button></form></section></div>}
 
       {walletPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !walletBusy) setWalletPickerOpen(false); }}><section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title"><button className="modal-close" onClick={() => setWalletPickerOpen(false)} aria-label="Close wallet options"><Icon name="close" size={20}/></button><span className="section-kicker">{walletContext === "profile" ? "CONNECT BEFORE CREATING" : "SIGN IN WITHOUT GAS"}</span><h2 id="wallet-title">Choose your wallet.</h2><p className="wallet-intro">{walletContext === "profile" ? "Connect a wallet before creating a profile. After signing in, choose whether this wallet belongs to a Sugar Babe creator or a private Sugar Daddy customer." : "Connecting requests a free signature to verify ownership. It does not give Crypto Sugar permission to move funds."}</p><div className="wallet-options"><button onClick={() => connectEvmWallet("browser")} disabled={walletBusy}><span className="wallet-logo base-logo">B</span><span><strong>Base browser wallet</strong><small>MetaMask · Rabby · Coinbase</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("binance")} disabled={walletBusy}><span className="wallet-logo binance-logo">B</span><span><strong>Binance Wallet</strong><small>Browser or Binance app</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("trust")} disabled={walletBusy}><span className="wallet-logo trust-logo">T</span><span><strong>Trust Wallet</strong><small>Browser extension</small></span><Icon name="arrow" size={18}/></button><button onClick={connectWalletConnect} disabled={walletBusy}><span className="wallet-logo walletconnect-logo">W</span><span><strong>WalletConnect</strong><small>Trust · Binance · compatible mobile wallets</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("solflare")} disabled={walletBusy}><span className="wallet-logo solflare-logo">S</span><span><strong>Solflare</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("phantom")} disabled={walletBusy}><span className="wallet-logo phantom-logo">P</span><span><strong>Phantom</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button></div>{walletError && <div className="form-error">{walletError}</div>}<div className="wallet-setup"><strong>Don&apos;t have a wallet?</strong><span>Set one up with <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, <a href="https://www.solflare.com/" target="_blank" rel="noreferrer">Solflare</a>, <a href="https://phantom.com/download" target="_blank" rel="noreferrer">Phantom</a>, <a href="https://www.binance.com/en/web3wallet" target="_blank" rel="noreferrer">Binance</a>, or <a href="https://trustwallet.com/download" target="_blank" rel="noreferrer">Trust Wallet</a>.</span></div><p className="wallet-safety"><Icon name="lock" size={14}/>We never request your seed phrase or private key.</p></section></div>}
 
@@ -848,6 +976,7 @@ export function DiscoveryApp() {
         {walletError && !walletPickerOpen && <div className="form-error">{walletError}</div>}<div className="form-footer"><p><Icon name="shield" size={15}/>{wallet ? `Connected with ${walletName || walletChain}` : "A connected wallet is required to save"}</p><button className="primary-button" type="submit" disabled={profileSaving}>{profileSaving ? `Saving${profileFiles.length ? " & uploading…" : "…"}` : wallet ? "Save & submit for review" : "Connect & save"}<Icon name="arrow" size={18}/></button></div>
       </form></section></div>}
 
+      {paymentBusy && paymentExpiresAt && <div className="payment-deadline" role="status"><Icon name="lock" size={13}/>Secure quote expires in {Math.max(0, Math.ceil((new Date(paymentExpiresAt).getTime() - paymentClock) / 1000 / 60))} min</div>}
       {(notice || (walletError && !walletPickerOpen && !profileOpen)) && <div className={`toast ${walletError ? "error" : ""}`}>{walletError || notice}</div>}
     </main>
   );
