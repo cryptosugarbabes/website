@@ -25,12 +25,13 @@ The current storage uses the existing Droplet disk and does not require DigitalO
 
 ## Creator economy rules
 
-- Incoming messages start at `0.30 USDC`; creators send and reply for free.
-- Every 100 messages sent plus received adds 5 creator rating points.
-- Each rating point increases the incoming-message price by 0.1%, using `0.30 × (1 + points × 0.001)`.
-- Rating points have no maximum.
-- A paid photo-like costs `0.11 USDC`: `0.10` creator share and `0.01` platform fee.
-- Message revenue splitting remains configurable until the operating rule is chosen.
+- Normal messages are free for every member.
+- A sender can optionally attach a USDC boost to a message for priority placement. The boost also contributes to creator support and sender generosity reputation.
+- A paid photo-like begins at `5.00 USDC`.
+- Every completed 100 paid likes increases that creator's next paid-like amount by 0.1%, using `5.00 × (1 + floor(likes / 100) × 0.001)`.
+- Every completed 100 paid likes adds 5 creator support points; each whole USDC given as a custom gift adds one more support point.
+- Paid likes, message boosts, and gifts use a 90% creator / 10% platform split.
+- Custom gifts also add one sender generosity point per whole USDC, with visible supporter levels planned for Sugar Daddy profiles.
 - Profile boosts and creator profile fees are not part of the product.
 
 ## Payment boundaries

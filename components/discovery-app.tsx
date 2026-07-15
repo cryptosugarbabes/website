@@ -4,12 +4,13 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getAddress } from "viem";
 import { Profile, profiles } from "@/lib/profiles";
 import {
-  PHOTO_LIKE_CREATOR_SHARE_USDC,
-  PHOTO_LIKE_PLATFORM_FEE_USDC,
-  PHOTO_LIKE_PRICE_USDC,
-  creatorRatingPoints,
+  creatorShareUsdc,
+  creatorSupportPoints,
   formatUsdc,
-  messagePriceUsdc
+  generosityLevel,
+  generosityPoints,
+  photoLikePriceUsdc,
+  platformShareUsdc
 } from "@/lib/creator-economy";
 
 type WalletChain = "evm" | "solana";
@@ -136,9 +137,13 @@ export function DiscoveryApp() {
   const [profileFiles, setProfileFiles] = useState<File[]>([]);
   const [profileSaving, setProfileSaving] = useState(false);
   const [customProfiles, setCustomProfiles] = useState<Profile[]>([]);
-  const [engagement, setEngagement] = useState<Record<string, { received: number; likes: number }>>({});
+  const [engagement, setEngagement] = useState<Record<string, { messages: number; likes: number; giftsUsdc: number }>>({});
   const [messageTarget, setMessageTarget] = useState<Profile | null>(null);
   const [messageText, setMessageText] = useState("");
+  const [messageBoostAmount, setMessageBoostAmount] = useState("");
+  const [giftTarget, setGiftTarget] = useState<Profile | null>(null);
+  const [giftAmount, setGiftAmount] = useState("25");
+  const [supportGivenUsdc, setSupportGivenUsdc] = useState(0);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -322,43 +327,53 @@ export function DiscoveryApp() {
   }
 
   function engagementFor(profile: Profile) {
-    const extra = engagement[profile.id] || { received: 0, likes: 0 };
-    const sent = profile.messagesSent || 0;
-    const received = (profile.messagesReceived || 0) + extra.received;
-    const points = creatorRatingPoints(sent, received);
+    const extra = engagement[profile.id] || { messages: 0, likes: 0, giftsUsdc: 0 };
+    const likes = (profile.photoLikes || 0) + extra.likes;
+    const points = creatorSupportPoints(likes, extra.giftsUsdc);
     return {
-      sent,
-      received,
       points,
-      price: messagePriceUsdc(points),
-      likes: (profile.photoLikes || 0) + extra.likes,
-      progress: (sent + received) % 100
+      likes,
+      likePrice: photoLikePriceUsdc(likes),
+      giftsUsdc: extra.giftsUsdc,
+      messages: extra.messages,
+      progress: likes % 100
     };
   }
 
   function openMessage(profile: Profile) {
     if (!wallet) {
-      setWalletError("Connect a wallet before starting a paid conversation.");
+      setWalletError("Connect a wallet before starting a conversation.");
       setWalletPickerOpen(true);
       return;
     }
     setMessageText("");
+    setMessageBoostAmount("");
     setMessageTarget(profile);
   }
 
   function sendTestMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!messageTarget || !messageText.trim()) return;
+    const boostAmount = Number(messageBoostAmount || 0);
+    if (!Number.isFinite(boostAmount) || boostAmount < 0 || boostAmount > 100_000) {
+      setWalletError("Choose a valid optional boost amount.");
+      return;
+    }
     setEngagement((current) => ({
       ...current,
       [messageTarget.id]: {
-        received: (current[messageTarget.id]?.received || 0) + 1,
-        likes: current[messageTarget.id]?.likes || 0
+        messages: (current[messageTarget.id]?.messages || 0) + 1,
+        likes: current[messageTarget.id]?.likes || 0,
+        giftsUsdc: (current[messageTarget.id]?.giftsUsdc || 0) + boostAmount
       }
     }));
+    if (boostAmount > 0) setSupportGivenUsdc((current) => current + boostAmount);
     setMessageTarget(null);
     setMessageText("");
-    setNotice("Test message recorded. Live USDC settlement is intentionally disabled.");
+    setMessageBoostAmount("");
+    setNotice(boostAmount > 0
+      ? `Test boosted message recorded with ${formatUsdc(boostAmount)} USDC support. No funds moved.`
+      : "Test free message recorded. No payment is required.");
   }
 
   function likeFeaturedPhoto(profile: Profile) {
@@ -367,14 +382,48 @@ export function DiscoveryApp() {
       setWalletPickerOpen(true);
       return;
     }
+    const likePrice = engagementFor(profile).likePrice;
     setEngagement((current) => ({
       ...current,
       [profile.id]: {
-        received: current[profile.id]?.received || 0,
-        likes: (current[profile.id]?.likes || 0) + 1
+        messages: current[profile.id]?.messages || 0,
+        likes: (current[profile.id]?.likes || 0) + 1,
+        giftsUsdc: current[profile.id]?.giftsUsdc || 0
       }
     }));
-    setNotice("Test photo-like recorded: 0.10 USDC creator share + 0.01 platform fee. No funds moved.");
+    setSupportGivenUsdc((current) => current + likePrice);
+    setNotice(`Test paid like recorded: ${formatUsdc(creatorShareUsdc(likePrice))} USDC creator share + ${formatUsdc(platformShareUsdc(likePrice))} USDC platform fee. No funds moved.`);
+  }
+
+  function openGift(profile: Profile) {
+    if (!wallet) {
+      setWalletError("Connect a wallet before sending a gift.");
+      setWalletPickerOpen(true);
+      return;
+    }
+    setGiftAmount("25");
+    setGiftTarget(profile);
+  }
+
+  function sendTestGift(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!giftTarget) return;
+    const amount = Number(giftAmount);
+    if (!Number.isFinite(amount) || amount < 1 || amount > 100_000) {
+      setWalletError("Enter a gift between 1 and 100,000 USDC.");
+      return;
+    }
+    setEngagement((current) => ({
+      ...current,
+      [giftTarget.id]: {
+        messages: current[giftTarget.id]?.messages || 0,
+        likes: current[giftTarget.id]?.likes || 0,
+        giftsUsdc: (current[giftTarget.id]?.giftsUsdc || 0) + amount
+      }
+    }));
+    setSupportGivenUsdc((current) => current + amount);
+    setGiftTarget(null);
+    setNotice(`Test gift of ${formatUsdc(amount)} USDC recorded. It increases creator support and your generosity reputation; no funds moved.`);
   }
 
   async function submitProfile(event: FormEvent<HTMLFormElement>) {
@@ -490,7 +539,7 @@ export function DiscoveryApp() {
       </section>
 
       <section className="crypto-section">
-        <div className="crypto-copy"><span className="section-kicker">USDC-READY ACCESS</span><h2>Your wallet is the key.<br/>Not the price of entry.</h2><p>Crypto Sugar supports free wallet authentication on Base and Solana. Connecting proves wallet ownership; it never gives us custody or permission to move funds.</p><ul><li><Icon name="check" size={16}/>MetaMask, Binance, Trust, Rabby, and Coinbase on Base</li><li><Icon name="check" size={16}/>Solflare and Phantom on Solana</li><li><Icon name="check" size={16}/>WalletConnect for compatible mobile wallets</li><li><Icon name="check" size={16}/>No charge to create or publish an approved profile</li></ul></div>
+        <div className="crypto-copy"><span className="section-kicker">USDC-READY ACCESS</span><h2>Your wallet is the key.<br/>Not the price of entry.</h2><p>Crypto Sugar supports free wallet authentication on Base and Solana. Connecting proves wallet ownership; it never gives us custody or permission to move funds.</p><ul><li><Icon name="check" size={16}/>MetaMask, Binance, Trust, Rabby, and Coinbase on Base</li><li><Icon name="check" size={16}/>Solflare and Phantom on Solana</li><li><Icon name="check" size={16}/>Messages are free; boosts, paid likes, and gifts are optional</li><li><Icon name="check" size={16}/>No charge to create or publish an approved profile</li></ul></div>
         <div className="access-card"><div className="access-orbit"><Icon name="spark" size={28}/></div><span>FREE MEMBERSHIP</span><h3>Make an entrance.</h3><p>Create a private draft, preview it instantly, and submit it for review when you are ready.</p><div className="access-networks"><span><i className="base-symbol">B</i>Base</span><span><i className="solana-symbol">S</i>Solana</span></div><button className="primary-button full" onClick={openProfileCreator}>Create your profile <Icon name="arrow" size={18}/></button><small>No profile fees. No boost charges. No recovery phrase—ever.</small></div>
       </section>
 
@@ -505,18 +554,19 @@ export function DiscoveryApp() {
             <button className="modal-close" onClick={() => setActiveProfile(null)} aria-label="Close profile"><Icon name="close" size={20}/></button>
             <div className="profile-media-column">
               <ProfileArtwork profile={activeProfile} large/>
-              <button className="photo-like-button" onClick={() => likeFeaturedPhoto(activeProfile)}><Icon name="heart" size={17}/><span>Like featured photo</span><strong>{PHOTO_LIKE_PRICE_USDC.toFixed(2)} USDC</strong></button>
-              <small>{stats.likes.toLocaleString()} paid likes · Creator receives {PHOTO_LIKE_CREATOR_SHARE_USDC.toFixed(2)} USDC</small>
+              <button className="photo-like-button" onClick={() => likeFeaturedPhoto(activeProfile)}><Icon name="heart" size={17}/><span>Send a paid like</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></button>
+              <small>{stats.likes.toLocaleString()} paid likes · Creator receives {formatUsdc(creatorShareUsdc(stats.likePrice))} USDC</small>
             </div>
             <div className="modal-content">
               <span className="verified-line"><Icon name="shield" size={15}/>{activeProfile.verified ? "Identity verified · 18+" : "Private draft · Not yet reviewed"}</span>
               <h2 id="profile-modal-title">{activeProfile.name}, {activeProfile.age}</h2><p className="location">{activeProfile.city} · {activeProfile.country}</p>
               <h3>{activeProfile.headline}</h3><p className="modal-bio">{activeProfile.bio}</p>
-              <div className="creator-stats"><div><span>RATING</span><strong>{stats.points} pts</strong></div><div><span>MESSAGES</span><strong>{(stats.sent + stats.received).toLocaleString()}</strong></div><div><span>YOUR MESSAGE</span><strong>{formatUsdc(stats.price)} USDC</strong></div></div>
-              <div className="rating-progress"><span style={{ width: `${stats.progress}%` }}/></div><p className="rating-note">{100 - stats.progress} more messages until the next +5 rating points.</p>
+              <div className="creator-stats"><div><span>SUPPORT SCORE</span><strong>{stats.points} pts</strong></div><div><span>PAID LIKES</span><strong>{stats.likes.toLocaleString()}</strong></div><div><span>NEXT LIKE</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></div></div>
+              <div className="rating-progress"><span style={{ width: `${stats.progress}%` }}/></div><p className="rating-note">{100 - stats.progress} more paid likes until the next 0.1% like-value increase.</p>
               <div className="tag-row large">{activeProfile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-              <div className="modal-actions"><button className="primary-button" onClick={() => openMessage(activeProfile)}><Icon name="message" size={17}/>Message · {formatUsdc(stats.price)} USDC</button><button className={`heart-action ${favorites.has(activeProfile.id) ? "active" : ""}`} onClick={() => toggleFavorite(activeProfile.id)}><Icon name="heart" size={19} filled={favorites.has(activeProfile.id)}/></button></div>
-              <p className="modal-footnote">Creators send messages free. Incoming message price rises 0.1% per rating point. Test mode does not move funds.</p>
+              {wallet && supportGivenUsdc > 0 && <div className="generosity-badge"><Icon name="spark" size={15}/><span>Your generosity</span><strong>{generosityLevel(generosityPoints(supportGivenUsdc))} · {generosityPoints(supportGivenUsdc)} pts</strong></div>}
+              <div className="modal-actions"><button className="primary-button" onClick={() => openMessage(activeProfile)}><Icon name="message" size={17}/>Message · Free</button><button className="gift-action" onClick={() => openGift(activeProfile)}><Icon name="spark" size={16}/>Gift</button><button className={`heart-action ${favorites.has(activeProfile.id) ? "active" : ""}`} onClick={() => toggleFavorite(activeProfile.id)}><Icon name="heart" size={19} filled={favorites.has(activeProfile.id)}/></button></div>
+              <p className="modal-footnote">Messages are free. Optional boosted messages, paid likes, and gifts raise support and generosity visibility. Test mode does not move funds.</p>
             </div>
           </section>
         </div>;
@@ -528,10 +578,26 @@ export function DiscoveryApp() {
           <section className="message-modal" role="dialog" aria-modal="true" aria-labelledby="message-title">
             <button className="modal-close" onClick={() => setMessageTarget(null)} aria-label="Close message"><Icon name="close" size={20}/></button>
             <span className="section-kicker">PRIVATE INTRODUCTION</span><h2 id="message-title">Message {messageTarget.name}.</h2>
-            <p className="wallet-intro">Creators reply free. Your message price reflects {messageTarget.name}&apos;s current engagement rating.</p>
+            <p className="wallet-intro">Every normal message is free. You may optionally attach a boost so your introduction is highlighted and your generosity reputation grows.</p>
             <form onSubmit={sendTestMessage}><label className="message-field"><span>YOUR MESSAGE</span><textarea required maxLength={800} autoFocus value={messageText} onChange={(event) => setMessageText(event.target.value)} placeholder="Start with something thoughtful…"/><small>{messageText.length}/800</small></label>
-              <div className="message-checkout"><div><span>Creator rating</span><strong>{stats.points} points</strong></div><div><span>Base price</span><strong>0.30 USDC</strong></div><div className="message-total"><span>Your message</span><strong>{formatUsdc(stats.price)} USDC</strong></div></div>
-              <button className="primary-button full" type="submit">Test send · {formatUsdc(stats.price)} USDC <Icon name="arrow" size={18}/></button><p className="checkout-note"><Icon name="lock" size={13}/>Test mode records engagement but does not transfer USDC.</p>
+              <div className="boost-panel"><div><span>OPTIONAL MESSAGE BOOST</span><small>Boosted introductions receive priority placement.</small></div><div className="preset-buttons"><button type="button" className={!messageBoostAmount ? "active" : ""} onClick={() => setMessageBoostAmount("")}>Free</button>{[5, 10, 25].map((amount) => <button type="button" className={messageBoostAmount === String(amount) ? "active" : ""} onClick={() => setMessageBoostAmount(String(amount))} key={amount}>{amount} USDC</button>)}</div><label><span>Custom boost</span><input type="number" min="0" max="100000" step="0.01" value={messageBoostAmount} onChange={(event) => setMessageBoostAmount(event.target.value)} placeholder="0.00"/></label></div>
+              <div className="message-checkout"><div><span>Normal message</span><strong>Free</strong></div><div><span>Creator support score</span><strong>{stats.points} points</strong></div><div className="message-total"><span>{messageBoostAmount ? "Optional boost" : "Amount due"}</span><strong>{messageBoostAmount ? `${formatUsdc(Number(messageBoostAmount) || 0)} USDC` : "Free"}</strong></div></div>
+              <button className="primary-button full" type="submit">{messageBoostAmount ? `Test boost & send · ${formatUsdc(Number(messageBoostAmount) || 0)} USDC` : "Send free message"} <Icon name="arrow" size={18}/></button><p className="checkout-note"><Icon name="lock" size={13}/>Test mode records the choice but does not transfer USDC or save the conversation yet.</p>
+            </form>
+          </section>
+        </div>;
+      })()}
+
+      {giftTarget && (() => {
+        const amount = Number(giftAmount) || 0;
+        return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setGiftTarget(null); }}>
+          <section className="message-modal gift-modal" role="dialog" aria-modal="true" aria-labelledby="gift-title">
+            <button className="modal-close" onClick={() => setGiftTarget(null)} aria-label="Close gift"><Icon name="close" size={20}/></button>
+            <span className="section-kicker">A GENEROUS GESTURE</span><h2 id="gift-title">Gift {giftTarget.name}.</h2>
+            <p className="wallet-intro">Choose any amount. Gifts increase {giftTarget.name}&apos;s support score and build your public generosity reputation as a supporter.</p>
+            <form onSubmit={sendTestGift}><div className="preset-buttons gift-presets">{[5, 25, 50, 100].map((preset) => <button type="button" className={giftAmount === String(preset) ? "active" : ""} onClick={() => setGiftAmount(String(preset))} key={preset}>{preset} USDC</button>)}</div><label className="gift-amount"><span>CUSTOM GIFT</span><input type="number" min="1" max="100000" step="0.01" required value={giftAmount} onChange={(event) => setGiftAmount(event.target.value)} placeholder="25.00"/></label>
+              <div className="message-checkout"><div><span>Creator receives 90%</span><strong>{formatUsdc(creatorShareUsdc(amount))} USDC</strong></div><div><span>Platform receives 10%</span><strong>{formatUsdc(platformShareUsdc(amount))} USDC</strong></div><div className="message-total"><span>Your generosity after gift</span><strong>{generosityLevel(generosityPoints(supportGivenUsdc + amount))}</strong></div></div>
+              <button className="primary-button full" type="submit">Test gift · {formatUsdc(amount)} USDC <Icon name="arrow" size={18}/></button><p className="checkout-note"><Icon name="lock" size={13}/>Test mode only. No funds move and no public supporter profile is created yet.</p>
             </form>
           </section>
         </div>;

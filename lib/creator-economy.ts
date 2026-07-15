@@ -1,18 +1,40 @@
-export const BASE_MESSAGE_PRICE_USDC = 0.3;
-export const RATING_POINTS_PER_100_MESSAGES = 5;
-export const PRICE_INCREASE_PER_POINT = 0.001;
-export const PHOTO_LIKE_PRICE_USDC = 0.11;
-export const PHOTO_LIKE_PLATFORM_FEE_USDC = 0.01;
-export const PHOTO_LIKE_CREATOR_SHARE_USDC = PHOTO_LIKE_PRICE_USDC - PHOTO_LIKE_PLATFORM_FEE_USDC;
-const BASE_MESSAGE_PRICE_MICRO_USDC = 300_000;
+export const BASE_PHOTO_LIKE_PRICE_USDC = 5;
+export const LIKE_PRICE_INCREASE_PER_100 = 0.001;
+export const CREATOR_SHARE_BPS = 9_000;
+export const PLATFORM_SHARE_BPS = 1_000;
+export const CREATOR_POINTS_PER_100_LIKES = 5;
 
-export function creatorRatingPoints(messagesSent: number, messagesReceived: number) {
-  return Math.floor((messagesSent + messagesReceived) / 100) * RATING_POINTS_PER_100_MESSAGES;
+function roundUsdc(value: number) {
+  return Math.round(value * 1_000_000) / 1_000_000;
 }
 
-export function messagePriceUsdc(points: number) {
-  const priceIncreaseMicroUsdc = Math.round(BASE_MESSAGE_PRICE_MICRO_USDC * PRICE_INCREASE_PER_POINT * points);
-  return (BASE_MESSAGE_PRICE_MICRO_USDC + priceIncreaseMicroUsdc) / 1_000_000;
+export function photoLikePriceUsdc(paidLikes: number) {
+  const completedHundreds = Math.floor(Math.max(0, paidLikes) / 100);
+  return roundUsdc(BASE_PHOTO_LIKE_PRICE_USDC * (1 + completedHundreds * LIKE_PRICE_INCREASE_PER_100));
+}
+
+export function creatorShareUsdc(amount: number) {
+  return roundUsdc(amount * CREATOR_SHARE_BPS / 10_000);
+}
+
+export function platformShareUsdc(amount: number) {
+  return roundUsdc(amount * PLATFORM_SHARE_BPS / 10_000);
+}
+
+export function creatorSupportPoints(paidLikes: number, giftsUsdc: number) {
+  return Math.floor(Math.max(0, paidLikes) / 100) * CREATOR_POINTS_PER_100_LIKES + Math.floor(Math.max(0, giftsUsdc));
+}
+
+export function generosityPoints(totalSupportUsdc: number) {
+  return Math.floor(Math.max(0, totalSupportUsdc));
+}
+
+export function generosityLevel(points: number) {
+  if (points >= 500) return "Legendary Patron";
+  if (points >= 100) return "Golden Patron";
+  if (points >= 25) return "Generous Gentleman";
+  if (points >= 5) return "Thoughtful Supporter";
+  return "New Supporter";
 }
 
 export function formatUsdc(value: number) {
