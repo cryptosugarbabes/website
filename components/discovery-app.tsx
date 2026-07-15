@@ -152,6 +152,7 @@ export function DiscoveryApp() {
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState("");
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
+  const [walletContext, setWalletContext] = useState<"general" | "profile">("general");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -181,6 +182,13 @@ export function DiscoveryApp() {
   const [paymentBusy, setPaymentBusy] = useState(false);
   const evmProviderRef = useRef<EthereumProvider | null>(null);
   const solanaProviderRef = useRef<SolanaProvider | null>(null);
+  const profileIntentRef = useRef(false);
+
+  function showWalletPicker(context: "general" | "profile" = "general") {
+    setWalletContext(context);
+    if (context !== "profile") profileIntentRef.current = false;
+    setWalletPickerOpen(true);
+  }
 
   useEffect(() => {
     fetch("/api/auth/session").then((response) => response.json()).then(async (data: { address: string | null; chain: WalletChain | null }) => {
@@ -229,7 +237,7 @@ export function DiscoveryApp() {
   }
 
   async function openInbox() {
-    if (!wallet) { setWalletPickerOpen(true); return; }
+    if (!wallet) { showWalletPicker(); return; }
     if (!accountType) { setAccountOpen(true); return; }
     try { await loadMessages(true); } catch (error) { setWalletError(error instanceof Error ? error.message : "Messages could not be loaded."); }
   }
@@ -285,7 +293,14 @@ export function DiscoveryApp() {
     setWalletName(name);
     setWalletPickerOpen(false);
     setNotice(`${name} connected. Welcome to Crypto Sugar.`);
-    await Promise.all([loadPersistedProfiles(), loadAccount(true), loadFavorites()]);
+    const [, account] = await Promise.all([loadPersistedProfiles(), loadAccount(true), loadFavorites()]);
+    if (profileIntentRef.current && account?.type === "CREATOR") {
+      profileIntentRef.current = false;
+      setProfileOpen(true);
+    } else if (profileIntentRef.current && account?.type === "CUSTOMER") {
+      profileIntentRef.current = false;
+      setNotice("Sugar Daddy accounts stay private and cannot publish creator profiles.");
+    }
   }
 
   async function authenticateEvmProvider(provider: EthereumProvider, label: string) {
@@ -377,6 +392,7 @@ export function DiscoveryApp() {
     setWalletChain(null);
     setWalletName("");
     setAccountType(null);
+    profileIntentRef.current = false;
     setFavorites(new Set());
     setConversations([]);
     evmProviderRef.current = null;
@@ -392,7 +408,7 @@ export function DiscoveryApp() {
     }
     if (!wallet) {
       setWalletError("Connect your wallet to save favorites.");
-      setWalletPickerOpen(true);
+      showWalletPicker();
       return;
     }
     const response = await fetch("/api/favorites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profileId: profile.id }) });
@@ -408,15 +424,27 @@ export function DiscoveryApp() {
 
   function openProfileCreator() {
     setWalletError("");
-    if (wallet && accountType === "CUSTOMER") {
+    profileIntentRef.current = true;
+    if (!wallet) {
+      setNotice("Connect a wallet before creating a profile.");
+      showWalletPicker("profile");
+      return;
+    }
+    if (!accountType) {
+      setAccountOpen(true);
+      return;
+    }
+    if (accountType === "CUSTOMER") {
+      profileIntentRef.current = false;
       setNotice("Sugar Daddy accounts stay private and cannot publish creator profiles.");
       return;
     }
+    profileIntentRef.current = false;
     setProfileOpen(true);
   }
 
   async function saveAccount(type: AccountType) {
-    if (!wallet) { setWalletPickerOpen(true); return; }
+    if (!wallet) { showWalletPicker(); return; }
     if (type === "CUSTOMER" && !accountDisplayName.trim()) { setWalletError("Add a private display name for your customer account."); return; }
     setAccountSaving(true); setWalletError("");
     try {
@@ -425,6 +453,7 @@ export function DiscoveryApp() {
       if (!response.ok) throw new Error(data.error || "Your account could not be saved.");
       setAccountType(type);
       setAccountOpen(false);
+      profileIntentRef.current = false;
       setNotice(type === "CREATOR" ? "Creator account ready. Build your public profile next." : "Private Sugar Daddy account ready.");
       if (type === "CREATOR") setProfileOpen(true);
     } catch (error) { setWalletError(error instanceof Error ? error.message : "Your account could not be saved."); }
@@ -471,7 +500,7 @@ export function DiscoveryApp() {
   function openMessage(profile: Profile) {
     if (!wallet) {
       setWalletError("Connect a wallet before starting a conversation.");
-      setWalletPickerOpen(true);
+      showWalletPicker();
       return;
     }
     if (profile.sample) { setNotice("Editorial samples cannot receive messages. Try an approved creator profile."); return; }
@@ -580,7 +609,7 @@ export function DiscoveryApp() {
 
   async function settlePayment(profile: Profile, kind: PaymentKind, amountUsdc?: string) {
     if (profile.sample) { setNotice("Editorial samples cannot receive real payments."); return; }
-    if (!wallet) { setWalletError("Connect a matching wallet before paying."); setWalletPickerOpen(true); return; }
+    if (!wallet) { setWalletError("Connect a matching wallet before paying."); showWalletPicker(); return; }
     if (!accountType) { setAccountOpen(true); return; }
     if (accountType !== "CUSTOMER") { setNotice("Only private customer accounts can send paid support."); return; }
     setPaymentBusy(true); setWalletError("");
@@ -610,7 +639,7 @@ export function DiscoveryApp() {
   function openGift(profile: Profile) {
     if (!wallet) {
       setWalletError("Connect a wallet before sending a gift.");
-      setWalletPickerOpen(true);
+      showWalletPicker();
       return;
     }
     setGiftAmount("25");
@@ -635,7 +664,8 @@ export function DiscoveryApp() {
     setWalletError("");
     if (!wallet) {
       setWalletError("Connect and verify a wallet before saving your profile.");
-      setWalletPickerOpen(true);
+      profileIntentRef.current = true;
+      showWalletPicker("profile");
       return;
     }
     const age = Number(profileForm.age);
@@ -694,7 +724,7 @@ export function DiscoveryApp() {
           {wallet && accountType && <button className="text-button inbox-button" onClick={openInbox}>Inbox</button>}
           {wallet && !accountType && <button className="text-button" onClick={() => setAccountOpen(true)}>Choose account</button>}
           {wallet ? <button className="wallet-button connected" onClick={disconnectWallet} title="Click to sign out"><span className="online-dot"/>{accountType === "CREATOR" ? "Creator" : accountType === "CUSTOMER" ? "Customer" : walletName || (walletChain === "solana" ? "Solana" : "Base")} · {shortAddress(wallet)}</button>
-            : <button className="wallet-button" onClick={() => { setWalletError(""); setWalletPickerOpen(true); }}><Icon name="wallet" size={17}/>Connect wallet</button>}
+            : <button className="wallet-button" onClick={() => { setWalletError(""); showWalletPicker(); }}><Icon name="wallet" size={17}/>Connect wallet</button>}
         </div>
       </header>
 
@@ -810,7 +840,7 @@ export function DiscoveryApp() {
         return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInboxOpen(false); }}><section className="inbox-modal" role="dialog" aria-modal="true" aria-labelledby="inbox-title"><button className="modal-close" onClick={() => setInboxOpen(false)} aria-label="Close inbox"><Icon name="close" size={20}/></button><div className="inbox-sidebar"><span className="section-kicker">PRIVATE MESSAGES</span><h2 id="inbox-title">Inbox</h2>{conversations.length ? conversations.map((conversation) => <button className={conversation.id === activeConversation?.id ? "active" : ""} onClick={() => setActiveConversationId(conversation.id)} key={conversation.id}>{conversation.imageUrl ? <img src={conversation.imageUrl} alt=""/> : <span>{conversation.counterpartName.slice(0, 1).toUpperCase()}</span>}<div><strong>{conversation.counterpartName}</strong><small>{conversation.messages.at(-1)?.body || "New conversation"}</small></div></button>) : <p className="inbox-empty">No conversations yet.</p>}</div><div className="conversation-panel">{activeConversation ? <><header><strong>{activeConversation.counterpartName}</strong><span>Wallet-authenticated conversation</span></header><div className="message-thread">{activeConversation.messages.map((message) => <div className={message.mine ? "message-bubble mine" : "message-bubble"} key={message.id}><p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small></div>)}</div><form onSubmit={sendReply}><textarea required maxLength={800} value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a reply…"/><button className="primary-button" type="submit" disabled={messageBusy}>{messageBusy ? "Sending…" : "Send"}</button></form></> : <div className="conversation-empty"><Icon name="message" size={31}/><h3>Your private conversations</h3><p>Open an approved creator profile to begin a free conversation.</p></div>}</div></section></div>;
       })()}
 
-      {walletPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !walletBusy) setWalletPickerOpen(false); }}><section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title"><button className="modal-close" onClick={() => setWalletPickerOpen(false)} aria-label="Close wallet options"><Icon name="close" size={20}/></button><span className="section-kicker">SIGN IN WITHOUT GAS</span><h2 id="wallet-title">Choose your wallet.</h2><p className="wallet-intro">Connecting requests a free signature to verify ownership. It does not give Crypto Sugar permission to move funds.</p><div className="wallet-options"><button onClick={() => connectEvmWallet("browser")} disabled={walletBusy}><span className="wallet-logo base-logo">B</span><span><strong>Base browser wallet</strong><small>MetaMask · Rabby · Coinbase</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("binance")} disabled={walletBusy}><span className="wallet-logo binance-logo">B</span><span><strong>Binance Wallet</strong><small>Browser or Binance app</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("trust")} disabled={walletBusy}><span className="wallet-logo trust-logo">T</span><span><strong>Trust Wallet</strong><small>Browser extension</small></span><Icon name="arrow" size={18}/></button><button onClick={connectWalletConnect} disabled={walletBusy}><span className="wallet-logo walletconnect-logo">W</span><span><strong>WalletConnect</strong><small>Trust · Binance · compatible mobile wallets</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("solflare")} disabled={walletBusy}><span className="wallet-logo solflare-logo">S</span><span><strong>Solflare</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("phantom")} disabled={walletBusy}><span className="wallet-logo phantom-logo">P</span><span><strong>Phantom</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button></div>{walletError && <div className="form-error">{walletError}</div>}<div className="wallet-setup"><strong>Don&apos;t have a wallet?</strong><span>Set one up with <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, <a href="https://www.solflare.com/" target="_blank" rel="noreferrer">Solflare</a>, <a href="https://phantom.com/download" target="_blank" rel="noreferrer">Phantom</a>, <a href="https://www.binance.com/en/web3wallet" target="_blank" rel="noreferrer">Binance</a>, or <a href="https://trustwallet.com/download" target="_blank" rel="noreferrer">Trust Wallet</a>.</span></div><p className="wallet-safety"><Icon name="lock" size={14}/>We never request your seed phrase or private key.</p></section></div>}
+      {walletPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !walletBusy) setWalletPickerOpen(false); }}><section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title"><button className="modal-close" onClick={() => setWalletPickerOpen(false)} aria-label="Close wallet options"><Icon name="close" size={20}/></button><span className="section-kicker">{walletContext === "profile" ? "CONNECT BEFORE CREATING" : "SIGN IN WITHOUT GAS"}</span><h2 id="wallet-title">Choose your wallet.</h2><p className="wallet-intro">{walletContext === "profile" ? "Connect a wallet before creating a profile. After signing in, choose whether this wallet belongs to a Sugar Babe creator or a private Sugar Daddy customer." : "Connecting requests a free signature to verify ownership. It does not give Crypto Sugar permission to move funds."}</p><div className="wallet-options"><button onClick={() => connectEvmWallet("browser")} disabled={walletBusy}><span className="wallet-logo base-logo">B</span><span><strong>Base browser wallet</strong><small>MetaMask · Rabby · Coinbase</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("binance")} disabled={walletBusy}><span className="wallet-logo binance-logo">B</span><span><strong>Binance Wallet</strong><small>Browser or Binance app</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("trust")} disabled={walletBusy}><span className="wallet-logo trust-logo">T</span><span><strong>Trust Wallet</strong><small>Browser extension</small></span><Icon name="arrow" size={18}/></button><button onClick={connectWalletConnect} disabled={walletBusy}><span className="wallet-logo walletconnect-logo">W</span><span><strong>WalletConnect</strong><small>Trust · Binance · compatible mobile wallets</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("solflare")} disabled={walletBusy}><span className="wallet-logo solflare-logo">S</span><span><strong>Solflare</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("phantom")} disabled={walletBusy}><span className="wallet-logo phantom-logo">P</span><span><strong>Phantom</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button></div>{walletError && <div className="form-error">{walletError}</div>}<div className="wallet-setup"><strong>Don&apos;t have a wallet?</strong><span>Set one up with <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, <a href="https://www.solflare.com/" target="_blank" rel="noreferrer">Solflare</a>, <a href="https://phantom.com/download" target="_blank" rel="noreferrer">Phantom</a>, <a href="https://www.binance.com/en/web3wallet" target="_blank" rel="noreferrer">Binance</a>, or <a href="https://trustwallet.com/download" target="_blank" rel="noreferrer">Trust Wallet</a>.</span></div><p className="wallet-safety"><Icon name="lock" size={14}/>We never request your seed phrase or private key.</p></section></div>}
 
       {profileOpen && <div className="modal-backdrop profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}><section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><button className="modal-close" onClick={() => setProfileOpen(false)} aria-label="Close profile creator"><Icon name="close" size={20}/></button><div className="create-heading"><span className="section-kicker">YOUR PRIVATE INTRODUCTION</span><h2 id="create-title">Create your profile.</h2><p>Preview a free draft now. Public profiles require review and adult attestation before discovery.</p></div><form onSubmit={submitProfile}>
         <div className="photo-field"><label className={profilePhotos.length ? "has-photo" : ""}>{profilePhotos.length ? <div className="photo-preview-grid">{profilePhotos.slice(0, 4).map((photo, index) => <img src={photo} alt={`Profile preview ${index + 1}`} key={`${photo.slice(-24)}-${index}`}/>)}</div> : <span><Icon name="camera" size={28}/><strong>Add up to 20 photos</strong><small>JPG, PNG or WebP · 5 MB each</small></span>}<input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={profileSaving} onChange={(event) => handlePhotos(event.target.files)}/></label><div><strong>Your photo collection</strong><p>Photos are optimized, stripped of location metadata, and kept private until approval.</p><small>{profilePhotos.length}/20 photos selected</small>{profilePhotos.length > 0 && <button type="button" disabled={profileSaving} onClick={() => { setProfilePhotos([]); setProfileFiles([]); }}>Remove all</button>}</div></div>
