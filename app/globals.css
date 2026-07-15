@@ -48,6 +48,12 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
 .brand span { display: inline-block; font-family: "Luxurious Script", "Playfair Display", cursive; font-size: 34px; font-weight: 400; letter-spacing: .012em; line-height: 1.32; padding: .05em .06em .24em; margin: -.05em -.06em -.24em; white-space: nowrap; background: linear-gradient(100deg, #fff4f8 5%, #f3b5d2 52%, #e0ba78 100%); color: transparent; background-clip: text; -webkit-background-clip: text; filter: drop-shadow(0 5px 18px rgba(194,75,120,.18)); overflow: visible; }
 .brand-logo-image { width: 58px; height: 58px; object-fit: contain; border-radius: 50%; filter: drop-shadow(0 0 13px rgba(238,74,143,.22)); }
 .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid rgba(214,178,118,.7); border-radius: 50%; color: var(--gold); }
+.brand-social { display: inline-flex; align-items: center; gap: 11px; min-width: 0; width: fit-content; }
+.instagram-link { width: 32px; height: 32px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid rgba(237,137,180,.28); border-radius: 10px; color: #e5a5c2; background: rgba(206,67,126,.07); transition: color .2s ease, border-color .2s ease, background .2s ease, transform .2s ease; }
+.instagram-link svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.instagram-link .instagram-dot { fill: currentColor; stroke: none; }
+.instagram-link:hover { color: #fff3f8; border-color: rgba(244,105,169,.72); background: linear-gradient(135deg, rgba(131,58,180,.28), rgba(253,29,29,.2) 55%, rgba(252,176,69,.2)); transform: translateY(-1px); }
+.instagram-link:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .site-header nav { display: flex; gap: 34px; color: #d6cdd3; font-size: 13px; }
 .site-header nav a { transition: color .2s ease; }
 .site-header nav a:hover { color: white; }
@@ -239,7 +245,8 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
 
 footer { max-width: 1200px; margin: 0 auto; padding: 0 0 45px; display: flex; align-items: center; justify-content: space-between; color: #716671; font-size: 10px; }
 footer .brand { color: #b7aab2; }
-footer > div { display: flex; gap: 24px; }
+footer > .footer-links { display: flex; gap: 24px; }
+footer .instagram-link { width: 30px; height: 30px; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(8,6,9,.82); backdrop-filter: blur(10px); display: grid; place-items: center; padding: 22px; animation: fade-in .2s ease; }
 .profile-modal { width: min(940px, 100%); display: grid; grid-template-columns: 44% 56%; background: #171218; border: 1px solid rgba(255,255,255,.13); border-radius: 22px; overflow: hidden; position: relative; box-shadow: 0 50px 100px rgba(0,0,0,.55); }
@@ -318,7 +325,7 @@ footer > div { display: flex; gap: 24px; }
 .legal-sections { display: grid; gap: 44px; padding-top: 54px; }
 .legal-sections section { max-width: 780px; }.legal-sections h2 { color: #f0e3e9; font-family: "Playfair Display", Georgia, serif; font-size: 28px; font-weight: 500; margin: 0 0 16px; }
 .legal-sections p, .legal-sections li { color: #aa9da6; font-size: 12px; line-height: 1.85; }.legal-sections p { margin: 0 0 12px; }.legal-sections ul { margin: 8px 0 0; padding-left: 20px; }.legal-sections li { margin: 8px 0; padding-left: 5px; }
-.legal-footer { max-width: 1120px; margin: 0 auto; padding: 28px; border-top: 1px solid var(--line); color: #756a72; font-size: 10px; display: flex; justify-content: space-between; gap: 24px; }.legal-footer nav { display: flex; gap: 24px; }.legal-footer a:hover { color: var(--gold); }
+.legal-footer { max-width: 1120px; margin: 0 auto; padding: 28px; border-top: 1px solid var(--line); color: #756a72; font-size: 10px; display: flex; justify-content: space-between; gap: 24px; }.legal-footer-brand { display: flex; align-items: center; gap: 10px; }.legal-footer .instagram-link { width: 28px; height: 28px; }.legal-footer nav { display: flex; align-items: center; gap: 24px; }.legal-footer a:hover { color: var(--gold); }
 .legal-action { display: inline-flex; margin-top: 14px; color: var(--gold); border-bottom: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); padding-bottom: 3px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 
 .create-modal { width: min(880px, 100%); max-height: 92vh; overflow-y: auto; background: #171117; border: 1px solid rgba(255,255,255,.14); border-radius: 24px; position: relative; padding: 46px 50px 40px; box-shadow: 0 50px 120px rgba(0,0,0,.65); }
@@ -410,7 +417,7 @@ footer > div { display: flex; gap: 24px; }
 }
 
 @media (max-width: 620px) {
-  .site-header { padding: 0 14px; }.brand { gap: 7px; }.brand span { font-size: 25px; letter-spacing: 0; line-height: 1.38; }.brand-logo-image { width: 45px; height: 45px; }
+  .site-header { padding: 0 14px; }.brand { gap: 7px; }.brand-social { gap: 5px; }.brand span { font-size: 22px; letter-spacing: 0; line-height: 1.38; }.brand-logo-image { width: 45px; height: 45px; }.site-header .instagram-link { width: 28px; height: 28px; border-radius: 8px; }.site-header .instagram-link svg { width: 15px; height: 15px; }
   .wallet-button { padding: 0 10px; font-size: 10px; }
   .wallet-button svg { display: none; }
   .inbox-button { font-size: 0; }

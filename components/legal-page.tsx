@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InstagramLink } from "@/components/instagram-link";
 
 type LegalSection = {
   title: string;
@@ -20,10 +21,13 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: {
   return (
     <main className="legal-shell">
       <header className="legal-header">
-        <Link className="brand" href="/" aria-label="Crypto Sugar home">
-          <img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/>
-          <span>Crypto Sugar Babes</span>
-        </Link>
+        <div className="brand-social">
+          <Link className="brand" href="/" aria-label="Crypto Sugar home">
+            <img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/>
+            <span>Crypto Sugar Babes</span>
+          </Link>
+          <InstagramLink/>
+        </div>
         <Link className="legal-back" href="/">Back to the site</Link>
       </header>
       <article className="legal-document">
@@ -45,7 +49,7 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: {
         </div>
       </article>
       <footer className="legal-footer">
-        <span>© 2026 Crypto Sugar Babes. Adults only.</span>
+        <div className="legal-footer-brand"><span>© 2026 Crypto Sugar Babes. Adults only.</span><InstagramLink/></div>
         <nav><Link href="/safety">Safety</Link><Link href="/disputes">Disputes</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
       </footer>
     </main>
