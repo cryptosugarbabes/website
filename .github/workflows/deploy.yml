@@ -57,10 +57,21 @@ jobs:
           tar -C release -czf cryptosugarbabes-release.tgz .
 
       - name: Configure VPS access
+        env:
+          VPS_SSH_KEY_B64: ${{ secrets.VPS_SSH_KEY_B64 }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/cryptosugarbabes_vps
+          if [ -n "$VPS_SSH_KEY_B64" ]; then
+            printf '%s' "$VPS_SSH_KEY_B64" | base64 --decode > ~/.ssh/cryptosugarbabes_vps
+          else
+            printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/cryptosugarbabes_vps
+          fi
           chmod 600 ~/.ssh/cryptosugarbabes_vps
+          ssh-keygen -y -f ~/.ssh/cryptosugarbabes_vps >/dev/null || {
+            echo "The VPS SSH key secret is missing or invalid. Add VPS_SSH_KEY_B64 as a repository secret."
+            exit 1
+          }
           ssh-keyscan -H 161.35.17.40 >> ~/.ssh/known_hosts
 
       - name: Upload release
