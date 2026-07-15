@@ -13,6 +13,7 @@ export type Profile = {
   colors: [string, string, string];
   motif: string;
   imageUrl?: string;
+  sample?: boolean;
   photos?: string[];
   messagesSent?: number;
   messagesReceived?: number;
@@ -36,6 +37,8 @@ export const profiles: Profile[] = [
     tags: ["Art", "Sailing", "Fine dining"],
     colors: ["#c99579", "#55304a", "#1d1321"],
     motif: "coast",
+    imageUrl: "/editorial/amara.webp",
+    sample: true,
     messagesSent: 162,
     messagesReceived: 214,
     photoLikes: 438
@@ -54,6 +57,8 @@ export const profiles: Profile[] = [
     tags: ["Architecture", "Jazz", "Travel"],
     colors: ["#bf9084", "#3c3142", "#15151a"],
     motif: "city",
+    imageUrl: "/editorial/celine.webp",
+    sample: true,
     messagesSent: 91,
     messagesReceived: 108,
     photoLikes: 286
@@ -72,6 +77,8 @@ export const profiles: Profile[] = [
     tags: ["Fashion", "Books", "Weekends away"],
     colors: ["#d8b079", "#784b49", "#23161d"],
     motif: "sunset",
+    imageUrl: "/editorial/sofia.webp",
+    sample: true,
     messagesSent: 334,
     messagesReceived: 477,
     photoLikes: 913
@@ -90,6 +97,8 @@ export const profiles: Profile[] = [
     tags: ["Startups", "Wellness", "Design"],
     colors: ["#e1bc8d", "#7a5647", "#251b21"],
     motif: "dunes",
+    imageUrl: "/editorial/maya.webp",
+    sample: true,
     messagesSent: 58,
     messagesReceived: 75,
     photoLikes: 167
@@ -108,6 +117,8 @@ export const profiles: Profile[] = [
     tags: ["Food", "Photography", "Culture"],
     colors: ["#dc8d76", "#6b3547", "#23151f"],
     motif: "terrace",
+    imageUrl: "/editorial/elena.webp",
+    sample: true,
     messagesSent: 219,
     messagesReceived: 301,
     photoLikes: 641
@@ -126,6 +137,8 @@ export const profiles: Profile[] = [
     tags: ["Theatre", "Museums", "Country escapes"],
     colors: ["#b9908d", "#493847", "#17151c"],
     motif: "night",
+    imageUrl: "/editorial/naomi.webp",
+    sample: true,
     messagesSent: 703,
     messagesReceived: 818,
     photoLikes: 1284

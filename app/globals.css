@@ -119,6 +119,7 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
 .trust-row span { display: flex; align-items: center; gap: 8px; }
 .hero-editorial { min-height: 620px; position: relative; overflow: hidden; border-radius: 280px 280px 24px 24px; background: radial-gradient(circle at 65% 24%, #9b5065, #3d1829 42%, #130c12 75%); box-shadow: 0 45px 120px rgba(0,0,0,.55); }
 .hero-editorial::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(11,8,12,.38), transparent 40%), linear-gradient(to top, rgba(11,8,12,.78), transparent 48%); }
+.hero-editorial-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 48% center; filter: saturate(.78) contrast(1.06) brightness(.86); }
 .editorial-city { position: absolute; inset: 48% 0 0; opacity: .32; display: flex; align-items: flex-end; gap: 7px; padding: 0 6%; filter: blur(.2px); }
 .editorial-city i { flex: 1; height: 45%; background: linear-gradient(to top,#0e0910,#5a263d); clip-path: polygon(0 18%,22% 18%,22% 0,46% 0,46% 25%,69% 25%,69% 10%,100% 10%,100% 100%,0 100%); }
 .editorial-city i:nth-child(2) { height: 66%; }.editorial-city i:nth-child(3) { height: 38%; }.editorial-city i:nth-child(4) { height: 74%; }.editorial-city i:nth-child(5) { height: 51%; }
@@ -176,6 +177,7 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
 .profile-visual { aspect-ratio: 1.3 / 1; }
 .profile-visual > img, .modal-visual > img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
 .profile-visual::after, .modal-visual::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(14,11,15,.54), transparent 55%), radial-gradient(circle at 20% 5%, rgba(255,255,255,.22), transparent 35%); }
+.sample-photo-badge { position: absolute; z-index: 3; left: 15px; top: 15px; border: 1px solid rgba(255,255,255,.22); border-radius: 999px; background: rgba(13,10,14,.55); backdrop-filter: blur(10px); color: rgba(255,255,255,.78); font-size: 7px; letter-spacing: .16em; padding: 7px 9px; }
 .moon { position: absolute; width: 58px; height: 58px; border-radius: 50%; background: color-mix(in srgb, var(--tone-one) 55%, white); right: 19%; top: 18%; box-shadow: 0 0 45px color-mix(in srgb, var(--tone-one) 70%, transparent); opacity: .8; }
 .horizon { position: absolute; left: -10%; width: 120%; border-radius: 50% 50% 0 0; transform: rotate(-4deg); }
 .horizon-back { height: 54%; bottom: -24%; background: color-mix(in srgb, var(--tone-two) 78%, black); }
@@ -192,6 +194,7 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
 .profile-name-row h3 { margin: 0; font-family: "Playfair Display", serif; font-size: 24px; font-weight: 500; }
 .verified-badge { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--gold); color: #251820; }
 .draft-badge { font-size: 7px; letter-spacing: .14em; color: #e8c693; border: 1px solid rgba(224,186,120,.3); border-radius: 999px; padding: 5px 7px; }
+.sample-badge { font-size: 7px; letter-spacing: .14em; color: #d9c4cf; border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 5px 7px; }
 .location { color: #998c96; font-size: 11px; margin: 5px 0 0; }
 .headline { color: #d8cfd5; font-size: 12px; line-height: 1.5; min-height: 36px; margin: 15px 0; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }

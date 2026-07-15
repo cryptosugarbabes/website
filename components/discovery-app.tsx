@@ -115,6 +115,7 @@ function ProfileArtwork({ profile, large = false }: { profile: Profile; large?: 
   return (
     <div className={`${large ? "modal-visual" : "profile-visual"} motif-${profile.motif}`} style={{ "--tone-one": profile.colors[0], "--tone-two": profile.colors[1], "--tone-three": profile.colors[2] } as React.CSSProperties}>
       {profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <><div className="moon"/><div className="horizon horizon-back"/><div className="horizon horizon-front"/><span className={large ? "modal-monogram" : "profile-monogram"}>{profile.initials}</span></>}
+      {profile.sample && <span className="sample-photo-badge">EDITORIAL SAMPLE</span>}
       {!large && profile.online && <span className="profile-online">ONLINE</span>}
     </div>
   );
@@ -499,11 +500,10 @@ export function DiscoveryApp() {
           <div className="hero-actions"><a className="primary-button" href="#discover">Explore profiles <Icon name="arrow" size={18}/></a><button className="secondary-button" onClick={openProfileCreator}>Create your profile — free</button></div>
           <div className="trust-row"><span><Icon name="shield" size={17}/>Adults verified</span><span><Icon name="lock" size={17}/>Wallet-secured</span><span><Icon name="globe" size={17}/>Global access</span></div>
         </div>
-        <div className="hero-editorial" aria-label="Glamorous private rooftop lounge">
-          <div className="editorial-city"><i/><i/><i/><i/><i/></div>
-          <div className="editorial-figure" aria-hidden="true"><span className="figure-hair"/><span className="figure-face"/><span className="figure-neck"/><span className="figure-dress"/><span className="figure-highlight"/></div>
+        <div className="hero-editorial">
+          <img className="hero-editorial-image" src="/editorial/naomi.webp" alt="Adult woman in a black evening dress photographed in profile"/>
           <div className="hero-frame"/>
-          <div className="hero-caption"><span>MEMBERS&apos; EDIT</span><strong>Midnight in Europe</strong></div>
+          <div className="hero-caption"><span>AFTER DARK</span><strong>Midnight in Europe</strong></div>
           <div className="hero-age">18+</div>
         </div>
       </section>
@@ -522,7 +522,7 @@ export function DiscoveryApp() {
             <button className={`favorite-button ${favorites.has(profile.id) ? "active" : ""}`} onClick={() => toggleFavorite(profile.id)} aria-label={`${favorites.has(profile.id) ? "Remove" : "Add"} ${profile.name} ${favorites.has(profile.id) ? "from" : "to"} favorites`}><Icon name="heart" size={18} filled={favorites.has(profile.id)}/></button>
             <button className="profile-open" onClick={() => setActiveProfile(profile)} aria-label={`View ${profile.name}'s profile`}>
               <ProfileArtwork profile={profile}/>
-              <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.verified ? <span className="verified-badge" title="Identity verified"><Icon name="check" size={12}/></span> : <span className="draft-badge">{profile.reviewStatus === "PENDING_REVIEW" ? "IN REVIEW" : profile.reviewStatus === "REJECTED" ? "CHANGES NEEDED" : "DRAFT"}</span>}</div><p className="location">{profile.city} · {profile.country}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
+              <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.sample ? <span className="sample-badge">SAMPLE</span> : profile.verified ? <span className="verified-badge" title="Identity verified"><Icon name="check" size={12}/></span> : <span className="draft-badge">{profile.reviewStatus === "PENDING_REVIEW" ? "IN REVIEW" : profile.reviewStatus === "REJECTED" ? "CHANGES NEEDED" : "DRAFT"}</span>}</div><p className="location">{profile.city} · {profile.country}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
             </button>
           </article>)}
         </div>
@@ -558,7 +558,7 @@ export function DiscoveryApp() {
               <small>{stats.likes.toLocaleString()} paid likes · Creator receives {formatUsdc(creatorShareUsdc(stats.likePrice))} USDC</small>
             </div>
             <div className="modal-content">
-              <span className="verified-line"><Icon name="shield" size={15}/>{activeProfile.verified ? "Identity verified · 18+" : "Private draft · Not yet reviewed"}</span>
+              <span className="verified-line"><Icon name="shield" size={15}/>{activeProfile.sample ? "Editorial sample · Not a real member" : activeProfile.verified ? "Identity verified · 18+" : "Private draft · Not yet reviewed"}</span>
               <h2 id="profile-modal-title">{activeProfile.name}, {activeProfile.age}</h2><p className="location">{activeProfile.city} · {activeProfile.country}</p>
               <h3>{activeProfile.headline}</h3><p className="modal-bio">{activeProfile.bio}</p>
               <div className="creator-stats"><div><span>SUPPORT SCORE</span><strong>{stats.points} pts</strong></div><div><span>PAID LIKES</span><strong>{stats.likes.toLocaleString()}</strong></div><div><span>NEXT LIKE</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></div></div>
