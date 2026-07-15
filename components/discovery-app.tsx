@@ -864,7 +864,7 @@ export function DiscoveryApp() {
       <section className="desire-strip" aria-label="Platform values"><span>Private introductions</span><i/><span>Verified adults</span><i/><span>Global chemistry</span><i/><span>USDC-ready</span></section>
 
       <section className="discovery-section" id="discover">
-        <div className="section-heading"><div><span className="section-kicker">CURATED DISCOVERY</span><h2>Connect with crypto. Spend and grow your profile.</h2></div><p>Every public profile is reviewed before it appears in discovery.</p></div>
+        <div className="section-heading"><div><h2>Connect. Indulge. Grow. Crypto.</h2></div><p>We manage all profiles and disputes with care.</p></div>
         <div className="filter-bar">
           <label className="search-field"><Icon name="search" size={19}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search interests or destinations"/></label>
           <label className="select-field"><span>LOCATION</span><select value={city} onChange={(event) => setCity(event.target.value)}>{cities.map((item) => <option key={item}>{item}</option>)}</select></label>
