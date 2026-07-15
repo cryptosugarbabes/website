@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=DM+Sans:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Great+Vibes&family=Playfair+Display:ital,wght@0,500;1,500&display=swap');
 
 :root {
   --ink: #f6f1ed;
@@ -45,7 +45,7 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
   border-bottom: 1px solid rgba(255, 255, 255, .06);
 }
 .brand { display: inline-flex; align-items: center; gap: 12px; width: fit-content; }
-.brand span { font-family: "Cinzel Decorative", "Playfair Display", serif; font-size: 15px; font-weight: 700; letter-spacing: .075em; line-height: 1.05; white-space: nowrap; background: linear-gradient(100deg, #fff4f8 5%, #f2c5dc 54%, #e0ba78 100%); color: transparent; background-clip: text; -webkit-background-clip: text; }
+.brand span { font-family: "Great Vibes", "Playfair Display", cursive; font-size: 29px; font-weight: 400; letter-spacing: .015em; line-height: 1.05; white-space: nowrap; background: linear-gradient(100deg, #fff4f8 5%, #f2b9d4 54%, #e0ba78 100%); color: transparent; background-clip: text; -webkit-background-clip: text; filter: drop-shadow(0 5px 18px rgba(194,75,120,.14)); }
 .brand-logo-image { width: 58px; height: 58px; object-fit: contain; border-radius: 50%; filter: drop-shadow(0 0 13px rgba(238,74,143,.22)); }
 .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid rgba(214,178,118,.7); border-radius: 50%; color: var(--gold); }
 .site-header nav { display: flex; gap: 34px; color: #d6cdd3; font-size: 13px; }
@@ -382,7 +382,7 @@ footer > div { display: flex; gap: 24px; }
 }
 
 @media (max-width: 620px) {
-  .site-header { padding: 0 14px; }.brand { gap: 7px; }.brand span { font-size: 10px; letter-spacing: .025em; }.brand-logo-image { width: 45px; height: 45px; }
+  .site-header { padding: 0 14px; }.brand { gap: 7px; }.brand span { font-size: 21px; letter-spacing: 0; }.brand-logo-image { width: 45px; height: 45px; }
   .wallet-button { padding: 0 10px; font-size: 10px; }
   .wallet-button svg { display: none; }
   .hero { padding-left: 20px; padding-right: 20px; }
