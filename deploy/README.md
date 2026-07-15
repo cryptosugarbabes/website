@@ -2,6 +2,8 @@
 
 The production build is created by GitHub Actions and deployed as a standalone Next.js release. The VPS does not compile the application and does not require Docker.
 
+GitHub Actions connects as the unprivileged `cryptodeploy` user. That account can upload a release archive and invoke the root-owned `/usr/local/sbin/cryptosugar-release` activator with a validated full Git SHA; it does not receive a general root shell.
+
 ## One-time setup
 
 1. The VPS is currently sized at 4 GB RAM, 2 vCPUs, and 80 GB disk.

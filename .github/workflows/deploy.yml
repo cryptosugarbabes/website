@@ -79,19 +79,13 @@ jobs:
 
       - name: Upload release
         run: |
-          ssh -i ~/.ssh/cryptosugarbabes_vps -o BatchMode=yes -o IdentitiesOnly=yes root@161.35.17.40 \
-            "mkdir -p /tmp/cryptosugarbabes-deploy"
+          ssh -i ~/.ssh/cryptosugarbabes_vps -o BatchMode=yes -o IdentitiesOnly=yes cryptodeploy@161.35.17.40 \
+            "mkdir -p ~/uploads"
           scp -i ~/.ssh/cryptosugarbabes_vps -o BatchMode=yes -o IdentitiesOnly=yes \
             cryptosugarbabes-release.tgz \
-            deploy/server/release.sh \
-            deploy/server/cryptosugarbabes.service \
-            deploy/server/backup-data.sh \
-            deploy/server/verify-backup.sh \
-            deploy/server/monitor-health.sh \
-            deploy/server/cryptosugar-backup.cron \
-            root@161.35.17.40:/tmp/cryptosugarbabes-deploy/
+            cryptodeploy@161.35.17.40:~/uploads/
 
       - name: Activate release and verify health
         run: |
-          ssh -i ~/.ssh/cryptosugarbabes_vps -o BatchMode=yes -o IdentitiesOnly=yes root@161.35.17.40 \
-            "bash /tmp/cryptosugarbabes-deploy/release.sh '${{ github.sha }}'"
+          ssh -i ~/.ssh/cryptosugarbabes_vps -o BatchMode=yes -o IdentitiesOnly=yes cryptodeploy@161.35.17.40 \
+            "sudo /usr/local/sbin/cryptosugar-release '${{ github.sha }}'"
