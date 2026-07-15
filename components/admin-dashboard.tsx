@@ -1,51 +1,41 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type ReviewProfile = {
-  id: string;
-  name: string;
-  age: number;
-  city: string;
-  country: string;
-  headline: string;
-  bio: string;
-  interests: string[];
-  status: string;
-  rejectionReason?: string;
-  photos: string[];
-};
+type AdminTab = "overview" | "profiles" | "accounts" | "payments" | "reports" | "audit";
+type ReviewProfile = { id: string; name: string; age: number; city: string; country: string; headline: string; bio: string; interests: string[]; status: string; rejectionReason?: string; photos: string[] };
+type SafetyReport = { id: string; category: string; details: string; status: string; adminNote?: string | null; createdAt: string; reporterWallet?: string | null; reportedWallet?: string | null; profileName?: string | null; messageBody?: string | null };
+type Metrics = { accounts: number; creators: number; customers: number; pendingProfiles: number; openReports: number; confirmedPayments: number; grossUsdc: number; creatorUsdc: number; platformUsdc: number; deletionRequests: number };
+type Account = { id: string; email?: string | null; walletAddress?: string | null; walletChain?: string | null; type?: string | null; status: string; suspensionReason?: string | null; deletionRequestedAt?: string | null; createdAt: string; displayName?: string | null; profileStatus?: string | null; conversations: number; messages: number; supportSentUsdc: number; creatorEarnedUsdc: number };
+type Payment = { id: string; kind: string; network: string; grossUsdc: number; creatorShareUsdc: number; platformShareUsdc: number; createdAt: string; profileName: string; supporter: string; transactionHashes: string[] };
+type Audit = { id: string; action: string; note?: string | null; createdAt: string; displayName?: string | null; email?: string | null };
 
-type SafetyReport = {
-  id: string;
-  category: string;
-  details: string;
-  status: string;
-  adminNote?: string | null;
-  createdAt: string;
-  reporterWallet: string;
-  reportedWallet?: string | null;
-  profileName?: string | null;
-  messageBody?: string | null;
-};
+const emptyMetrics: Metrics = { accounts: 0, creators: 0, customers: 0, pendingProfiles: 0, openReports: 0, confirmedPayments: 0, grossUsdc: 0, creatorUsdc: 0, platformUsdc: 0, deletionRequests: 0 };
+function label(value: string) { return value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()); }
+function money(value: number) { return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDC`; }
+function short(value?: string | null) { return value ? `${value.slice(0, 7)}…${value.slice(-5)}` : "—"; }
 
 export function AdminDashboard() {
   const [password, setPassword] = useState("");
   const [profiles, setProfiles] = useState<ReviewProfile[]>([]);
   const [reports, setReports] = useState<SafetyReport[]>([]);
+  const [metrics, setMetrics] = useState<Metrics>(emptyMetrics);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [audit, setAudit] = useState<Audit[]>([]);
   const [signedIn, setSignedIn] = useState(false);
+  const [tab, setTab] = useState<AdminTab>("overview");
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
 
   async function loadProfiles() {
     const response = await fetch("/api/admin/profiles", { cache: "no-store" });
-    if (response.status === 401) { setSignedIn(false); return; }
+    if (response.status === 401) { setSignedIn(false); return false; }
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Could not load profiles.");
-    setProfiles(data.profiles);
-    setSignedIn(true);
+    setProfiles(data.profiles || []); setSignedIn(true); return true;
   }
-
   async function loadReports() {
     const response = await fetch("/api/admin/reports", { cache: "no-store" });
     if (response.status === 401) { setSignedIn(false); return; }
@@ -53,45 +43,67 @@ export function AdminDashboard() {
     if (!response.ok) throw new Error(data.error || "Could not load safety reports.");
     setReports(data.reports || []);
   }
-
-  async function loadDashboard() {
-    await Promise.all([loadProfiles(), loadReports()]);
+  async function loadOperations() {
+    const response = await fetch("/api/admin/operations", { cache: "no-store" });
+    if (response.status === 401) { setSignedIn(false); return; }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Could not load operations.");
+    setMetrics(data.metrics || emptyMetrics); setAccounts(data.accounts || []); setPayments(data.payments || []); setAudit(data.audit || []);
   }
-
+  async function loadDashboard() { const active = await loadProfiles(); if (active) await Promise.all([loadReports(), loadOperations()]); }
   useEffect(() => { loadDashboard().catch((caught) => setError(caught.message)); }, []);
 
   async function login(event: FormEvent) {
-    event.preventDefault();
-    setError("");
+    event.preventDefault(); setError("");
     const response = await fetch("/api/admin/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password }) });
     const data = await response.json();
     if (!response.ok) { setError(data.error || "Sign-in failed."); return; }
-    setPassword("");
-    await loadDashboard();
+    setPassword(""); await loadDashboard();
   }
-
   async function updateReport(id: string, status: "REVIEWING" | "RESOLVED" | "DISMISSED") {
     const note = window.prompt("Private administrator note (optional):")?.trim() || "";
     setBusy(id); setError("");
     const response = await fetch("/api/admin/reports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status, note }) });
     const data = await response.json();
-    if (!response.ok) setError(data.error || "Report update failed.");
-    else await loadReports();
+    if (!response.ok) setError(data.error || "Report update failed."); else await Promise.all([loadReports(), loadOperations()]);
     setBusy("");
   }
-
   async function review(id: string, action: "approve" | "reject") {
     const reason = action === "reject" ? window.prompt("Reason shown to the creator:")?.trim() : "";
     if (action === "reject" && !reason) return;
     setBusy(id); setError("");
     const response = await fetch(`/api/admin/profiles/${id}/review`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, reason }) });
     const data = await response.json();
-    if (!response.ok) setError(data.error || "Review failed.");
-    else await loadProfiles();
+    if (!response.ok) setError(data.error || "Review failed."); else await Promise.all([loadProfiles(), loadOperations()]);
+    setBusy("");
+  }
+  async function accountAction(account: Account, action: "SUSPEND" | "RESTORE" | "CLEAR_DELETION_REQUEST") {
+    let note = "";
+    if (action === "SUSPEND") { note = window.prompt(`Why are you suspending ${account.displayName || account.email || "this account"}?`)?.trim() || ""; if (!note) return; }
+    if (action === "RESTORE" && !window.confirm("Restore this account to active access?")) return;
+    if (action === "CLEAR_DELETION_REQUEST" && !window.confirm("Mark this deletion request as administratively reviewed? Only do this after completing the required retention/deletion process.")) return;
+    setBusy(account.id); setError("");
+    const response = await fetch("/api/admin/operations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userId: account.id, action, note }) });
+    const data = await response.json();
+    if (!response.ok) setError(data.error || "Account update failed."); else await loadOperations();
     setBusy("");
   }
 
-  if (!signedIn) return <main className="admin-shell"><section className="admin-login"><span>CRYPTO SUGAR BABES</span><h1>Profile review</h1><p>Private administrator access.</p><form onSubmit={login}><input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Administrator password"/><button type="submit">Sign in</button></form>{error && <div className="form-error">{error}</div>}</section></main>;
+  const filteredAccounts = useMemo(() => { const needle = search.trim().toLowerCase(); return accounts.filter((item) => !needle || [item.displayName, item.email, item.walletAddress, item.type, item.status].filter(Boolean).join(" ").toLowerCase().includes(needle)); }, [accounts, search]);
+  const pending = profiles.filter((profile) => profile.status === "PENDING_REVIEW");
+  const activeReports = reports.filter((report) => ["OPEN", "REVIEWING"].includes(report.status));
 
-  return <main className="admin-shell"><header className="admin-header"><div><span>CRYPTO SUGAR BABES</span><h1>Safety and profile review</h1></div><button onClick={async () => { await fetch("/api/admin/logout", { method: "POST" }); setSignedIn(false); }}>Sign out</button></header>{error && <div className="form-error">{error}</div>}<section className="review-list"><h2 className="admin-section-title">Profile submissions</h2>{profiles.length === 0 ? <p className="admin-empty">No profiles have been submitted.</p> : profiles.map((profile) => <article className="review-card" key={profile.id}><div className="review-photos">{profile.photos.length ? profile.photos.map((photo, index) => <img src={photo} alt={`${profile.name} photo ${index + 1}`} key={photo}/>) : <div>No photos</div>}</div><div className="review-copy"><span className={`review-status status-${profile.status.toLowerCase()}`}>{profile.status.replace("_", " ")}</span><h2>{profile.name}, {profile.age}</h2><p className="location">{profile.city} · {profile.country}</p><h3>{profile.headline}</h3><p>{profile.bio}</p><div className="tag-row">{profile.interests.map((interest) => <span key={interest}>{interest}</span>)}</div>{profile.rejectionReason && <p className="rejection-note">Previous reason: {profile.rejectionReason}</p>}<div className="review-actions"><button disabled={busy === profile.id} onClick={() => review(profile.id, "approve")}>Approve profile</button><button className="reject" disabled={busy === profile.id} onClick={() => review(profile.id, "reject")}>Reject with reason</button></div></div></article>)}<h2 className="admin-section-title">Safety reports</h2>{reports.length === 0 ? <p className="admin-empty">No safety reports.</p> : reports.map((report) => <article className="review-card report-card" key={report.id}><div className="review-copy"><span className={`review-status status-${report.status.toLowerCase()}`}>{report.status}</span><h2>{report.category.replaceAll("_", " ")}</h2><p>{report.details}</p>{report.messageBody && <blockquote>Reported message: “{report.messageBody}”</blockquote>}<p className="report-meta">Profile: {report.profileName || "—"}<br/>Reporter: {report.reporterWallet}<br/>Reported: {report.reportedWallet || "—"}<br/>{new Date(report.createdAt).toLocaleString()}</p>{report.adminNote && <p className="rejection-note">Admin note: {report.adminNote}</p>}<div className="review-actions"><button disabled={busy === report.id} onClick={() => updateReport(report.id, "REVIEWING")}>Reviewing</button><button disabled={busy === report.id} onClick={() => updateReport(report.id, "RESOLVED")}>Resolve</button><button className="reject" disabled={busy === report.id} onClick={() => updateReport(report.id, "DISMISSED")}>Dismiss</button></div></div></article>)}</section></main>;
+  if (!signedIn) return <main className="admin-shell"><section className="admin-login"><span>CRYPTO SUGAR BABES</span><h1>Operations access</h1><p>Private administrator dashboard.</p><form onSubmit={login}><input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Administrator password"/><button type="submit">Sign in</button></form>{error && <div className="form-error">{error}</div>}</section></main>;
+
+  return <main className="admin-shell admin-console">
+    <header className="admin-header"><div><span>CRYPTO SUGAR BABES</span><h1>Operations console</h1></div><div><a href="/">View site</a><button onClick={async () => { await fetch("/api/admin/logout", { method: "POST" }); setSignedIn(false); }}>Sign out</button></div></header>
+    <div className="admin-console-grid"><aside><nav>{(["overview", "profiles", "accounts", "payments", "reports", "audit"] as AdminTab[]).map((item) => <button className={tab === item ? "active" : ""} onClick={() => setTab(item)} key={item}>{label(item)}{item === "profiles" && pending.length ? <em>{pending.length}</em> : null}{item === "reports" && activeReports.length ? <em>{activeReports.length}</em> : null}</button>)}</nav></aside><section className="admin-console-content">{error && <div className="form-error">{error}</div>}
+      {tab === "overview" && <><div className="admin-page-heading"><span>LIVE OPERATIONS</span><h2>Platform overview</h2><p>Membership, moderation and confirmed settlement at a glance.</p></div><div className="admin-metric-grid"><article><span>Accounts</span><strong>{metrics.accounts}</strong><small>{metrics.creators} creators · {metrics.customers} customers</small></article><article><span>Review queue</span><strong>{metrics.pendingProfiles}</strong><small>{metrics.openReports} open safety reports</small></article><article><span>Confirmed volume</span><strong>{money(metrics.grossUsdc)}</strong><small>{metrics.confirmedPayments} payments</small></article><article><span>Platform revenue</span><strong>{money(metrics.platformUsdc)}</strong><small>{money(metrics.creatorUsdc)} to creators</small></article></div>{metrics.deletionRequests > 0 && <button className="admin-alert-card" onClick={() => setTab("accounts")}><strong>{metrics.deletionRequests} deletion request{metrics.deletionRequests === 1 ? "" : "s"}</strong><span>Review account and retention obligations →</span></button>}<div className="admin-overview-columns"><article><div className="admin-section-heading"><h3>Profiles awaiting review</h3><button onClick={() => setTab("profiles")}>Open queue</button></div>{pending.slice(0, 5).map((profile) => <div className="admin-compact-row" key={profile.id}><strong>{profile.name}</strong><span>{profile.city}, {profile.country}</span><em>{profile.photos.length} photos</em></div>)}{!pending.length && <p className="admin-empty">Queue clear.</p>}</article><article><div className="admin-section-heading"><h3>Active safety cases</h3><button onClick={() => setTab("reports")}>Open reports</button></div>{activeReports.slice(0, 5).map((report) => <div className="admin-compact-row" key={report.id}><strong>{label(report.category)}</strong><span>{report.profileName || "Account report"}</span><em>{label(report.status)}</em></div>)}{!activeReports.length && <p className="admin-empty">No active cases.</p>}</article></div></>}
+      {tab === "profiles" && <><div className="admin-page-heading"><span>CONTENT REVIEW</span><h2>Creator profiles</h2><p>Review profile copy and every photograph before public discovery.</p></div><section className="review-list">{profiles.length === 0 ? <p className="admin-empty">No profiles submitted.</p> : profiles.map((profile) => <article className="review-card" key={profile.id}><div className="review-photos">{profile.photos.length ? profile.photos.map((photo, index) => <img src={photo} alt={`${profile.name} photo ${index + 1}`} key={photo}/>) : <div>No photos</div>}</div><div className="review-copy"><span className={`review-status status-${profile.status.toLowerCase()}`}>{label(profile.status)}</span><h2>{profile.name}, {profile.age}</h2><p className="location">{profile.city} · {profile.country}</p><h3>{profile.headline}</h3><p>{profile.bio}</p><div className="tag-row">{profile.interests.map((interest) => <span key={interest}>{interest}</span>)}</div>{profile.rejectionReason && <p className="rejection-note">Previous reason: {profile.rejectionReason}</p>}<div className="review-actions"><button disabled={busy === profile.id} onClick={() => review(profile.id, "approve")}>Approve profile</button><button className="reject" disabled={busy === profile.id} onClick={() => review(profile.id, "reject")}>Reject with reason</button></div></div></article>)}</section></>}
+      {tab === "accounts" && <><div className="admin-page-heading"><span>MEMBER OPERATIONS</span><h2>Accounts</h2><p>Search identities, review activity, manage suspensions and process deletion requests.</p></div><input className="admin-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, email, wallet, role or status"/><div className="admin-account-list">{filteredAccounts.map((account) => <article className={account.status === "SUSPENDED" ? "suspended" : ""} key={account.id}><header><div><strong>{account.displayName || "Unnamed member"}</strong><span>{account.type ? label(account.type) : "Role not chosen"}</span></div><em className={`review-status status-${account.status.toLowerCase()}`}>{label(account.status)}</em></header><div className="admin-account-identifiers"><span>{account.email || "No email"}</span><span>{account.walletChain ? `${label(account.walletChain)} · ${short(account.walletAddress)}` : "No wallet"}</span><span>Joined {new Date(account.createdAt).toLocaleDateString()}</span></div><div className="admin-account-stats"><span><strong>{account.conversations}</strong> conversations</span><span><strong>{account.messages}</strong> messages</span><span><strong>{money(account.supportSentUsdc)}</strong> sent</span><span><strong>{money(account.creatorEarnedUsdc)}</strong> earned</span></div>{account.profileStatus && <p>Creator profile: <strong>{label(account.profileStatus)}</strong></p>}{account.suspensionReason && <p className="rejection-note">Suspension: {account.suspensionReason}</p>}{account.deletionRequestedAt && <div className="deletion-request"><strong>Deletion requested {new Date(account.deletionRequestedAt).toLocaleDateString()}</strong><p>Complete required retention, dispute and anonymisation checks before clearing this request.</p><button disabled={busy === account.id} onClick={() => accountAction(account, "CLEAR_DELETION_REQUEST")}>Mark administratively reviewed</button></div>}<div className="review-actions">{account.status === "ACTIVE" ? <button className="reject" disabled={busy === account.id} onClick={() => accountAction(account, "SUSPEND")}>Suspend account</button> : <button disabled={busy === account.id} onClick={() => accountAction(account, "RESTORE")}>Restore account</button>}</div></article>)}</div></>}
+      {tab === "payments" && <><div className="admin-page-heading"><span>SETTLEMENT LEDGER</span><h2>Confirmed payments</h2><p>Verified on-chain likes, gifts and boosts with the 90/10 allocation.</p></div><div className="admin-payment-table"><div className="admin-payment-row head"><span>Event</span><span>Member</span><span>Network</span><span>Gross</span><span>Creator</span><span>Platform</span><span>Date</span></div>{payments.map((payment) => <div className="admin-payment-row" key={payment.id}><span><strong>{label(payment.kind)}</strong><small>{payment.profileName}</small></span><span>{payment.supporter}</span><span>{payment.network}</span><span>{money(payment.grossUsdc)}</span><span>{money(payment.creatorShareUsdc)}</span><span>{money(payment.platformShareUsdc)}</span><span>{new Date(payment.createdAt).toLocaleDateString()}</span>{payment.transactionHashes.length ? <small className="admin-hash-line">{payment.transactionHashes.map(short).join(" · ")}</small> : null}</div>)}{!payments.length && <p className="admin-empty">No confirmed payments.</p>}</div></>}
+      {tab === "reports" && <><div className="admin-page-heading"><span>TRUST & SAFETY</span><h2>Safety reports</h2><p>Review reported conduct, related messages and internal case notes.</p></div><section className="review-list">{reports.length === 0 ? <p className="admin-empty">No safety reports.</p> : reports.map((report) => <article className="review-card report-card" key={report.id}><div className="review-copy"><span className={`review-status status-${report.status.toLowerCase()}`}>{label(report.status)}</span><h2>{label(report.category)}</h2><p>{report.details}</p>{report.messageBody && <blockquote>Reported message: “{report.messageBody}”</blockquote>}<p className="report-meta">Profile: {report.profileName || "—"}<br/>Reporter: {report.reporterWallet || "Email account"}<br/>Reported: {report.reportedWallet || "—"}<br/>{new Date(report.createdAt).toLocaleString()}</p>{report.adminNote && <p className="rejection-note">Admin note: {report.adminNote}</p>}<div className="review-actions"><button disabled={busy === report.id} onClick={() => updateReport(report.id, "REVIEWING")}>Reviewing</button><button disabled={busy === report.id} onClick={() => updateReport(report.id, "RESOLVED")}>Resolve</button><button className="reject" disabled={busy === report.id} onClick={() => updateReport(report.id, "DISMISSED")}>Dismiss</button></div></div></article>)}</section></>}
+      {tab === "audit" && <><div className="admin-page-heading"><span>ACCOUNTABILITY</span><h2>Administrator audit</h2><p>Recent account moderation and deletion-request actions.</p></div><div className="admin-audit-list">{audit.map((item) => <article key={item.id}><span>{label(item.action)}</span><strong>{item.displayName || item.email || "Deleted account"}</strong><p>{item.note || "No private note"}</p><small>{new Date(item.createdAt).toLocaleString()}</small></article>)}{!audit.length && <p className="admin-empty">No account actions recorded.</p>}</div></>}
+    </section></div>
+  </main>;
 }

@@ -2,6 +2,12 @@
 
 Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes passwordless email access, server-verified Base/EVM and Solana wallet linking, permanent creator profiles, private photo processing, PostgreSQL storage, free messaging, and an administrator approval queue.
 
+## Dashboards
+
+- `/dashboard` is the private role-aware member area. Customers can manage their private profile, favorites, conversations, support history, safety reports, linked identities, and deletion requests. Creators additionally see profile review status, photo management, earnings, paid likes, creator points, 24-hour discovery position, and their confirmed 90% payment share.
+- `/admin` is the password-protected operations console. It includes platform metrics, creator profile approval, account search and suspension, deletion-request review, confirmed payment reconciliation, safety cases, and an administrator action audit trail.
+- Suspended accounts are removed from public discovery and cannot sign in, message, receive new paid support, or expose public media while suspended.
+
 ## Run locally
 
 1. Copy `.env.example` to `.env.local` and replace the development secrets.

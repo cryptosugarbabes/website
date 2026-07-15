@@ -905,6 +905,7 @@ export function DiscoveryApp() {
         <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
         <div className="header-actions">
           {accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
+          {isAuthenticated && <a className="text-button dashboard-link" href="/dashboard">Dashboard</a>}
           {isAuthenticated && accountType && <button className="text-button inbox-button" onClick={openInbox}>Inbox{unreadCount > 0 && <span className="unread-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}</button>}
           {isAuthenticated && !accountType && <button className="text-button" onClick={() => setAccountOpen(true)}>Choose account</button>}
           {email && !wallet && <button className="text-button" onClick={() => { setWalletError(""); showWalletPicker(); }}>Connect wallet</button>}

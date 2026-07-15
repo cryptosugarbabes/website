@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
 
   const id = randomUUID();
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  await query(`DELETE FROM email_auth_challenges WHERE expires_at < now() - interval '24 hours'`).catch(() => undefined);
   await query(`
     INSERT INTO email_auth_challenges (id, email, code_hash, expires_at)
     VALUES ($1, $2, $3, now() + interval '10 minutes')

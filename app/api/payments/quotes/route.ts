@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const creator = await query<CreatorRow>(`
       SELECT p.id, p.photo_likes::text, u.wallet_chain, u.wallet_address
       FROM profiles p JOIN users u ON u.id = p.user_id
-      WHERE p.id = $1 AND p.review_status = 'APPROVED' AND u.account_type = 'CREATOR'
+      WHERE p.id = $1 AND p.review_status = 'APPROVED' AND u.account_type = 'CREATOR' AND u.status = 'ACTIVE'
     `, [input.profileId]);
     if (!creator.rowCount) return NextResponse.json({ error: "That creator profile is not available." }, { status: 404 });
     const target = creator.rows[0];

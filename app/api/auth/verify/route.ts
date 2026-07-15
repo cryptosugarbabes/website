@@ -73,10 +73,11 @@ export async function POST(request: NextRequest) {
       if (!consumed.rowCount) throw new Error("CHALLENGE_USED");
 
       if (existingSession?.userId) {
-        const current = await client.query<{ id: string; email: string | null; wallet_chain: WalletChain | null; wallet_address: string | null }>(`
-          SELECT id, email, wallet_chain, wallet_address FROM users WHERE id = $1 FOR UPDATE
+        const current = await client.query<{ id: string; email: string | null; wallet_chain: WalletChain | null; wallet_address: string | null; status: string }>(`
+          SELECT id, email, wallet_chain, wallet_address, status FROM users WHERE id = $1 FOR UPDATE
         `, [existingSession.userId]);
         if (!current.rowCount) throw new Error("SESSION_USER_NOT_FOUND");
+        if (current.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_SUSPENDED");
         const owner = await client.query<{ id: string }>(`
           SELECT id FROM users WHERE wallet_chain = $1 AND wallet_address = $2 FOR UPDATE
         `, [chain, walletAddress]);
@@ -88,13 +89,14 @@ export async function POST(request: NextRequest) {
         return { id: current.rows[0].id, email: current.rows[0].email };
       }
 
-      const result = await client.query<{ id: string; email: string | null }>(`
+      const result = await client.query<{ id: string; email: string | null; status: string }>(`
         INSERT INTO users (id, wallet_address, wallet_chain)
         VALUES ($1, $2, $3)
         ON CONFLICT (wallet_chain, wallet_address)
         DO UPDATE SET updated_at = now()
-        RETURNING id, email
+        RETURNING id, email, status
       `, [randomUUID(), walletAddress, chain]);
+      if (result.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_SUSPENDED");
       return result.rows[0];
     });
   } catch (error) {
@@ -102,6 +104,7 @@ export async function POST(request: NextRequest) {
     if (message === "CHALLENGE_USED") return NextResponse.json({ error: "That sign-in request has already been used or expired." }, { status: 409 });
     if (message === "WALLET_ALREADY_LINKED") return NextResponse.json({ error: "That wallet is already linked to another account." }, { status: 409 });
     if (message === "ACCOUNT_ALREADY_HAS_WALLET") return NextResponse.json({ error: "This account already has a different wallet linked. Sign in with that wallet or contact support." }, { status: 409 });
+    if (message === "ACCOUNT_SUSPENDED") return NextResponse.json({ error: "This account is suspended. Contact safety support if you believe this is an error." }, { status: 403 });
     throw error;
   }
 

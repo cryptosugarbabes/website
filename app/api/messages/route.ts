@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
           if (!input?.profileId) throw new Error("PROFILE_REQUIRED");
           const creator = await client.query<{ id: string; user_id: string }>(`
             SELECT p.id, p.user_id FROM profiles p JOIN users u ON u.id = p.user_id
-            WHERE p.id = $1 AND p.review_status = 'APPROVED' AND u.account_type = 'CREATOR'
+            WHERE p.id = $1 AND p.review_status = 'APPROVED' AND u.account_type = 'CREATOR' AND u.status = 'ACTIVE'
           `, [input.profileId]);
           if (!creator.rowCount || creator.rows[0].user_id === account.id) throw new Error("PROFILE_NOT_FOUND");
           creatorProfileId = creator.rows[0].id;
@@ -183,6 +183,9 @@ export async function POST(request: NextRequest) {
         creatorProfileId = conversation.rows[0].creator_profile_id;
         counterpartUserId = conversation.rows[0].customer_user_id;
       }
+
+      const counterpart = await client.query<{ status: string }>(`SELECT status FROM users WHERE id = $1`, [counterpartUserId]);
+      if (!counterpart.rowCount || counterpart.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_UNAVAILABLE");
 
       const blocked = await client.query(`
         SELECT 1 FROM user_blocks
@@ -225,6 +228,7 @@ export async function POST(request: NextRequest) {
     if (["PROFILE_REQUIRED", "PROFILE_NOT_FOUND"].includes(message)) return NextResponse.json({ error: "That creator profile is not available." }, { status: 404 });
     if (["CONVERSATION_REQUIRED", "CONVERSATION_NOT_FOUND"].includes(message)) return NextResponse.json({ error: "That conversation is not available." }, { status: 404 });
     if (message === "CONVERSATION_BLOCKED") return NextResponse.json({ error: "Messaging is unavailable because one of these accounts has blocked the other." }, { status: 403 });
+    if (message === "ACCOUNT_UNAVAILABLE") return NextResponse.json({ error: "That account is not currently available for messaging." }, { status: 403 });
     if (message === "CONVERSATION_LIMIT") return NextResponse.json({ error: "You have reached the new-conversation limit for today. Try again later." }, { status: 429 });
     if (message === "MESSAGE_LIMIT") return NextResponse.json({ error: "You are sending messages too quickly. Pause before trying again." }, { status: 429 });
     if (message === "SPAM_DETECTED") return NextResponse.json({ error: "That message looks repetitive or contains too many links." }, { status: 422 });

@@ -102,7 +102,8 @@ export async function GET(request: NextRequest) {
       ) support_stats ON TRUE
       LEFT JOIN profile_media m ON m.profile_id = p.id
         AND (p.review_status <> 'APPROVED' OR m.is_approved = TRUE)
-      WHERE (p.review_status = 'APPROVED' AND u.account_type = 'CREATOR') OR ${ownerClause}
+      WHERE u.status = 'ACTIVE'
+        AND ((p.review_status = 'APPROVED' AND u.account_type = 'CREATOR') OR ${ownerClause})
       GROUP BY p.id, u.wallet_chain, u.wallet_address,
         support_stats.likes_24h, support_stats.support_total, support_stats.support_24h
       ORDER BY CASE WHEN ${ownerClause} THEN 0 ELSE 1 END,

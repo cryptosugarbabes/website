@@ -33,8 +33,9 @@ export async function POST(request: NextRequest) {
       await client.query(`UPDATE email_auth_challenges SET consumed_at = now() WHERE id = $1`, [row.id]);
 
       await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [email]);
-      const existing = await client.query<{ id: string }>(`SELECT id FROM users WHERE email = $1 FOR UPDATE`, [email]);
+      const existing = await client.query<{ id: string; status: string }>(`SELECT id, status FROM users WHERE email = $1 FOR UPDATE`, [email]);
       if (existing.rowCount) {
+        if (existing.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_SUSPENDED");
         await client.query(`UPDATE users SET email_verified_at = now(), updated_at = now() WHERE id = $1`, [existing.rows[0].id]);
         return existing.rows[0];
       }
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "That code is incorrect." }, { status: 401 });
     }
     if (message === "CODE_EXPIRED") return NextResponse.json({ error: "That code has expired or has already been used." }, { status: 410 });
+    if (message === "ACCOUNT_SUSPENDED") return NextResponse.json({ error: "This account is suspended. Contact safety support if you believe this is an error." }, { status: 403 });
     console.error("Email verification failed", error);
     return NextResponse.json({ error: "Your email could not be verified." }, { status: 503 });
   }

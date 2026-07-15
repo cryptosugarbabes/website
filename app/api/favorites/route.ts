@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       FROM favorites f
       JOIN profiles p ON p.id = f.profile_id
       JOIN users creator ON creator.id = p.user_id
-      WHERE f.user_id = $1 AND p.review_status = 'APPROVED' AND creator.account_type = 'CREATOR'
+      WHERE f.user_id = $1 AND p.review_status = 'APPROVED' AND creator.account_type = 'CREATOR' AND creator.status = 'ACTIVE'
     `, [account.id]);
     return NextResponse.json({ profileIds: result.rows.map((row) => row.profile_id) });
   } catch (error) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       if (!account) throw new Error("ACCOUNT_REQUIRED");
       const target = await client.query<{ id: string }>(`
         SELECT p.id FROM profiles p JOIN users u ON u.id = p.user_id
-        WHERE p.id = $1 AND p.review_status = 'APPROVED' AND u.account_type = 'CREATOR'
+        WHERE p.id = $1 AND p.review_status = 'APPROVED' AND u.account_type = 'CREATOR' AND u.status = 'ACTIVE'
       `, [body.profileId]);
       if (!target.rowCount) throw new Error("PROFILE_NOT_FOUND");
       const removed = await client.query(`DELETE FROM favorites WHERE user_id = $1 AND profile_id = $2 RETURNING profile_id`, [account.id, body.profileId]);
