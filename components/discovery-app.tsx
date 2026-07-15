@@ -500,12 +500,6 @@ export function DiscoveryApp() {
           <div className="hero-actions"><a className="primary-button" href="#discover">Explore profiles <Icon name="arrow" size={18}/></a><button className="secondary-button" onClick={openProfileCreator}>Create your profile — free</button></div>
           <div className="trust-row"><span><Icon name="shield" size={17}/>Adults verified</span><span><Icon name="lock" size={17}/>Wallet-secured</span><span><Icon name="globe" size={17}/>Global access</span></div>
         </div>
-        <div className="hero-editorial">
-          <img className="hero-editorial-image" src="/editorial/naomi.webp" alt="Adult woman in a black evening dress photographed in profile"/>
-          <div className="hero-frame"/>
-          <div className="hero-caption"><span>AFTER DARK</span><strong>Midnight in Europe</strong></div>
-          <div className="hero-age">18+</div>
-        </div>
       </section>
 
       <section className="desire-strip" aria-label="Platform values"><span>Private introductions</span><i/><span>Verified adults</span><i/><span>Global chemistry</span><i/><span>USDC-ready</span></section>

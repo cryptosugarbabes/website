@@ -5,6 +5,8 @@ import sharp from "sharp";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "assets", "editorial");
 const output = path.join(root, "public", "editorial");
+const heroSource = path.join(root, "assets", "hero", "bgbw-source.png");
+const heroOutput = path.join(root, "public", "hero-collage.webp");
 
 const portraits = [
   ["dinner-party.jpg", "amara.webp", "centre"],
@@ -23,3 +25,6 @@ await Promise.all(portraits.map(async ([input, filename, position]) => {
     .toFile(path.join(output, filename));
 }));
 
+await sharp(heroSource)
+  .webp({ quality: 88 })
+  .toFile(heroOutput);
