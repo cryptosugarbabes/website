@@ -12,14 +12,33 @@ function sign(payload: string) {
 
 export type WalletChain = "evm" | "solana";
 
-export function createSessionToken(address: string, chain: WalletChain = "evm") {
+export type AuthSession = {
+  userId?: string;
+  email?: string;
+  address?: string;
+  chain?: WalletChain;
+  expiresAt: number;
+};
+
+export function createSessionToken(address: string, chain: WalletChain = "evm", userId?: string, email?: string) {
   const payload = Buffer.from(
     JSON.stringify({
       address: chain === "evm" ? address.toLowerCase() : address,
       chain,
+      userId,
+      email,
       expiresAt: Date.now() + SESSION_TTL_MS
     })
   ).toString("base64url");
+  return `${payload}.${sign(payload)}`;
+}
+
+export function createEmailSessionToken(userId: string, email: string) {
+  const payload = Buffer.from(JSON.stringify({
+    userId,
+    email: email.toLowerCase(),
+    expiresAt: Date.now() + SESSION_TTL_MS
+  })).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
@@ -34,13 +53,13 @@ export function readSessionToken(token?: string) {
   if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
 
   try {
-    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
-      address: string;
-      chain?: WalletChain;
-      expiresAt: number;
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as AuthSession;
+    if ((!parsed.address && !parsed.userId) || parsed.expiresAt < Date.now()) return null;
+    return {
+      ...parsed,
+      email: parsed.email?.toLowerCase(),
+      chain: parsed.address ? parsed.chain || "evm" : undefined
     };
-    if (!parsed.address || parsed.expiresAt < Date.now()) return null;
-    return { ...parsed, chain: parsed.chain || "evm" };
   } catch {
     return null;
   }

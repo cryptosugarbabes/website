@@ -320,6 +320,15 @@ footer .instagram-link { width: 30px; height: 30px; }
 .wallet-setup { margin-top: 18px; padding: 14px 15px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.025); display: grid; gap: 6px; color: #81747e; font-size: 9px; line-height: 1.6; }
 .wallet-setup strong { color: #cfc2ca; font-size: 10px; }.wallet-setup a { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; }
 .wallet-safety { display: flex; justify-content: center; align-items: center; gap: 6px; color: #6f646d; font-size: 9px; margin: 19px 0 0; }
+.email-auth-form { display: grid; gap: 14px; }
+.email-auth-form label { display: grid; gap: 8px; }
+.email-auth-form label span { color: #9b8993; font-size: 8px; letter-spacing: .15em; }
+.email-auth-form input { width: 100%; min-height: 52px; padding: 0 15px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.035); color: white; font-size: 13px; outline: none; }
+.email-auth-form input:focus { border-color: rgba(224,186,120,.45); box-shadow: 0 0 0 3px rgba(224,186,120,.05); }
+.email-auth-form input[inputmode="numeric"] { text-align: center; font-size: 25px; letter-spacing: .28em; font-variant-numeric: tabular-nums; }
+.email-wallet-divider { display: flex; align-items: center; gap: 12px; color: #6f646d; font-size: 9px; margin: 19px 0; text-transform: uppercase; letter-spacing: .16em; }
+.email-wallet-divider::before, .email-wallet-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
+.secondary-button.full { width: 100%; justify-content: center; }
 
 .legal-shell { min-height: 100vh; overflow: visible; background: radial-gradient(circle at 76% 0, rgba(125,35,75,.27), transparent 33%), var(--dark); }
 .legal-header { max-width: 1120px; height: 90px; margin: 0 auto; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }

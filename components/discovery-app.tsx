@@ -153,6 +153,12 @@ export function DiscoveryApp() {
   const [wallet, setWallet] = useState<string | null>(null);
   const [walletChain, setWalletChain] = useState<WalletChain | null>(null);
   const [walletName, setWalletName] = useState("");
+  const [email, setEmail] = useState<string | null>(null);
+  const [emailAuthOpen, setEmailAuthOpen] = useState(false);
+  const [emailAddress, setEmailAddress] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailChallengeId, setEmailChallengeId] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState("");
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
@@ -198,6 +204,7 @@ export function DiscoveryApp() {
   const solanaProviderRef = useRef<SolanaProvider | null>(null);
   const profileIntentRef = useRef(false);
   const lastUnreadRef = useRef(0);
+  const isAuthenticated = Boolean(wallet || email);
 
   function showWalletPicker(context: "general" | "profile" = "general", network: WalletChain | null = null) {
     setWalletContext(context);
@@ -206,14 +213,51 @@ export function DiscoveryApp() {
     setWalletPickerOpen(true);
   }
 
+  function showEmailSignIn() {
+    setWalletError("");
+    setEmailCode("");
+    setEmailChallengeId("");
+    setEmailAuthOpen(true);
+  }
+
   useEffect(() => {
-    fetch("/api/auth/session").then((response) => response.json()).then(async (data: { address: string | null; chain: WalletChain | null }) => {
+    fetch("/api/auth/session").then((response) => response.json()).then(async (data: { authenticated: boolean; email: string | null; address: string | null; chain: WalletChain | null }) => {
+      setEmail(data.email);
       setWallet(data.address);
       setWalletChain(data.chain);
       if (data.chain) setWalletName(data.chain === "solana" ? "Solana" : "Base");
-      if (data.address) await Promise.all([loadAccount(), loadFavorites()]);
+      if (data.authenticated) await Promise.all([loadAccount(), loadFavorites()]);
     }).catch(() => undefined);
   }, []);
+
+  async function requestEmailCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailBusy(true); setWalletError("");
+    try {
+      const response = await fetch("/api/auth/email/request", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: emailAddress }) });
+      const data = await response.json() as { sent?: boolean; challengeId?: string; error?: string };
+      if (!response.ok || !data.challengeId) throw new Error(data.error || "The sign-in code could not be sent.");
+      setEmailChallengeId(data.challengeId);
+      setEmailCode("");
+      setNotice("Check your email for a six-digit sign-in code.");
+    } catch (error) { setWalletError(error instanceof Error ? error.message : "The sign-in code could not be sent."); }
+    finally { setEmailBusy(false); }
+  }
+
+  async function verifyEmailCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailBusy(true); setWalletError("");
+    try {
+      const response = await fetch("/api/auth/email/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: emailAddress, code: emailCode, challengeId: emailChallengeId }) });
+      const data = await response.json() as { authenticated?: boolean; email?: string; error?: string };
+      if (!response.ok || !data.authenticated || !data.email) throw new Error(data.error || "The sign-in code could not be verified.");
+      setEmail(data.email);
+      setEmailAuthOpen(false);
+      const [, account] = await Promise.all([loadFavorites(), loadAccount(true)]);
+      setNotice(account?.type ? "Signed in. Messaging and favorites are ready." : "Email verified. Choose your private account type next.");
+    } catch (error) { setWalletError(error instanceof Error ? error.message : "The sign-in code could not be verified."); }
+    finally { setEmailBusy(false); }
+  }
 
   async function loadPersistedProfiles() {
     const response = await fetch("/api/profiles", { cache: "no-store" });
@@ -274,7 +318,7 @@ export function DiscoveryApp() {
   }
 
   async function openInbox() {
-    if (!wallet) { showWalletPicker(); return; }
+    if (!isAuthenticated) { showEmailSignIn(); return; }
     if (!accountType) { setAccountOpen(true); return; }
     try { await loadMessages(true); } catch (error) { setWalletError(error instanceof Error ? error.message : "Messages could not be loaded."); }
   }
@@ -308,7 +352,7 @@ export function DiscoveryApp() {
   }
 
   function openReport(target: { profileId?: string; conversationId?: string; messageId?: string; label: string }) {
-    if (!wallet) { setWalletError("Connect your wallet before submitting a safety report."); showWalletPicker(); return; }
+    if (!isAuthenticated) { setWalletError("Sign in before submitting a safety report."); showEmailSignIn(); return; }
     setReportTarget(target); setReportCategory("HARASSMENT"); setReportDetails("");
   }
 
@@ -331,11 +375,11 @@ export function DiscoveryApp() {
   }, []);
 
   useEffect(() => {
-    if (!wallet || !accountType) { setUnreadCount(0); return; }
+    if (!isAuthenticated || !accountType) { setUnreadCount(0); return; }
     loadUnread().catch(() => undefined);
     const timer = window.setInterval(() => loadUnread().catch(() => undefined), 30_000);
     return () => window.clearInterval(timer);
-  }, [wallet, accountType]);
+  }, [isAuthenticated, accountType]);
 
   useEffect(() => {
     setNotificationsEnabled(typeof Notification !== "undefined" && Notification.permission === "granted");
@@ -373,9 +417,10 @@ export function DiscoveryApp() {
 
   async function verifySignIn(address: string, chain: WalletChain, message: string, signature: string, name: string) {
     const response = await fetch("/api/auth/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, chain, message, signature }) });
-    const data = (await response.json()) as { address?: string; chain?: WalletChain; error?: string };
+    const data = (await response.json()) as { address?: string; chain?: WalletChain; email?: string | null; error?: string };
     if (!response.ok || !data.address) throw new Error(data.error || "Sign-in failed.");
     setWallet(data.address);
+    if (data.email) setEmail(data.email);
     setWalletChain(data.chain || chain);
     setWalletName(name);
     setWalletPickerOpen(false);
@@ -473,8 +518,9 @@ export function DiscoveryApp() {
     }
   }
 
-  async function disconnectWallet() {
+  async function signOut() {
     await fetch("/api/auth/logout", { method: "POST" });
+    setEmail(null);
     setWallet(null);
     setWalletChain(null);
     setWalletName("");
@@ -493,11 +539,12 @@ export function DiscoveryApp() {
       setNotice("Editorial samples cannot be saved. Try this with an approved creator profile.");
       return;
     }
-    if (!wallet) {
-      setWalletError("Connect your wallet to save favorites.");
-      showWalletPicker();
+    if (!isAuthenticated) {
+      setWalletError("Sign in with email to save favorites.");
+      showEmailSignIn();
       return;
     }
+    if (!accountType) { setAccountOpen(true); return; }
     const response = await fetch("/api/favorites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profileId: profile.id }) });
     const data = await response.json() as { favorited?: boolean; error?: string };
     if (!response.ok) { setWalletError(data.error || "That favorite could not be saved."); return; }
@@ -531,7 +578,14 @@ export function DiscoveryApp() {
   }
 
   async function saveAccount(type: AccountType) {
-    if (!wallet) { showWalletPicker(); return; }
+    if (!isAuthenticated) { showEmailSignIn(); return; }
+    if (type === "CREATOR" && !wallet) {
+      setAccountOpen(false);
+      setNotice("Connect a wallet before creating a public creator profile.");
+      profileIntentRef.current = true;
+      showWalletPicker("profile");
+      return;
+    }
     if (type === "CUSTOMER" && !accountDisplayName.trim()) { setWalletError("Add a private display name for your customer account."); return; }
     setAccountSaving(true); setWalletError("");
     try {
@@ -585,9 +639,9 @@ export function DiscoveryApp() {
   }
 
   function openMessage(profile: Profile) {
-    if (!wallet) {
-      setWalletError("Connect a wallet before starting a conversation.");
-      showWalletPicker();
+    if (!isAuthenticated) {
+      setWalletError("Sign in with email to start a free conversation.");
+      showEmailSignIn();
       return;
     }
     if (profile.sample) { setNotice("Editorial samples cannot receive messages. Try an approved creator profile."); return; }
@@ -604,6 +658,11 @@ export function DiscoveryApp() {
     const boostAmount = Number(messageBoostAmount || 0);
     if (!Number.isFinite(boostAmount) || boostAmount < 0 || boostAmount > 100_000) {
       setWalletError("Choose a valid optional boost amount.");
+      return;
+    }
+    if (boostAmount > 0 && !wallet) {
+      setWalletError("Connect a wallet to add a paid message boost. Sending without a boost remains free.");
+      showWalletPicker();
       return;
     }
     setMessageBusy(true); setWalletError("");
@@ -846,10 +905,11 @@ export function DiscoveryApp() {
         <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
         <div className="header-actions">
           {accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
-          {wallet && accountType && <button className="text-button inbox-button" onClick={openInbox}>Inbox{unreadCount > 0 && <span className="unread-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}</button>}
-          {wallet && !accountType && <button className="text-button" onClick={() => setAccountOpen(true)}>Choose account</button>}
-          {wallet ? <button className="wallet-button connected" onClick={disconnectWallet} title="Click to sign out"><span className="online-dot"/>{accountType === "CREATOR" ? "Creator" : accountType === "CUSTOMER" ? "Customer" : walletName || (walletChain === "solana" ? "Solana" : "Base")} · {shortAddress(wallet)}</button>
-            : <button className="wallet-button" onClick={() => { setWalletError(""); showWalletPicker(); }}><Icon name="wallet" size={17}/>Connect wallet</button>}
+          {isAuthenticated && accountType && <button className="text-button inbox-button" onClick={openInbox}>Inbox{unreadCount > 0 && <span className="unread-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}</button>}
+          {isAuthenticated && !accountType && <button className="text-button" onClick={() => setAccountOpen(true)}>Choose account</button>}
+          {email && !wallet && <button className="text-button" onClick={() => { setWalletError(""); showWalletPicker(); }}>Connect wallet</button>}
+          {isAuthenticated ? <button className="wallet-button connected" onClick={signOut} title="Click to sign out"><span className="online-dot"/>{wallet ? `${accountType === "CREATOR" ? "Creator" : accountType === "CUSTOMER" ? "Customer" : walletName || (walletChain === "solana" ? "Solana" : "Base")} · ${shortAddress(wallet)}` : email}</button>
+            : <button className="wallet-button" onClick={showEmailSignIn}><Icon name="user" size={17}/>Sign in</button>}
         </div>
       </header>
 
@@ -962,7 +1022,7 @@ export function DiscoveryApp() {
         </div>;
       })()}
 
-      {accountOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !accountSaving) setAccountOpen(false); }}><section className="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={() => setAccountOpen(false)} aria-label="Close account choice"><Icon name="close" size={20}/></button><span className="section-kicker">CHOOSE YOUR SIDE</span><h2 id="account-title">How will you use Crypto Sugar?</h2><p className="wallet-intro">This choice is tied to this wallet. Creator profiles may become public after review; customer profiles always stay private.</p><div className="account-role-grid"><article><Icon name="spark" size={24}/><h3>Sugar Babe</h3><p>Create a public creator profile, upload photos, receive messages, likes, gifts, and boosts.</p><button className="primary-button full" disabled={accountSaving} onClick={() => saveAccount("CREATOR")}>Continue as creator</button></article><article><Icon name="user" size={24}/><h3>Sugar Daddy</h3><p>Keep your account private, save favorites, message creators, and send USDC support.</p><label><span>PRIVATE DISPLAY NAME</span><input maxLength={80} value={accountDisplayName} onChange={(event) => setAccountDisplayName(event.target.value)} placeholder="Your first name or alias"/></label><label><span>PRIVATE BIO · OPTIONAL</span><textarea maxLength={300} value={accountBio} onChange={(event) => setAccountBio(event.target.value)} placeholder="A short private introduction…"/></label><button className="primary-button full" disabled={accountSaving} onClick={() => saveAccount("CUSTOMER")}>Continue as customer</button></article></div>{walletError && <div className="form-error">{walletError}</div>}</section></div>}
+      {accountOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !accountSaving) setAccountOpen(false); }}><section className="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={() => setAccountOpen(false)} aria-label="Close account choice"><Icon name="close" size={20}/></button><span className="section-kicker">CHOOSE YOUR SIDE</span><h2 id="account-title">How will you use Crypto Sugar?</h2><p className="wallet-intro">Your account can begin with email. Public creator profiles and paid actions also require a verified wallet; customer profiles always stay private.</p><div className="account-role-grid"><article><Icon name="spark" size={24}/><h3>Sugar Babe</h3><p>Create a public creator profile, upload photos, receive messages, likes, gifts, and boosts. A wallet is required before publishing.</p><button className="primary-button full" disabled={accountSaving} onClick={() => saveAccount("CREATOR")}>Continue as creator</button></article><article><Icon name="user" size={24}/><h3>Sugar Daddy</h3><p>Keep your account private, save favorites, and message creators free. Connect a wallet only when sending paid support.</p><label><span>PRIVATE DISPLAY NAME</span><input maxLength={80} value={accountDisplayName} onChange={(event) => setAccountDisplayName(event.target.value)} placeholder="Your first name or alias"/></label><label><span>PRIVATE BIO · OPTIONAL</span><textarea maxLength={300} value={accountBio} onChange={(event) => setAccountBio(event.target.value)} placeholder="A short private introduction…"/></label><button className="primary-button full" disabled={accountSaving} onClick={() => saveAccount("CUSTOMER")}>Continue as customer</button></article></div>{walletError && <div className="form-error">{walletError}</div>}</section></div>}
 
       {inboxOpen && (() => {
         const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) || conversations[0];
@@ -970,6 +1030,8 @@ export function DiscoveryApp() {
       })()}
 
       {reportTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !safetyBusy) setReportTarget(null); }}><section className="message-modal report-modal" role="dialog" aria-modal="true" aria-labelledby="report-title"><button className="modal-close" onClick={() => setReportTarget(null)} aria-label="Close report"><Icon name="close" size={20}/></button><span className="section-kicker">CONFIDENTIAL SAFETY REPORT</span><h2 id="report-title">Report {reportTarget.label}.</h2><p className="wallet-intro">Reports are reviewed by an administrator. Use immediate local emergency or trafficking services when someone may be in danger.</p><form onSubmit={submitReport}><label><span>CATEGORY</span><select value={reportCategory} onChange={(event) => setReportCategory(event.target.value)}><option value="HARASSMENT">Harassment or threats</option><option value="SPAM">Spam</option><option value="SCAM">Scam or fraud</option><option value="EXTORTION">Extortion</option><option value="UNDERAGE">Suspected underage user</option><option value="TRAFFICKING">Trafficking or coercion</option><option value="IMPERSONATION">Impersonation</option><option value="OTHER">Other safety concern</option></select></label><label className="message-field"><span>WHAT HAPPENED?</span><textarea required minLength={10} maxLength={1500} value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} placeholder="Add dates, context, and specific conduct. Never include a recovery phrase or private key."/><small>{reportDetails.length}/1500</small></label><button className="primary-button full" type="submit" disabled={safetyBusy}>{safetyBusy ? "Submitting…" : "Submit confidential report"}</button></form></section></div>}
+
+      {emailAuthOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !emailBusy) setEmailAuthOpen(false); }}><section className="wallet-modal email-auth-modal" role="dialog" aria-modal="true" aria-labelledby="email-auth-title"><button className="modal-close" onClick={() => setEmailAuthOpen(false)} aria-label="Close email sign-in"><Icon name="close" size={20}/></button><span className="section-kicker">FREE PRIVATE ACCESS</span><h2 id="email-auth-title">Sign in with email.</h2><p className="wallet-intro">Use a one-time code to message creators and save favorites for free. No password and no wallet are required.</p>{emailChallengeId ? <form className="email-auth-form" onSubmit={verifyEmailCode}><label><span>SIX-DIGIT CODE</span><input autoFocus inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={emailCode} onChange={(event) => setEmailCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000"/></label><button className="primary-button full" type="submit" disabled={emailBusy || emailCode.length !== 6}>{emailBusy ? "Checking…" : "Verify & sign in"}</button><button className="wallet-show-all" type="button" disabled={emailBusy} onClick={() => setEmailChallengeId("")}>Use a different email</button></form> : <form className="email-auth-form" onSubmit={requestEmailCode}><label><span>EMAIL ADDRESS</span><input autoFocus type="email" autoComplete="email" required value={emailAddress} onChange={(event) => setEmailAddress(event.target.value)} placeholder="you@example.com"/></label><button className="primary-button full" type="submit" disabled={emailBusy}>{emailBusy ? "Sending…" : "Email me a sign-in code"}</button></form>}{walletError && <div className="form-error">{walletError}</div>}<div className="email-wallet-divider"><span>or</span></div><button className="secondary-button full" type="button" onClick={() => { setEmailAuthOpen(false); showWalletPicker(); }}><Icon name="wallet" size={17}/>Sign in with a wallet</button><p className="wallet-safety"><Icon name="lock" size={14}/>Paid likes, gifts, and boosts ask you to connect a wallet later.</p></section></div>}
 
       {walletPickerOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !walletBusy) setWalletPickerOpen(false); }}><section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title"><button className="modal-close" onClick={() => setWalletPickerOpen(false)} aria-label="Close wallet options"><Icon name="close" size={20}/></button><span className="section-kicker">{walletContext === "profile" ? "CONNECT BEFORE CREATING" : walletNetworkFilter === "evm" ? "BASE WALLET SIGN-IN" : walletNetworkFilter === "solana" ? "SOLANA WALLET SIGN-IN" : "SIGN IN WITHOUT GAS"}</span><h2 id="wallet-title">{walletNetworkFilter === "evm" ? "Connect on Base." : walletNetworkFilter === "solana" ? "Connect on Solana." : "Choose your wallet."}</h2><p className="wallet-intro">{walletContext === "profile" ? "Connect a wallet before creating a profile. After signing in, choose whether this wallet belongs to a Sugar Babe creator or a private Sugar Daddy customer." : "Connecting requests a free signature to verify ownership. It does not give Crypto Sugar permission to move funds."}</p><div className="wallet-options">{walletNetworkFilter !== "solana" && <><button onClick={() => connectEvmWallet("browser")} disabled={walletBusy}><span className="wallet-logo base-logo">B</span><span><strong>Base browser wallet</strong><small>MetaMask · Rabby · Coinbase</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("binance")} disabled={walletBusy}><span className="wallet-logo binance-logo">B</span><span><strong>Binance Wallet</strong><small>Browser or Binance app</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectEvmWallet("trust")} disabled={walletBusy}><span className="wallet-logo trust-logo">T</span><span><strong>Trust Wallet</strong><small>Browser extension</small></span><Icon name="arrow" size={18}/></button><button onClick={connectWalletConnect} disabled={walletBusy}><span className="wallet-logo walletconnect-logo">W</span><span><strong>WalletConnect</strong><small>Trust · Binance · compatible mobile wallets</small></span><Icon name="arrow" size={18}/></button></>}{walletNetworkFilter !== "evm" && <><button onClick={() => connectSolanaWallet("solflare")} disabled={walletBusy}><span className="wallet-logo solflare-logo">S</span><span><strong>Solflare</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button><button onClick={() => connectSolanaWallet("phantom")} disabled={walletBusy}><span className="wallet-logo phantom-logo">P</span><span><strong>Phantom</strong><small>Solana · USDC</small></span><Icon name="arrow" size={18}/></button></>}</div>{walletNetworkFilter && <button className="wallet-show-all" type="button" onClick={() => setWalletNetworkFilter(null)}>Show all wallet options</button>}{walletError && <div className="form-error">{walletError}</div>}<div className="wallet-setup"><strong>Don&apos;t have a wallet?</strong><span>Set one up with <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, <a href="https://www.solflare.com/" target="_blank" rel="noreferrer">Solflare</a>, <a href="https://phantom.com/download" target="_blank" rel="noreferrer">Phantom</a>, <a href="https://www.binance.com/en/web3wallet" target="_blank" rel="noreferrer">Binance</a>, or <a href="https://trustwallet.com/download" target="_blank" rel="noreferrer">Trust Wallet</a>.</span></div><p className="wallet-safety"><Icon name="lock" size={14}/>We never request your seed phrase or private key.</p></section></div>}
 

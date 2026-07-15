@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { accountForSession } from "@/lib/accounts";
 import { query } from "@/lib/db";
-import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
+import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 
 async function counterpart(accountId: string, conversationId: string) {
   const result = await query<{ counterpart_id: string }>(`
@@ -13,8 +13,8 @@ async function counterpart(accountId: string, conversationId: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = walletSession(request);
-  if (!session) return NextResponse.json({ error: "Connect your wallet first." }, { status: 401 });
+  const session = authenticatedSession(request);
+  if (!session) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const input = await request.json().catch(() => null) as { conversationId?: string; blocked?: boolean } | null;
   if (!input?.conversationId || typeof input.blocked !== "boolean") return NextResponse.json({ error: "Choose a conversation and block action." }, { status: 400 });
@@ -29,4 +29,3 @@ export async function POST(request: NextRequest) {
   }
   return NextResponse.json({ blocked: input.blocked });
 }
-

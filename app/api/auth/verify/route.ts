@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, createPublicKey, verify as verifySignature } from "node:crypto";
+import { createHash, createPublicKey, randomUUID, verify as verifySignature } from "node:crypto";
 import { getAddress, isAddress, verifyMessage } from "viem";
 import { decodeBase58, isSolanaAddress } from "@/lib/base58";
-import { createSessionToken, WalletChain } from "@/lib/session";
-import { query } from "@/lib/db";
+import { createSessionToken, readSessionToken, WalletChain } from "@/lib/session";
+import { query, transaction } from "@/lib/db";
 import { clientAddress, takeRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -61,14 +61,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "The wallet signature could not be verified." }, { status: 401 });
   }
 
-  const consumed = await query(`
-    UPDATE auth_challenges SET consumed_at = now()
-    WHERE nonce = $1 AND consumed_at IS NULL AND expires_at > now()
-  `, [nonce]);
-  if (!consumed.rowCount) return NextResponse.json({ error: "That sign-in request has already been used or expired." }, { status: 409 });
+  const existingSession = readSessionToken(request.cookies.get("velora_session")?.value);
+  const walletAddress = chain === "evm" ? normalizedAddress.toLowerCase() : normalizedAddress;
+  let linkedUser: { id: string; email: string | null };
+  try {
+    linkedUser = await transaction(async (client) => {
+      const consumed = await client.query(`
+        UPDATE auth_challenges SET consumed_at = now()
+        WHERE nonce = $1 AND consumed_at IS NULL AND expires_at > now()
+      `, [nonce]);
+      if (!consumed.rowCount) throw new Error("CHALLENGE_USED");
 
-  const response = NextResponse.json({ address: normalizedAddress, chain });
-  response.cookies.set("velora_session", createSessionToken(normalizedAddress, chain), {
+      if (existingSession?.userId) {
+        const current = await client.query<{ id: string; email: string | null; wallet_chain: WalletChain | null; wallet_address: string | null }>(`
+          SELECT id, email, wallet_chain, wallet_address FROM users WHERE id = $1 FOR UPDATE
+        `, [existingSession.userId]);
+        if (!current.rowCount) throw new Error("SESSION_USER_NOT_FOUND");
+        const owner = await client.query<{ id: string }>(`
+          SELECT id FROM users WHERE wallet_chain = $1 AND wallet_address = $2 FOR UPDATE
+        `, [chain, walletAddress]);
+        if (owner.rowCount && owner.rows[0].id !== current.rows[0].id) throw new Error("WALLET_ALREADY_LINKED");
+        if (current.rows[0].wallet_address && (current.rows[0].wallet_chain !== chain || current.rows[0].wallet_address !== walletAddress)) {
+          throw new Error("ACCOUNT_ALREADY_HAS_WALLET");
+        }
+        await client.query(`UPDATE users SET wallet_chain = $1, wallet_address = $2, updated_at = now() WHERE id = $3`, [chain, walletAddress, current.rows[0].id]);
+        return { id: current.rows[0].id, email: current.rows[0].email };
+      }
+
+      const result = await client.query<{ id: string; email: string | null }>(`
+        INSERT INTO users (id, wallet_address, wallet_chain)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (wallet_chain, wallet_address)
+        DO UPDATE SET updated_at = now()
+        RETURNING id, email
+      `, [randomUUID(), walletAddress, chain]);
+      return result.rows[0];
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "CHALLENGE_USED") return NextResponse.json({ error: "That sign-in request has already been used or expired." }, { status: 409 });
+    if (message === "WALLET_ALREADY_LINKED") return NextResponse.json({ error: "That wallet is already linked to another account." }, { status: 409 });
+    if (message === "ACCOUNT_ALREADY_HAS_WALLET") return NextResponse.json({ error: "This account already has a different wallet linked. Sign in with that wallet or contact support." }, { status: 409 });
+    throw error;
+  }
+
+  const response = NextResponse.json({ address: normalizedAddress, chain, email: linkedUser.email });
+  response.cookies.set("velora_session", createSessionToken(normalizedAddress, chain, linkedUser.id, linkedUser.email || undefined), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

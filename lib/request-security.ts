@@ -1,11 +1,15 @@
 import { NextRequest } from "next/server";
-import { readSessionToken, WalletChain } from "@/lib/session";
+import { AuthSession, readSessionToken, WalletChain } from "@/lib/session";
 
-export type WalletSession = { address: string; chain: WalletChain };
+export type WalletSession = AuthSession & { address: string; chain: WalletChain };
+
+export function authenticatedSession(request: NextRequest): AuthSession | null {
+  return readSessionToken(request.cookies.get("velora_session")?.value);
+}
 
 export function walletSession(request: NextRequest): WalletSession | null {
-  const session = readSessionToken(request.cookies.get("velora_session")?.value);
-  return session ? { address: session.address, chain: session.chain } : null;
+  const session = authenticatedSession(request);
+  return session?.address && session.chain ? { ...session, address: session.address, chain: session.chain } : null;
 }
 
 export function requestHasTrustedOrigin(request: NextRequest) {

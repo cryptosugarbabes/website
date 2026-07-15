@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { accountForSession } from "@/lib/accounts";
 import { query, transaction } from "@/lib/db";
-import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
+import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 import { decryptMessage, encryptMessage, messageHash } from "@/lib/message-crypto";
 
 type ConversationRow = {
@@ -34,7 +34,7 @@ type MessageRow = {
 };
 
 export async function GET(request: NextRequest) {
-  const session = walletSession(request);
+  const session = authenticatedSession(request);
   if (!session) return NextResponse.json({ accountType: null, conversations: [] });
   try {
     const account = await accountForSession(session);
@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = walletSession(request);
-  if (!session) return NextResponse.json({ error: "Connect your wallet to send a message." }, { status: 401 });
+  const session = authenticatedSession(request);
+  if (!session) return NextResponse.json({ error: "Sign in to send a message." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const input = await request.json().catch(() => null) as { profileId?: string; conversationId?: string; body?: string } | null;
   const body = typeof input?.body === "string" ? input.body.trim().slice(0, 800) : "";

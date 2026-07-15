@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { accountForSession } from "@/lib/accounts";
 import { query } from "@/lib/db";
-import { walletSession } from "@/lib/request-security";
+import { authenticatedSession } from "@/lib/request-security";
 
 export async function GET(request: NextRequest) {
-  const session = walletSession(request);
+  const session = authenticatedSession(request);
   if (!session) return NextResponse.json({ unreadCount: 0, boostedUnreadCount: 0 });
   const account = await accountForSession(session);
   if (!account?.account_type) return NextResponse.json({ unreadCount: 0, boostedUnreadCount: 0 });
@@ -23,4 +23,3 @@ export async function GET(request: NextRequest) {
     boostedUnreadCount: Number(result.rows[0]?.boosted_unread_count || 0)
   });
 }
-

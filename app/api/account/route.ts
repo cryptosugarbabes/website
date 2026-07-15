@@ -2,14 +2,14 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { accountForSession, AccountType, ensureUser } from "@/lib/accounts";
 import { transaction } from "@/lib/db";
-import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
+import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 
 function text(value: unknown, maximum: number) {
   return typeof value === "string" ? value.trim().slice(0, maximum) : "";
 }
 
 export async function GET(request: NextRequest) {
-  const session = walletSession(request);
+  const session = authenticatedSession(request);
   if (!session) return NextResponse.json({ account: null });
   try {
     const account = await accountForSession(session);
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = walletSession(request);
-  if (!session) return NextResponse.json({ error: "Connect and verify your wallet first." }, { status: 401 });
+  const session = authenticatedSession(request);
+  if (!session) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
   const bio = text(body?.bio, 300);
   if (!type || (type === "CUSTOMER" && !displayName)) {
     return NextResponse.json({ error: "Choose an account type and add your display name." }, { status: 400 });
+  }
+  if (type === "CREATOR" && !session.address) {
+    return NextResponse.json({ error: "Connect and verify a wallet before creating a creator profile." }, { status: 403 });
   }
 
   try {
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ account });
   } catch (error) {
     if (error instanceof Error && error.message === "ACCOUNT_TYPE_LOCKED") {
-      return NextResponse.json({ error: "This wallet already has a different account type." }, { status: 409 });
+      return NextResponse.json({ error: "This account already has a different account type." }, { status: 409 });
     }
     console.error("Account save failed", error);
     return NextResponse.json({ error: "Your account could not be saved." }, { status: 503 });

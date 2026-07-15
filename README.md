@@ -1,6 +1,6 @@
 # Crypto Sugar Babes
 
-Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes responsive discovery, server-verified Base/EVM and Solana wallet sign-in, permanent creator profiles, private photo processing, PostgreSQL storage, and an administrator approval queue.
+Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes passwordless email access, server-verified Base/EVM and Solana wallet linking, permanent creator profiles, private photo processing, PostgreSQL storage, free messaging, and an administrator approval queue.
 
 ## Run locally
 
@@ -9,11 +9,19 @@ Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`.
 3. Start the website with `pnpm dev`.
 4. Visit `http://localhost:3000`.
 
-Payment controls are intentionally in test mode. Wallet signatures are real and server-verified, but test messages and photo-likes never move funds.
+Passwordless email access uses a six-digit, ten-minute code. Configure the `EMAIL_SMTP_*` values from `.env.example`; Hostinger Email uses `smtp.hostinger.com` on SSL port `465`.
+
+## Identity and access
+
+- Email sign-in creates a private account without a password or wallet.
+- Email-authenticated customers can save favorites, send and receive messages, block accounts, and submit safety reports for free.
+- Publishing a creator profile requires a verified Base or Solana wallet.
+- Paid photo likes, gifts, and message boosts require the customer to connect and sign the matching wallet.
+- Connecting a wallet while signed in by email links that wallet to the same account; it does not create a second profile.
 
 ## Profile and photo flow
 
-- A verified Base or Solana wallet owns one creator profile.
+- A verified Base or Solana wallet owns one creator profile. Email-only accounts cannot publish.
 - Saving creates or updates a permanent PostgreSQL record with `PENDING_REVIEW` status.
 - The creator can upload up to 20 JPG, PNG, or WebP files of 5 MB each.
 - Uploads are re-encoded as WebP, resized to a maximum of 2400×2400, and stripped of embedded metadata.

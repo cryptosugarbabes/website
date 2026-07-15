@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { accountForSession } from "@/lib/accounts";
 import { query } from "@/lib/db";
-import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
+import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 
 const categories = new Set(["HARASSMENT", "SPAM", "SCAM", "EXTORTION", "UNDERAGE", "TRAFFICKING", "IMPERSONATION", "OTHER"]);
 
 export async function POST(request: NextRequest) {
-  const session = walletSession(request);
-  if (!session) return NextResponse.json({ error: "Connect your wallet before reporting." }, { status: 401 });
+  const session = authenticatedSession(request);
+  if (!session) return NextResponse.json({ error: "Sign in before reporting." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const input = await request.json().catch(() => null) as { profileId?: string; conversationId?: string; messageId?: string; category?: string; details?: string } | null;
   const category = String(input?.category || "OTHER").toUpperCase();
@@ -56,4 +56,3 @@ export async function POST(request: NextRequest) {
   `, [id, account.id, reportedUserId, profileId, conversationId, messageId, category, details]);
   return NextResponse.json({ reported: true, reportId: id });
 }
-
