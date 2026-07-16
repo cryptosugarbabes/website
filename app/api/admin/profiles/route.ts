@@ -14,7 +14,7 @@ type ReviewRow = {
   review_status: string;
   rejection_reason: string | null;
   updated_at: string;
-  media_ids: string[];
+  media: Array<{ id: string; approved: boolean }>;
 };
 
 export async function GET(request: NextRequest) {
@@ -23,7 +23,11 @@ export async function GET(request: NextRequest) {
     const result = await query<ReviewRow>(`
       SELECT p.id, p.display_name, p.declared_age, p.city, p.country, p.headline, p.bio,
         p.interests, p.review_status, p.rejection_reason, p.updated_at,
-        COALESCE(array_agg(m.id::text ORDER BY m.sort_order) FILTER (WHERE m.id IS NOT NULL), '{}') AS media_ids
+        COALESCE(
+          json_agg(json_build_object('id', m.id::text, 'approved', m.is_approved) ORDER BY m.sort_order)
+            FILTER (WHERE m.id IS NOT NULL),
+          '[]'::json
+        ) AS media
       FROM profiles p
       JOIN users u ON u.id = p.user_id AND u.account_type = 'CREATOR'
       LEFT JOIN profile_media m ON m.profile_id = p.id
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
       status: row.review_status,
       rejectionReason: row.rejection_reason,
       updatedAt: row.updated_at,
-      photos: row.media_ids.map((id) => `/api/admin/media/${id}`)
+      photos: row.media.map((photo) => ({ id: photo.id, url: `/api/admin/media/${photo.id}`, approved: photo.approved }))
     })) });
   } catch (error) {
     console.error("Admin profile list failed", error);

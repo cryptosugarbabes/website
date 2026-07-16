@@ -7,6 +7,7 @@ import { createPublicClient, decodeEventLog, getAddress, http, isHash } from "vi
 import { accountForSession } from "@/lib/accounts";
 import { query, transaction } from "@/lib/db";
 import { PAYMENT_CONFIG } from "@/lib/payment-config";
+import { transferFallsWithinQuoteWindow } from "@/lib/payment-validation";
 import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
 
 type QuoteRow = {
@@ -19,6 +20,7 @@ type QuoteRow = {
   creator_amount_usdc: string;
   platform_amount_usdc: string;
   status: string;
+  created_at: Date;
   expires_at: Date;
   message_id: string | null;
   media_id: string | null;
@@ -63,8 +65,8 @@ async function verifyBaseAtomicTransfer(hash: `0x${string}`, from: string, creat
 }
 
 async function verifySolanaTransfer(signature: string, buyer: string, creator: string, creatorAmount: bigint, platformAmount: bigint) {
-  const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com", "confirmed");
-  const parsed = await connection.getParsedTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+  const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com", "finalized");
+  const parsed = await connection.getParsedTransaction(signature, { commitment: "finalized", maxSupportedTransactionVersion: 0 });
   if (!parsed || parsed.meta?.err) return { valid: false, timestampMs: 0 };
   const mint = new PublicKey(PAYMENT_CONFIG.solana.usdcMintAddress);
   const creatorAta = getAssociatedTokenAddressSync(mint, new PublicKey(creator)).toString();
@@ -106,6 +108,12 @@ export async function POST(request: NextRequest) {
     const platformAmount = decimalToMicros(quote.platform_amount_usdc);
     const grossAmount = decimalToMicros(quote.gross_amount_usdc);
     const expiryGraceMs = 2 * 60 * 1000;
+    const expectedNetwork = session.chain === "evm" ? "BASE" : "SOLANA";
+    if (expectedNetwork !== quote.network) return NextResponse.json({ error: `Reconnect the ${quote.network === "BASE" ? "Base" : "Solana"} wallet used to create this quote.` }, { status: 409 });
+    const sessionMatchesBuyer = quote.network === "BASE"
+      ? getAddress(session.address) === getAddress(quote.buyer_address)
+      : session.address === quote.buyer_address;
+    if (!sessionMatchesBuyer) return NextResponse.json({ error: "Reconnect the wallet used to create this payment quote." }, { status: 409 });
 
     let purposes: Array<{ purpose: "CREATOR" | "PLATFORM" | "ATOMIC"; hash: string }>;
     if (quote.network === "BASE") {
@@ -118,7 +126,7 @@ export async function POST(request: NextRequest) {
         const hash = input.transactionHashes[0] as `0x${string}`;
         const transfer = await verifyBaseAtomicTransfer(hash, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount, grossAmount, PAYMENT_CONFIG.base.splitterAddress);
         if (!transfer.valid) return NextResponse.json({ error: "The atomic Base payment could not be verified on-chain." }, { status: 409 });
-        if (!transfer.timestampMs || transfer.timestampMs > quote.expires_at.getTime() + expiryGraceMs) {
+        if (!transferFallsWithinQuoteWindow({ createdAtMs: quote.created_at.getTime(), expiresAtMs: quote.expires_at.getTime(), transferTimestampMs: transfer.timestampMs, expiryGraceMs })) {
           await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);
           return NextResponse.json({ error: "That payment quote expired before the atomic transfer was confirmed." }, { status: 409 });
         }
@@ -129,7 +137,7 @@ export async function POST(request: NextRequest) {
       const signature = input.transactionHashes[0];
       const transfer = await verifySolanaTransfer(signature, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount);
       if (!transfer.valid) return NextResponse.json({ error: "The Solana transfer could not be verified on-chain." }, { status: 409 });
-      if (!transfer.timestampMs || transfer.timestampMs > quote.expires_at.getTime() + expiryGraceMs) {
+      if (!transferFallsWithinQuoteWindow({ createdAtMs: quote.created_at.getTime(), expiresAtMs: quote.expires_at.getTime(), transferTimestampMs: transfer.timestampMs, expiryGraceMs })) {
         await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);
         return NextResponse.json({ error: "That payment quote expired before the transfer was confirmed." }, { status: 409 });
       }
@@ -160,6 +168,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ confirmed: true, quoteId: quote.id, kind: quote.kind });
   } catch (error) {
     console.error("Payment confirmation failed", error);
+    if (error instanceof Error && error.message === "QUOTE_NO_LONGER_PAYABLE") return NextResponse.json({ error: "That quote is no longer payable." }, { status: 409 });
+    if (typeof error === "object" && error && "code" in error && error.code === "23505") return NextResponse.json({ error: "That blockchain transaction has already been used." }, { status: 409 });
     return NextResponse.json({ error: "That payment could not be confirmed safely." }, { status: 503 });
   }
 }

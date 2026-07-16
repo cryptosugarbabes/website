@@ -15,15 +15,30 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 500) : "";
   if (action === "REJECTED" && !reason) return NextResponse.json({ error: "Add a rejection reason for the creator." }, { status: 400 });
 
-  const updated = await transaction(async (client) => {
-    const result = await client.query(`
-      UPDATE profiles SET review_status = $2, rejection_reason = $3, reviewed_at = now(), updated_at = now()
-      WHERE id = $1
-    `, [id, action, action === "REJECTED" ? reason : null]);
-    if (!result.rowCount) return false;
-    await client.query("UPDATE profile_media SET is_approved = $2 WHERE profile_id = $1", [id, action === "APPROVED"]);
-    await client.query("INSERT INTO moderation_audit (id, profile_id, action, note, actor_email) VALUES ($1, $2, $3, $4, $5)", [randomUUID(), id, action, reason || null, actor]);
-    return true;
-  });
-  return updated ? NextResponse.json({ ok: true, status: action }) : NextResponse.json({ error: "Profile not found." }, { status: 404 });
+  try {
+    const updated = await transaction(async (client) => {
+      const lockedProfile = await client.query("SELECT id FROM profiles WHERE id = $1 FOR UPDATE", [id]);
+      if (!lockedProfile.rowCount) return false;
+      if (action === "APPROVED") {
+        const media = await client.query<{ total: string; pending: string }>(`
+          SELECT count(*)::text AS total, count(*) FILTER (WHERE NOT is_approved)::text AS pending
+          FROM profile_media WHERE profile_id = $1
+        `, [id]);
+        if (Number(media.rows[0]?.total || 0) < 1) throw new Error("PROFILE_PHOTO_REQUIRED");
+        if (Number(media.rows[0]?.pending || 0) > 0) throw new Error("PROFILE_PHOTOS_PENDING");
+      }
+      await client.query(`
+        UPDATE profiles SET review_status = $2, rejection_reason = $3, reviewed_at = now(), updated_at = now()
+        WHERE id = $1
+      `, [id, action, action === "REJECTED" ? reason : null]);
+      await client.query("INSERT INTO moderation_audit (id, profile_id, action, note, actor_email) VALUES ($1, $2, $3, $4, $5)", [randomUUID(), id, action, reason || null, actor]);
+      return true;
+    });
+    return updated ? NextResponse.json({ ok: true, status: action }) : NextResponse.json({ error: "Profile not found." }, { status: 404 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "PROFILE_PHOTO_REQUIRED") return NextResponse.json({ error: "Approve at least one profile photo before approving this profile." }, { status: 409 });
+    if (error instanceof Error && error.message === "PROFILE_PHOTOS_PENDING") return NextResponse.json({ error: "Review every profile photo before approving this profile." }, { status: 409 });
+    console.error("Profile review failed", error);
+    return NextResponse.json({ error: "That profile review could not be saved." }, { status: 503 });
+  }
 }
