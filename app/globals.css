@@ -409,7 +409,7 @@ footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
 .create-heading { margin-bottom: 30px; }.create-heading h2 { font-size: 48px; margin: 10px 0 10px; }.create-heading p { color: var(--muted); font-size: 12px; }
 .photo-field { display: grid; grid-template-columns: 225px 1fr; align-items: center; gap: 25px; border: 1px solid var(--line); padding: 15px; border-radius: 16px; margin-bottom: 20px; }
 .photo-field > label { min-height: 130px; border: 1px dashed rgba(224,186,120,.28); border-radius: 11px; display: grid; place-items: center; cursor: pointer; overflow: hidden; position: relative; background: rgba(255,255,255,.025); }
-.photo-field > label > span { display: grid; place-items: center; gap: 7px; color: var(--gold); }.photo-field > label strong { color: #e6d9df; font-size: 11px; }.photo-field > label small { color: #786b75; font-size: 8px; }
+.photo-field > label > span { width: 100%; display: grid; place-items: center; gap: 7px; padding: 0 12px; color: var(--gold); text-align: center; }.photo-field > label strong { color: #e6d9df; font-size: 11px; text-align: center; }.photo-field > label small { max-width: 170px; color: #786b75; font-size: 8px; text-align: center; }
 .photo-field input[type=file] { position: absolute; opacity: 0; pointer-events: none; }
 .photo-preview-grid { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 2px; }
 .photo-preview-grid img { width: 100%; height: 100%; min-height: 64px; object-fit: contain; background: #0d090d; }
@@ -421,7 +421,11 @@ footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
 .form-grid select option { color: white; background: #21151d; }
 .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus, .message-field textarea:focus { border-color: rgba(224,186,120,.4); box-shadow: 0 0 0 3px rgba(224,186,120,.04); }
 .form-grid textarea { min-height: 92px; resize: vertical; }.form-grid label > small { color: #675c65; font-size: 8px; }
-.form-footer { border-top: 1px solid var(--line); margin-top: 25px; padding-top: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }.form-footer p { display: flex; align-items: center; gap: 7px; color: #82737d; font-size: 9px; }
+.form-footer { border-top: 1px solid var(--line); margin-top: 25px; padding-top: 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }.form-footer p { max-width: 470px; margin: 0; color: #82737d; font-size: 9px; }
+.form-footer .profile-publish-button { flex: 0 0 auto; min-width: 190px; white-space: nowrap; font-size: .96rem !important; }
+
+body .create-modal .form-footer p { font-size: .86rem !important; line-height: 1.45; }
+body .photo-field > label small { font-size: .68rem !important; line-height: 1.35; }
 
 .message-field { display: grid; gap: 8px; position: relative; }.message-field textarea { min-height: 125px; resize: vertical; }.message-field small { color: #6c6068; font-size: 8px; position: absolute; right: 11px; bottom: 9px; }
 .message-checkout { margin: 18px 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }.message-checkout > div { display: flex; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 10px; }.message-checkout > div:last-child { border-bottom: 0; }.message-checkout span { color: #756a72; }.message-checkout strong { font-weight: 500; }.message-checkout .message-total { background: rgba(224,186,120,.045); padding-top: 16px; padding-bottom: 16px; }.message-checkout .message-total strong { color: var(--gold); }
