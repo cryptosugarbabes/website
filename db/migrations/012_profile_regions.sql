@@ -49,6 +49,22 @@ SET region = CASE
 END
 WHERE region IS NULL OR region = '';
 
+-- Correct legacy profiles where the former free-text country field contains a region.
+UPDATE profiles
+SET region = CASE lower(country)
+  WHEN 'europe' THEN 'Europe'
+  WHEN 'asia' THEN 'Asia'
+  WHEN 'middle east' THEN 'Middle East'
+  WHEN 'north america' THEN 'North America'
+  WHEN 'south america' THEN 'South America'
+  WHEN 'africa' THEN 'Africa'
+  WHEN 'oceania' THEN 'Oceania'
+END
+WHERE lower(country) IN (
+  'europe', 'asia', 'middle east', 'north america',
+  'south america', 'africa', 'oceania'
+);
+
 ALTER TABLE profiles
   ALTER COLUMN region SET NOT NULL;
 
