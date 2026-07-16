@@ -3,12 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { ensureUser } from "@/lib/accounts";
 import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
+import { isRegion } from "@/lib/regions";
 
 type ProfileRow = {
   id: string;
   display_name: string;
   declared_age: number;
-  city: string;
+  region: string;
   country: string;
   headline: string;
   bio: string;
@@ -40,7 +41,7 @@ function publicProfile(row: ProfileRow) {
     id: row.id,
     name,
     age: row.declared_age,
-    city: row.city,
+    region: row.region,
     country: row.country,
     headline: row.headline,
     bio: row.bio,
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await query<ProfileRow>(`
-      SELECT p.id, p.display_name, p.declared_age, p.city, p.country, p.headline, p.bio,
+      SELECT p.id, p.display_name, p.declared_age, p.region, p.country, p.headline, p.bio,
         p.interests, p.review_status, p.messages_sent, p.messages_received, p.photo_likes,
         support_stats.support_total AS support_usdc,
         (floor(p.photo_likes::numeric / 100) * 5 + floor(support_stats.support_total)) AS creator_points,
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const displayName = text(body?.name, 80);
-  const city = text(body?.city, 100);
+  const region = text(body?.region, 40);
   const country = text(body?.country, 100);
   const headline = text(body?.headline, 90);
   const bio = text(body?.bio, 500);
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
     ? body.interests.map((item) => text(item, 40)).filter(Boolean).slice(0, 5)
     : [];
 
-  if (!displayName || !city || !country || !headline || !bio || !Number.isInteger(age) || age < 18 || age > 99) {
+  if (!displayName || !isRegion(region) || !country || !headline || !bio || !Number.isInteger(age) || age < 18 || age > 99) {
     return NextResponse.json({ error: "Complete every required field and confirm you are at least 18." }, { status: 400 });
   }
 
@@ -167,13 +168,13 @@ export async function POST(request: NextRequest) {
       const userId = user.id;
       const profileId = randomUUID();
       const result = await client.query<{ id: string; review_status: string }>(`
-        INSERT INTO profiles (id, user_id, display_name, declared_age, city, country, headline, bio, interests, review_status, reviewed_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'APPROVED', now())
+        INSERT INTO profiles (id, user_id, display_name, declared_age, city, country, region, headline, bio, interests, review_status, reviewed_at)
+        VALUES ($1, $2, $3, $4, '', $5, $6, $7, $8, $9, 'APPROVED', now())
         ON CONFLICT (user_id) DO UPDATE SET
           display_name = EXCLUDED.display_name,
           declared_age = EXCLUDED.declared_age,
-          city = EXCLUDED.city,
           country = EXCLUDED.country,
+          region = EXCLUDED.region,
           headline = EXCLUDED.headline,
           bio = EXCLUDED.bio,
           interests = EXCLUDED.interests,
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
           moderation_reviewed_at = CASE WHEN profiles.review_status = 'REJECTED' THEN profiles.moderation_reviewed_at ELSE NULL END,
           updated_at = now()
         RETURNING id, review_status
-      `, [profileId, userId, displayName, age, city, country, headline, bio, interests]);
+      `, [profileId, userId, displayName, age, country, region, headline, bio, interests]);
       if (result.rows[0].review_status === "APPROVED") {
         await client.query(
           "INSERT INTO moderation_audit (id, profile_id, action, note, actor_email) VALUES ($1, $2, 'AUTO_PUBLISHED', $3, $4)",

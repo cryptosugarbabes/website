@@ -74,8 +74,9 @@ model Profile {
   userId      String   @unique
   displayName String
   birthDate   DateTime
-  city        String
+  city        String?
   country     String
+  region      String
   headline    String
   bio         String
   isPublished Boolean  @default(false)

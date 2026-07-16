@@ -2,7 +2,7 @@ export type Profile = {
   id: string;
   name: string;
   age: number;
-  city: string;
+  region: string;
   country: string;
   headline: string;
   bio: string;
@@ -34,7 +34,7 @@ export const profiles: Profile[] = [
     id: "amara-lisbon",
     name: "Amara",
     age: 28,
-    city: "Lisbon",
+    region: "Europe",
     country: "Portugal",
     headline: "Art weekends, ocean air, and a very good espresso",
     bio: "Gallery regular, design obsessive, and spontaneous weekend traveller. I value generosity of spirit, wit, and plans that turn into stories.",
@@ -54,7 +54,7 @@ export const profiles: Profile[] = [
     id: "celine-paris",
     name: "Celine",
     age: 31,
-    city: "Paris",
+    region: "Europe",
     country: "France",
     headline: "Soft power, sharp conversation",
     bio: "A curious mind with a weakness for architecture, jazz bars, and beautifully planned escapes. Privacy and mutual respect matter to me.",
@@ -74,7 +74,7 @@ export const profiles: Profile[] = [
     id: "sofia-milan",
     name: "Sofia",
     age: 26,
-    city: "Milan",
+    region: "Europe",
     country: "Italy",
     headline: "Fashion energy with a bookish side",
     bio: "Stylist, reader, and professional finder of the best table in the room. Looking for genuine chemistry and a reason to pack a carry-on.",
@@ -94,7 +94,7 @@ export const profiles: Profile[] = [
     id: "maya-dubai",
     name: "Maya",
     age: 29,
-    city: "Dubai",
+    region: "Middle East",
     country: "UAE",
     headline: "Passport ready, standards high",
     bio: "Entrepreneurial, warm, and always curious about what is being built next. I enjoy considered experiences and effortless conversation.",
@@ -114,7 +114,7 @@ export const profiles: Profile[] = [
     id: "elena-barcelona",
     name: "Elena",
     age: 33,
-    city: "Barcelona",
+    region: "Europe",
     country: "Spain",
     headline: "Long lunches and last-minute flights",
     bio: "Creative director with a calm temperament and an adventurous calendar. Here for inspiring people, beautiful places, and honest intentions.",
@@ -134,7 +134,7 @@ export const profiles: Profile[] = [
     id: "naomi-london",
     name: "Naomi",
     age: 30,
-    city: "London",
+    region: "Europe",
     country: "United Kingdom",
     headline: "Equal parts polish and playfulness",
     bio: "Museum member, Sunday-roast loyalist, and occasional escape artist. I appreciate emotional intelligence and people who make things happen.",

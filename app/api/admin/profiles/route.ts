@@ -6,7 +6,7 @@ type ReviewRow = {
   id: string;
   display_name: string;
   declared_age: number;
-  city: string;
+  region: string;
   country: string;
   headline: string;
   bio: string;
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   if (!isAdminRequest(request)) return NextResponse.json({ error: "Administrator sign-in required." }, { status: 401 });
   try {
     const result = await query<ReviewRow>(`
-      SELECT p.id, p.display_name, p.declared_age, p.city, p.country, p.headline, p.bio,
+      SELECT p.id, p.display_name, p.declared_age, p.region, p.country, p.headline, p.bio,
         p.interests, p.review_status, p.rejection_reason, p.moderation_reviewed_at, p.updated_at,
         COALESCE(
           json_agg(json_build_object('id', m.id::text, 'approved', m.is_approved, 'reviewed', m.moderation_reviewed_at IS NOT NULL) ORDER BY m.sort_order)
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       id: row.id,
       name: row.display_name,
       age: row.declared_age,
-      city: row.city,
+      region: row.region,
       country: row.country,
       headline: row.headline,
       bio: row.bio,

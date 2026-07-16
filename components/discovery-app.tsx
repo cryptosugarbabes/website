@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { base } from "viem/chains";
 import { createPublicClient, createWalletClient, custom, erc20Abi, getAddress, http, keccak256, stringToHex } from "viem";
 import { Profile } from "@/lib/profiles";
+import { REGIONS } from "@/lib/regions";
 import { InstagramLink } from "@/components/instagram-link";
 import { XLink } from "@/components/x-link";
 import {
@@ -76,7 +77,7 @@ const BASE_CHAIN_ID = "0x2105";
 const emptyProfile = {
   name: "",
   age: "",
-  city: "",
+  region: "",
   country: "",
   headline: "",
   bio: "",
@@ -152,7 +153,7 @@ function ProfileArtwork({ profile, large = false }: { profile: Profile; large?: 
 
 export function DiscoveryApp() {
   const [query, setQuery] = useState("");
-  const [city, setCity] = useState("Anywhere");
+  const [region, setRegion] = useState("Anywhere");
   const [wallet, setWallet] = useState<string | null>(null);
   const [walletChain, setWalletChain] = useState<WalletChain | null>(null);
   const [walletName, setWalletName] = useState("");
@@ -441,15 +442,14 @@ export function DiscoveryApp() {
   }, [notice]);
 
   const allProfiles = useMemo(() => customProfiles, [customProfiles]);
-  const cities = useMemo(() => ["Anywhere", ...new Set(allProfiles.map((profile) => profile.city))], [allProfiles]);
   const filteredProfiles = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return allProfiles.filter((profile) => {
-      const matchesCity = city === "Anywhere" || profile.city === city;
-      const matchesQuery = !needle || [profile.name, profile.city, profile.country, profile.headline, ...profile.tags].join(" ").toLowerCase().includes(needle);
-      return matchesCity && matchesQuery;
+      const matchesRegion = region === "Anywhere" || profile.region === region;
+      const matchesQuery = !needle || [profile.name, profile.region, profile.country, profile.headline, ...profile.tags].join(" ").toLowerCase().includes(needle);
+      return matchesRegion && matchesQuery;
     });
-  }, [allProfiles, city, query]);
+  }, [allProfiles, region, query]);
 
   async function requestSignIn(address: string, chain: WalletChain) {
     const response = await fetch("/api/auth/nonce", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, chain }) });
@@ -938,7 +938,7 @@ export function DiscoveryApp() {
       setProfilePhotos([]);
       setProfileFiles([]);
       setProfileOpen(false);
-      setCity("Anywhere");
+      setRegion("Anywhere");
       setQuery("");
       window.setTimeout(() => document.querySelector("#discover")?.scrollIntoView({ behavior: "smooth" }), 80);
       setNotice("Your profile and photos are now published. You can manage them from your dashboard.");
@@ -983,7 +983,7 @@ export function DiscoveryApp() {
         <div className="section-heading"><div><h2>Connect. Indulge. Grow. Crypto.</h2></div><p>We manage all profiles and disputes with care.</p></div>
         <div className="filter-bar">
           <label className="search-field"><Icon name="search" size={19}/><input aria-label="Search creator interests or destinations" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search interests or destinations"/></label>
-          <label className="select-field"><span>LOCATION</span><select value={city} onChange={(event) => setCity(event.target.value)}>{cities.map((item) => <option key={item}>{item}</option>)}</select></label>
+          <label className="select-field"><span>REGION</span><select aria-label="Filter creators by region" value={region} onChange={(event) => setRegion(event.target.value)}>{["Anywhere", ...REGIONS].map((item) => <option key={item}>{item}</option>)}</select></label>
           <div className="filter-meta"><Icon name="check" size={16}/>Published creators</div>
         </div>
         <div className="profile-grid">
@@ -991,7 +991,7 @@ export function DiscoveryApp() {
             <button className={`favorite-button ${favorites.has(profile.id) ? "active" : ""}`} onClick={() => toggleFavorite(profile)} aria-label={`${favorites.has(profile.id) ? "Remove" : "Add"} ${profile.name} ${favorites.has(profile.id) ? "from" : "to"} favorites`}><Icon name="heart" size={18} filled={favorites.has(profile.id)}/></button>
             <button className="profile-open" onClick={() => { setActiveProfile(profile); setSelectedMediaId(profile.media?.[0]?.id || ""); }} aria-label={`View ${profile.name}'s profile`}>
               <ProfileArtwork profile={profile}/>
-              <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.sample ? <span className="sample-badge">SAMPLE</span> : profile.verified ? <span className="verified-badge" title="Published creator"><Icon name="check" size={12}/></span> : <span className="draft-badge">{profile.reviewStatus === "PENDING_REVIEW" ? "IN REVIEW" : profile.reviewStatus === "REJECTED" ? "CHANGES NEEDED" : "DRAFT"}</span>}</div><p className="location">{profile.city} · {profile.country}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
+              <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.sample ? <span className="sample-badge">SAMPLE</span> : profile.verified ? <span className="verified-badge" title="Published creator"><Icon name="check" size={12}/></span> : <span className="draft-badge">{profile.reviewStatus === "PENDING_REVIEW" ? "IN REVIEW" : profile.reviewStatus === "REJECTED" ? "CHANGES NEEDED" : "DRAFT"}</span>}</div><p className="location">{profile.country} · {profile.region}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
             </button>
           </article>)}
         </div>
@@ -1031,7 +1031,7 @@ export function DiscoveryApp() {
             </div>
             <div className="modal-content">
               <span className="verified-line"><Icon name="shield" size={15}/>{activeProfile.sample ? "Editorial sample · Not a real member" : activeProfile.verified ? "Published profile · Adult self-attested" : "Private or hidden profile"}</span>
-              <h2 id="profile-modal-title">{activeProfile.name}, {activeProfile.age}</h2><p className="location">{activeProfile.city} · {activeProfile.country}</p>
+              <h2 id="profile-modal-title">{activeProfile.name}, {activeProfile.age}</h2><p className="location">{activeProfile.country} · {activeProfile.region}</p>
               <h3>{activeProfile.headline}</h3><p className="modal-bio">{activeProfile.bio}</p>
               <div className="creator-stats"><div><span>SUPPORT SCORE</span><strong>{stats.points} pts</strong></div><div><span>PAID LIKES</span><strong>{stats.likes.toLocaleString()}</strong></div><div><span>NEXT LIKE</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></div></div>
               <div className="rating-progress"><span style={{ width: `${stats.progress}%` }}/></div><p className="rating-note">{100 - stats.progress} more paid likes until the next 0.1% like-value increase.</p>
@@ -1092,7 +1092,7 @@ export function DiscoveryApp() {
 
       {profileOpen && <div className="modal-backdrop profile-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}><section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-title"><button className="modal-close" onClick={() => setProfileOpen(false)} aria-label="Close profile creator"><Icon name="close" size={20}/></button><div className="create-heading"><span className="section-kicker">YOUR PRIVATE INTRODUCTION</span><h2 id="create-title">Create your profile.</h2><p>Preview your free profile now. It publishes automatically and remains subject to administrator review.</p></div><form onSubmit={submitProfile}>
         <div className="photo-field"><label className={profilePhotos.length ? "has-photo" : ""}>{profilePhotos.length ? <div className="photo-preview-grid">{profilePhotos.slice(0, 8).map((photo, index) => <img src={photo} alt={`Profile preview ${index + 1}`} key={`${photo.slice(-24)}-${index}`}/>)}</div> : <span><Icon name="camera" size={28}/><strong>Add up to 8 photos free</strong><small>JPG, PNG or WebP · 5 MB each</small></span>}<input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={profileSaving || profilePhotos.length >= 8} onChange={(event) => handlePhotos(event.target.files)}/></label><div><strong>Your photo collection</strong><p>Photos are free to upload, optimized, stripped of location metadata, and published automatically subject to administrator review.</p><small>{profilePhotos.length}/8 photos selected</small>{profilePhotos.length > 0 && <button type="button" disabled={profileSaving} onClick={() => { setProfilePhotos([]); setProfileFiles([]); }}>Remove all</button>}</div></div>
-        <div className="form-grid"><label><span>DISPLAY NAME</span><input required value={profileForm.name} onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })} placeholder="Your first name"/></label><label><span>AGE</span><input required type="number" min="18" max="99" value={profileForm.age} onChange={(event) => setProfileForm({ ...profileForm, age: event.target.value })} placeholder="18+"/></label><label><span>CITY</span><input required value={profileForm.city} onChange={(event) => setProfileForm({ ...profileForm, city: event.target.value })} placeholder="Lisbon"/></label><label><span>COUNTRY</span><input required value={profileForm.country} onChange={(event) => setProfileForm({ ...profileForm, country: event.target.value })} placeholder="Portugal"/></label><label className="wide"><span>HEADLINE</span><input required maxLength={90} value={profileForm.headline} onChange={(event) => setProfileForm({ ...profileForm, headline: event.target.value })} placeholder="A little intrigue goes a long way"/></label><label className="wide"><span>ABOUT YOU</span><textarea required maxLength={500} value={profileForm.bio} onChange={(event) => setProfileForm({ ...profileForm, bio: event.target.value })} placeholder="Your world, your style, and the kind of connection you value…"/></label><label className="wide"><span>INTERESTS</span><input value={profileForm.interests} onChange={(event) => setProfileForm({ ...profileForm, interests: event.target.value })} placeholder="Travel, art, fine dining, wellness"/><small>Separate up to five interests with commas.</small></label></div>
+        <div className="form-grid"><label><span>DISPLAY NAME</span><input required value={profileForm.name} onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })} placeholder="Your first name"/></label><label><span>AGE</span><input required type="number" min="18" max="99" value={profileForm.age} onChange={(event) => setProfileForm({ ...profileForm, age: event.target.value })} placeholder="18+"/></label><label><span>COUNTRY</span><input required value={profileForm.country} onChange={(event) => setProfileForm({ ...profileForm, country: event.target.value })} placeholder="Portugal"/></label><label><span>REGION</span><select required value={profileForm.region} onChange={(event) => setProfileForm({ ...profileForm, region: event.target.value })}><option value="" disabled>Select region</option>{REGIONS.map((item) => <option key={item}>{item}</option>)}</select></label><label className="wide"><span>HEADLINE</span><input required maxLength={90} value={profileForm.headline} onChange={(event) => setProfileForm({ ...profileForm, headline: event.target.value })} placeholder="A little intrigue goes a long way"/></label><label className="wide"><span>ABOUT YOU</span><textarea required maxLength={500} value={profileForm.bio} onChange={(event) => setProfileForm({ ...profileForm, bio: event.target.value })} placeholder="Your world, your style, and the kind of connection you value…"/></label><label className="wide"><span>INTERESTS</span><input value={profileForm.interests} onChange={(event) => setProfileForm({ ...profileForm, interests: event.target.value })} placeholder="Travel, art, fine dining, wellness"/><small>Separate up to five interests with commas.</small></label></div>
         {walletError && !walletPickerOpen && <div className="form-error">{walletError}</div>}<div className="form-footer"><p><Icon name="shield" size={15}/>{wallet ? `Earnings enabled with ${walletName || walletChain}` : "Email access is enough to publish; connect a wallet later to earn"}</p><button className="primary-button" type="submit" disabled={profileSaving}>{profileSaving ? `Saving${profileFiles.length ? " & uploading…" : "…"}` : "Save & publish"}<Icon name="arrow" size={18}/></button></div>
       </form></section></div>}
 

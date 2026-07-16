@@ -41,12 +41,12 @@ export async function GET(request: NextRequest) {
 
     const [profile, totals, favorites, activity, reports, visibility] = await Promise.all([
       query<{
-        id: string; display_name: string; declared_age: number; city: string; country: string;
+        id: string; display_name: string; declared_age: number; region: string; country: string;
         headline: string; bio: string; interests: string[]; review_status: string;
         rejection_reason: string | null; messages_sent: string; messages_received: string;
         photo_likes: string; media: Array<{ id: string; approved: boolean; paidLikes: number; focalX: number; focalY: number; sortOrder: number }>;
       }>(`
-        SELECT p.id, p.display_name, p.declared_age, p.city, p.country, p.headline, p.bio,
+        SELECT p.id, p.display_name, p.declared_age, p.region, p.country, p.headline, p.bio,
           p.interests, p.review_status, p.rejection_reason, p.messages_sent::text,
           p.messages_received::text, p.photo_likes::text,
           COALESCE(json_agg(json_build_object(
@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
           COALESCE((SELECT sum(q.creator_amount_usdc) FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id JOIN profiles p ON p.id = se.creator_profile_id WHERE p.user_id = $1), 0)::text AS creator_earnings,
           COALESCE((SELECT sum(q.platform_amount_usdc) FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id JOIN profiles p ON p.id = se.creator_profile_id WHERE p.user_id = $1), 0)::text AS platform_fees
       `, [user.id]),
-      query<{ id: string; name: string; city: string; country: string; headline: string; photo_id: string | null }>(`
-        SELECT p.id, p.display_name AS name, p.city, p.country, p.headline,
+      query<{ id: string; name: string; region: string; country: string; headline: string; photo_id: string | null }>(`
+        SELECT p.id, p.display_name AS name, p.region, p.country, p.headline,
           (SELECT m.id FROM profile_media m WHERE m.profile_id = p.id AND m.is_approved = TRUE ORDER BY m.sort_order, m.created_at LIMIT 1) AS photo_id
         FROM favorites f JOIN profiles p ON p.id = f.profile_id JOIN users creator ON creator.id = p.user_id
         WHERE f.user_id = $1 AND p.review_status = 'APPROVED' AND creator.status = 'ACTIVE'
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
         id: creator.id,
         name: creator.display_name,
         age: creator.declared_age,
-        city: creator.city,
+        region: creator.region,
         country: creator.country,
         headline: creator.headline,
         bio: creator.bio,
