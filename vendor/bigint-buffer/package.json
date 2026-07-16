@@ -1,0 +1,12 @@
+{
+  "name": "bigint-buffer",
+  "version": "1.1.6",
+  "description": "Pure JavaScript bigint/buffer compatibility implementation without native bindings",
+  "main": "dist/node.js",
+  "browser": "dist/node.js",
+  "types": "dist/index.d.ts",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=10"
+  }
+}

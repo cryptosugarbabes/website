@@ -2,10 +2,11 @@ import { PoolClient, QueryResultRow } from "pg";
 import { randomUUID } from "node:crypto";
 import { query } from "@/lib/db";
 import { AuthSession } from "@/lib/session";
+import { type AcceptanceRecord } from "@/lib/legal-acceptance";
 
 export type AccountType = "CREATOR" | "CUSTOMER";
 
-export type AccountRow = QueryResultRow & {
+export type AccountRow = QueryResultRow & AcceptanceRecord & {
   id: string;
   account_type: AccountType | null;
   status: "ACTIVE" | "SUSPENDED";
@@ -17,7 +18,9 @@ export type AccountRow = QueryResultRow & {
 
 export async function accountForSession(session: AuthSession) {
   const result = await query<AccountRow>(`
-    SELECT u.id, u.account_type, u.status, cp.display_name, cp.bio, cp.generosity_points::text,
+    SELECT u.id, u.account_type, u.status, u.adult_attested_at, u.terms_accepted_at,
+      u.terms_version, u.privacy_accepted_at, u.privacy_version,
+      cp.display_name, cp.bio, cp.generosity_points::text,
       EXISTS (SELECT 1 FROM profiles p WHERE p.user_id = u.id) AS has_creator_profile
     FROM users u
     LEFT JOIN customer_profiles cp ON cp.user_id = u.id

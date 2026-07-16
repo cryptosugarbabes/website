@@ -17,6 +17,11 @@ curl --fail --silent --max-time 15 https://cryptosugarbabes.com/api/health >/dev
 LATEST_DATABASE="$(find "$BACKUP_ROOT" -maxdepth 1 -name 'database-*.sql.gz' -type f -mmin -1560 -print -quit 2>/dev/null || true)"
 test -n "$LATEST_DATABASE" || ERRORS+=("no database backup newer than 26 hours")
 
+if [ -n "${BACKUP_S3_URI:-}" ]; then
+  RECENT_OFFSITE="$(find "$BACKUP_ROOT" -maxdepth 1 -name '.last-offsite-success' -type f -mmin -1560 -print -quit 2>/dev/null || true)"
+  test -n "$RECENT_OFFSITE" || ERRORS+=("no successful encrypted offsite backup newer than 26 hours")
+fi
+
 if [ "${#ERRORS[@]}" -gt 0 ]; then
   MESSAGE="Crypto Sugar alert: $(IFS='; '; echo "${ERRORS[*]}")"
   logger -t cryptosugar-monitor "$MESSAGE"

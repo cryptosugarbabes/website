@@ -31,3 +31,10 @@ Certificate notices go to `cryptosugarbabes@gmail.com`.
 Run `deploy/bootstrap-vps.sh` to install PostgreSQL, create the persistent upload directory, and schedule daily database backups. Profile photos use the existing Droplet disk at `/opt/cryptosugarbabes/shared/uploads`; no Spaces subscription is required.
 
 The administrator review screen is available at `https://cryptosugarbabes.com/admin`. Its password is stored as `ADMIN_PASSWORD` in `/opt/cryptosugarbabes/shared/.env`.
+
+## Beta readiness checks
+
+- Each account records separate timestamps for the 18+ attestation, Terms acceptance, and Privacy Policy acceptance. Policy versions are stored so members can be prompted again after a material policy update.
+- `backup-data.sh` records a successful offsite-upload marker only after both encrypted archives reach the configured S3-compatible destination. `monitor-health.sh` treats a stale marker as an alert when `BACKUP_S3_URI` is configured.
+- Configure `MONITOR_WEBHOOK_URL` to deliver application health and backup-freshness failures outside the VPS. Provider-level Droplet alerts and managed backups remain configured and verified in the DigitalOcean control panel.
+- Complete a small real Solana paid-like and gift test with separate customer and creator wallets before opening the beta. Confirm both recipient transfers, transaction signatures, the 90/10 ledger split, and creator totals in the administrator dashboard.

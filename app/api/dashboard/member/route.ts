@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { authenticatedSession } from "@/lib/request-security";
+import { acceptanceComplete, type AcceptanceRecord } from "@/lib/legal-acceptance";
 
-type UserRow = {
+type UserRow = AcceptanceRecord & {
   id: string;
   email: string | null;
   wallet_address: string | null;
@@ -24,6 +25,8 @@ export async function GET(request: NextRequest) {
   try {
     const userResult = await query<UserRow>(`
       SELECT u.id, u.email, u.wallet_address, u.wallet_chain, u.account_type, u.status,
+        u.adult_attested_at, u.terms_accepted_at, u.terms_version,
+        u.privacy_accepted_at, u.privacy_version,
         u.suspension_reason, u.deletion_requested_at, u.created_at,
         cp.display_name AS customer_name, cp.bio AS customer_bio,
         cp.generosity_points::text
@@ -135,7 +138,13 @@ export async function GET(request: NextRequest) {
         status: user.status,
         suspensionReason: user.suspension_reason,
         deletionRequestedAt: user.deletion_requested_at,
-        createdAt: user.created_at
+        createdAt: user.created_at,
+        acceptanceComplete: acceptanceComplete(user),
+        adultAttestedAt: user.adult_attested_at,
+        termsAcceptedAt: user.terms_accepted_at,
+        privacyAcceptedAt: user.privacy_accepted_at,
+        termsVersion: user.terms_version,
+        privacyVersion: user.privacy_version
       },
       account: {
         type: user.account_type,

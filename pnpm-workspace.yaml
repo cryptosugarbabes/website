@@ -7,5 +7,6 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - viem@2.55.2
 overrides:
+  bigint-buffer: file:vendor/bigint-buffer
   postcss: 8.5.10
   uuid: 11.1.1

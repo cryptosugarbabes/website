@@ -8,6 +8,7 @@ type Tab = "overview" | "messages" | "profile" | "activity" | "safety" | "settin
 type Identity = {
   email: string | null; walletAddress: string | null; walletChain: string | null;
   status: string; suspensionReason?: string | null; deletionRequestedAt?: string | null; createdAt: string;
+  acceptanceComplete: boolean; adultAttestedAt?: string | null; termsAcceptedAt?: string | null; privacyAcceptedAt?: string | null;
 };
 type CreatorProfile = {
   id: string; name: string; age: number; city: string; country: string; headline: string; bio: string;
@@ -66,7 +67,12 @@ export function MemberDashboard() {
   const [reportDetails, setReportDetails] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [messageGate, setMessageGate] = useState<MessageGate | null>(null);
+  const [acceptedAdult, setAcceptedAdult] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptanceStepComplete, setAcceptanceStepComplete] = useState(false);
   const activeConversation = useMemo(() => conversations.find((item) => item.id === activeConversationId) || conversations[0] || null, [conversations, activeConversationId]);
+  const acceptanceReady = acceptedAdult && acceptedTerms && acceptedPrivacy;
 
   async function loadDashboard() {
     setLoading(true); setError("");
@@ -75,6 +81,10 @@ export function MemberDashboard() {
     const next = await response.json() as DashboardData & { error?: string };
     if (!response.ok) { setError(next.error || "Dashboard unavailable."); setLoading(false); return; }
     setData(next); setSignedOut(false);
+    setAcceptedAdult(next.identity.acceptanceComplete);
+    setAcceptedTerms(next.identity.acceptanceComplete);
+    setAcceptedPrivacy(next.identity.acceptanceComplete);
+    setAcceptanceStepComplete(next.identity.acceptanceComplete);
     setCustomerName(next.account.displayName || ""); setCustomerBio(next.account.bio || "");
     if (next.creatorProfile) setProfileForm({
       name: next.creatorProfile.name, age: String(next.creatorProfile.age), city: next.creatorProfile.city,
@@ -153,7 +163,8 @@ export function MemberDashboard() {
 
   async function chooseCustomer(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
-    const response = await fetch("/api/account", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "CUSTOMER", displayName: customerName, bio: customerBio }) });
+    if (!acceptanceReady) { setError("Confirm that you are 18+ and accept the Terms and Privacy Policy."); setBusy(false); return; }
+    const response = await fetch("/api/account", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "CUSTOMER", displayName: customerName, bio: customerBio, acceptedAdult, acceptedTerms, acceptedPrivacy }) });
     const next = await response.json() as { error?: string };
     if (!response.ok) setError(next.error || "Could not save your account."); else { setNotice("Your private customer account is ready."); await loadDashboard(); }
     setBusy(false);
@@ -161,7 +172,8 @@ export function MemberDashboard() {
 
   async function chooseCreator() {
     setBusy(true); setError("");
-    const response = await fetch("/api/account", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "CREATOR" }) });
+    if (!acceptanceReady) { setError("Confirm that you are 18+ and accept the Terms and Privacy Policy."); setBusy(false); return; }
+    const response = await fetch("/api/account", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "CREATOR", acceptedAdult, acceptedTerms, acceptedPrivacy }) });
     const next = await response.json() as { error?: string };
     if (!response.ok) setError(next.error || "Could not create your creator account.");
     else {
@@ -173,6 +185,23 @@ export function MemberDashboard() {
   }
 
   async function saveCustomer(event: FormEvent) { await chooseCustomer(event); }
+
+  async function acceptPolicies() {
+    if (!data?.account.type || !acceptanceReady) { setError("Confirm all three membership statements."); return; }
+    setBusy(true); setError("");
+    const response = await fetch("/api/account", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      type: data.account.type,
+      displayName: data.account.displayName || data.creatorProfile?.name || "Member",
+      bio: data.account.bio || "",
+      acceptedAdult,
+      acceptedTerms,
+      acceptedPrivacy
+    }) });
+    const next = await response.json() as { error?: string };
+    if (!response.ok) setError(next.error || "Membership acceptance could not be saved.");
+    else { setNotice("Your membership acceptance has been recorded."); await loadDashboard(); }
+    setBusy(false);
+  }
 
   async function saveCreator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
@@ -287,7 +316,7 @@ export function MemberDashboard() {
       <section className="member-content">
         {data.identity.status === "SUSPENDED" && <div className="dashboard-warning"><strong>Account suspended</strong><p>{data.identity.suspensionReason || "Contact safety support for more information."}</p></div>}
         {error && <div className="dashboard-error">{error}</div>}{notice && <div className="dashboard-notice">{notice}</div>}
-        {!data.account.type ? <section className="dashboard-panel onboarding-panel"><span className="dashboard-kicker">WELCOME</span><h1>Choose how you will use Crypto Sugar.</h1><div className="onboarding-grid"><article><h2>Sugar Babe</h2><p>Create a public profile, add up to eight photos free, and message free using email. Profiles publish automatically and remain subject to administrator review.</p><button disabled={busy} onClick={chooseCreator}>Continue as creator</button></article><article><h2>Sugar Daddy</h2><p>Customers stay private, message freely, and connect a wallet only for paid support.</p><form onSubmit={chooseCustomer}><input required maxLength={80} value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Private display name"/><textarea maxLength={300} value={customerBio} onChange={(event) => setCustomerBio(event.target.value)} placeholder="Private introduction (optional)"/><button disabled={busy}>Continue as customer</button></form></article></div></section> : <>
+        {!data.identity.acceptanceComplete && !acceptanceStepComplete ? <section className="dashboard-panel onboarding-panel acceptance-panel"><span className="dashboard-kicker">MEMBERSHIP CONFIRMATION</span><h1>Confirm your membership.</h1><p>These confirmations are recorded with your account when you continue.</p><div className="acceptance-checks"><label><input type="checkbox" checked={acceptedAdult} onChange={(event) => setAcceptedAdult(event.target.checked)}/><span>I attest that I am at least 18 and have reached the age of majority where I live.</span></label><label><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)}/><span>I have read and accept the <a href="/terms" target="_blank">Terms</a>.</span></label><label><input type="checkbox" checked={acceptedPrivacy} onChange={(event) => setAcceptedPrivacy(event.target.checked)}/><span>I have read and accept the <a href="/privacy" target="_blank">Privacy Policy</a>.</span></label></div><button disabled={busy || !acceptanceReady} onClick={data.account.type ? acceptPolicies : () => setAcceptanceStepComplete(true)}>{busy ? "Saving…" : "Accept & continue"}</button></section> : !data.account.type ? <section className="dashboard-panel onboarding-panel"><span className="dashboard-kicker">WELCOME</span><h1>Choose how you will use Crypto Sugar.</h1><div className="onboarding-grid"><article><h2>Sugar Babe</h2><p>Create a public profile, add up to eight photos free, and message free using email. Profiles publish automatically and remain subject to administrator review.</p><button disabled={busy} onClick={chooseCreator}>Continue as creator</button></article><article><h2>Sugar Daddy</h2><p>Customers stay private, message freely, and connect a wallet only for paid support.</p><form onSubmit={chooseCustomer}><input required maxLength={80} value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Private display name"/><textarea maxLength={300} value={customerBio} onChange={(event) => setCustomerBio(event.target.value)} placeholder="Private introduction (optional)"/><button disabled={busy}>Continue as customer</button></form></article></div></section> : <>
           {tab === "overview" && <section><div className="dashboard-heading"><span className="dashboard-kicker">PRIVATE OVERVIEW</span><h1>Welcome back, {data.account.displayName || data.creatorProfile?.name || "member"}.</h1><p>{creator ? "Manage your presence, conversations and creator activity." : "Your conversations, favorites and generosity—all kept private."}</p></div><div className="metric-grid"><article><span>Conversations</span><strong>{data.stats.conversations}</strong><small>{data.stats.unread} unread</small></article><article><span>{creator ? "Creator earnings" : "Support sent"}</span><strong>{money(creator ? data.stats.creatorEarningsUsdc : data.stats.supportSentUsdc)}</strong><small>{creator ? "Your confirmed 90% share" : "Confirmed on-chain"}</small></article><article><span>{creator ? "Paid likes" : "Favorites"}</span><strong>{creator ? data.creatorProfile?.photoLikes || 0 : data.stats.favorites}</strong><small>{creator ? `${data.creatorProfile?.totalPoints || 0} creator points` : `${data.account.generosityPoints} generosity points`}</small></article><article><span>{creator ? "Discovery" : "Messages sent"}</span><strong>{creator && data.creatorProfile?.discoveryRank ? `#${data.creatorProfile.discoveryRank}` : data.stats.messagesSent}</strong><small>{creator && data.creatorProfile?.creatorCount ? `of ${data.creatorProfile.creatorCount} approved creators` : "Free private messages"}</small></article></div>{creator && data.creatorProfile && <div className="dashboard-panel creator-position"><div><span>24-HOUR DISCOVERY SIGNAL</span><strong>{data.creatorProfile.points24h} points today</strong><p>Recent likes, gifts and boosts influence discovery ordering for the current 24-hour period.</p></div><div className={`review-pill ${data.creatorProfile.reviewStatus.toLowerCase()}`}>{label(data.creatorProfile.reviewStatus)}</div></div>}{!creator && <div className="dashboard-panel"><div className="dashboard-panel-title"><h2>Saved creators</h2><button onClick={() => setTab("profile")}>View all</button></div><div className="favorite-dashboard-grid">{data.favorites.slice(0, 4).map((item) => <a href={`/?profile=${item.id}`} key={item.id}>{item.imageUrl ? <img src={item.imageUrl} alt=""/> : <span>{item.name[0]}</span>}<strong>{item.name}</strong><small>{item.city}, {item.country}</small></a>)}{!data.favorites.length && <p className="dashboard-empty">Profiles you save will appear here.</p>}</div></div>}</section>}
           {tab === "messages" && <section className="messages-section"><div className="dashboard-heading messages-heading"><span className="dashboard-kicker">PRIVATE MESSAGES</span><h1>Inbox</h1><p>Chat freely. We’ll email you when a new unread message arrives, while keeping the message itself private.</p><div className="message-alert-status"><span aria-hidden="true">✓</span>Email alerts are on{!notificationsEnabled && <button onClick={enableNotifications}>Add browser alerts</button>}</div></div><div className="dashboard-inbox"><aside>{conversations.map((conversation) => <button className={conversation.id === activeConversation?.id ? "active" : ""} key={conversation.id} onClick={() => setActiveConversationId(conversation.id)}>{conversation.imageUrl ? <img src={conversation.imageUrl} alt=""/> : <span>{conversation.counterpartName[0]}</span>}<div><strong>{conversation.counterpartName}{conversation.priorityBoostUsdc > 0 ? <em>BOOST</em> : null}</strong><small>{conversation.messages.at(-1)?.body || "New conversation"}</small></div></button>)}{!conversations.length && <p className="dashboard-empty">No conversations yet.</p>}</aside><div className="dashboard-thread">{activeConversation ? <><header><div className="conversation-person"><span className="conversation-avatar">{activeConversation.imageUrl ? <img src={activeConversation.imageUrl} alt=""/> : activeConversation.counterpartName[0]}</span><div><strong>{activeConversation.counterpartName}</strong><small>{activeConversation.blockedByMe || activeConversation.blockedMe ? "Messaging blocked" : "Private conversation"}</small></div></div><div className="conversation-safety-actions"><button onClick={() => openReport({ conversationId: activeConversation.id, label: `conversation with ${activeConversation.counterpartName}` })}>Report</button><button disabled={safetyBusy} onClick={() => toggleBlock(activeConversation)}>{activeConversation.blockedByMe ? "Unblock" : "Block"}</button></div></header><div>{activeConversation.messages.map((message) => <article className={message.mine ? "mine" : ""} key={message.id}>{message.boostAmountUsdc > 0 && <span>BOOSTED · {money(message.boostAmountUsdc)}</span>}<p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small>{!message.mine && <button className="message-report" onClick={() => openReport({ conversationId: activeConversation.id, messageId: message.id, label: "message" })}>Report</button>}</article>)}</div>{(messageGate || activeConversation.messageGate !== "OPEN") && <aside className="automated-message-notice"><strong>Crypto Sugar reminder</strong><p>{messageGate?.error || (activeConversation.messageGate === "WARNING" ? "You have sent two messages without a reply. Your third message will require confirmation, then please wait for a reply." : activeConversation.messageGate === "PAID_UNLOCK_READY" ? "Your weekly paid-message unlock is ready. It can be used for one additional message." : "You have sent three messages without a reply. Please wait for a response before continuing.")}</p>{messageGate?.code === "UNANSWERED_WARNING" && <button type="button" disabled={busy || !reply.trim()} onClick={() => submitReply({ acknowledgeUnansweredWarning: true })}>Send third message</button>}{(messageGate?.hasPaidUnlock || activeConversation.hasPaidUnlock) && <button type="button" disabled={busy || !reply.trim()} onClick={() => submitReply({ usePaidUnlock: true })}>Send with paid unlock</button>}{(messageGate?.canPurchaseUnlock || activeConversation.canPurchaseUnlock) && activeConversation.messageGate !== "WARNING" && <a href={`/?unlockConversation=${activeConversation.id}`} target="_blank" rel="noreferrer">Unlock one message · 10 USDC</a>}{!(messageGate?.canPurchaseUnlock || activeConversation.canPurchaseUnlock || messageGate?.hasPaidUnlock || activeConversation.hasPaidUnlock) && (messageGate?.nextUnlockAt || activeConversation.nextUnlockAt) && <small>Next paid unlock: {new Date(messageGate?.nextUnlockAt || activeConversation.nextUnlockAt || "").toLocaleString()}</small>}</aside>}{activeConversation.blockedByMe || activeConversation.blockedMe ? <p className="dashboard-empty">Messaging is disabled for this conversation.</p> : <form onSubmit={sendReply}><textarea required maxLength={800} value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Write a message…"/><button className="message-send-button" disabled={busy}>{busy ? "Sending…" : "Send message"}<span aria-hidden="true">➤</span></button></form>}</> : <div className="dashboard-empty">Choose a conversation.</div>}</div></div></section>}
           {tab === "profile" && <section>

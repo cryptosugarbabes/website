@@ -29,6 +29,7 @@ if [ -n "${BACKUP_S3_URI:-}" ]; then
     aws "${ENDPOINT_ARGS[@]}" s3 cp "$encrypted" "${BACKUP_S3_URI%/}/$(basename "$encrypted")" --only-show-errors
     rm -f "$encrypted"
   done
+  touch "$BACKUP_ROOT/.last-offsite-success"
 fi
 
 find "$BACKUP_ROOT" -type f -mtime +14 -delete

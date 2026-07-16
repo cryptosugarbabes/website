@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminIdentity, isAdminRequest } from "@/lib/admin-session";
 import { query, transaction } from "@/lib/db";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
+import { acceptanceComplete, type AcceptanceRecord } from "@/lib/legal-acceptance";
 
 export async function GET(request: NextRequest) {
   if (!isAdminRequest(request)) return NextResponse.json({ error: "Administrator access required." }, { status: 401 });
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
           COALESCE((SELECT sum(q.platform_amount_usdc) FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id), 0)::text AS platform_usdc,
           (SELECT count(*) FROM users WHERE deletion_requested_at IS NOT NULL)::text AS deletion_requests
       `),
-      query<{
+      query<AcceptanceRecord & {
         id: string; email: string | null; wallet_address: string | null; wallet_chain: string | null;
         account_type: string | null; status: string; suspension_reason: string | null;
         deletion_requested_at: Date | null; created_at: Date; display_name: string | null;
@@ -33,6 +34,8 @@ export async function GET(request: NextRequest) {
         support_sent: string; creator_earned: string;
       }>(`
         SELECT u.id, u.email, u.wallet_address, u.wallet_chain, u.account_type, u.status,
+          u.adult_attested_at, u.terms_accepted_at, u.terms_version,
+          u.privacy_accepted_at, u.privacy_version,
           u.suspension_reason, u.deletion_requested_at, u.created_at,
           COALESCE(p.display_name, cp.display_name) AS display_name,
           p.review_status AS profile_status,
@@ -87,6 +90,10 @@ export async function GET(request: NextRequest) {
         type: item.account_type, status: item.status, suspensionReason: item.suspension_reason,
         deletionRequestedAt: item.deletion_requested_at, createdAt: item.created_at,
         displayName: item.display_name, profileStatus: item.profile_status,
+        acceptanceComplete: acceptanceComplete(item),
+        adultAttestedAt: item.adult_attested_at,
+        termsAcceptedAt: item.terms_accepted_at,
+        privacyAcceptedAt: item.privacy_accepted_at,
         conversations: Number(item.conversations), messages: Number(item.messages),
         supportSentUsdc: Number(item.support_sent), creatorEarnedUsdc: Number(item.creator_earned)
       })),

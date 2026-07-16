@@ -190,6 +190,10 @@ export function DiscoveryApp() {
   const [accountDisplayName, setAccountDisplayName] = useState("");
   const [accountBio, setAccountBio] = useState("");
   const [accountSaving, setAccountSaving] = useState(false);
+  const [acceptanceComplete, setAcceptanceComplete] = useState(false);
+  const [acceptedAdult, setAcceptedAdult] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
@@ -210,6 +214,7 @@ export function DiscoveryApp() {
   const profileIntentRef = useRef(false);
   const lastUnreadRef = useRef(0);
   const isAuthenticated = Boolean(wallet || email);
+  const acceptanceReady = acceptedAdult && acceptedTerms && acceptedPrivacy;
 
   function showWalletPicker(_context: "general" | "profile" = "general", network: WalletChain | null = null) {
     setWalletContext(_context);
@@ -230,7 +235,7 @@ export function DiscoveryApp() {
       setWallet(data.address);
       setWalletChain(data.chain);
       if (data.chain) setWalletName(data.chain === "solana" ? "Solana" : "Base");
-      if (data.authenticated) await Promise.all([loadAccount(), loadFavorites()]);
+      if (data.authenticated) await Promise.all([loadAccount(true), loadFavorites()]);
     }).catch(() => undefined);
   }, []);
 
@@ -277,14 +282,19 @@ export function DiscoveryApp() {
   async function loadAccount(openWhenMissing = false) {
     const response = await fetch("/api/account", { cache: "no-store" });
     if (!response.ok) return null;
-    const data = await response.json() as { account?: { type: AccountType | null; displayName?: string | null; bio?: string | null; generosityPoints?: number; hasCreatorProfile?: boolean } | null };
+    const data = await response.json() as { account?: { type: AccountType | null; displayName?: string | null; bio?: string | null; generosityPoints?: number; hasCreatorProfile?: boolean; acceptance?: { complete?: boolean } } | null };
     const account = data.account || null;
     setAccountType(account?.type || null);
     setHasCreatorProfile(Boolean(account?.hasCreatorProfile));
     setAccountDisplayName(account?.displayName || "");
     setAccountBio(account?.bio || "");
+    const complete = Boolean(account?.acceptance?.complete);
+    setAcceptanceComplete(complete);
+    setAcceptedAdult(complete);
+    setAcceptedTerms(complete);
+    setAcceptedPrivacy(complete);
     if (account?.generosityPoints) setSupportGivenUsdc(account.generosityPoints);
-    if (openWhenMissing && !account?.type) setAccountOpen(true);
+    if (openWhenMissing && (!account?.type || !complete)) setAccountOpen(true);
     return account;
   }
 
@@ -608,12 +618,14 @@ export function DiscoveryApp() {
   async function saveAccount(type: AccountType) {
     if (!isAuthenticated) { showEmailSignIn(); return; }
     if (type === "CUSTOMER" && !accountDisplayName.trim()) { setWalletError("Add a private display name for your customer account."); return; }
+    if (!acceptanceReady) { setWalletError("Confirm that you are 18+ and accept the Terms and Privacy Policy."); return; }
     setAccountSaving(true); setWalletError("");
     try {
-      const response = await fetch("/api/account", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type, displayName: accountDisplayName, bio: accountBio }) });
+      const response = await fetch("/api/account", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type, displayName: accountDisplayName, bio: accountBio, acceptedAdult, acceptedTerms, acceptedPrivacy }) });
       const data = await response.json() as { account?: { type: AccountType }; error?: string };
       if (!response.ok) throw new Error(data.error || "Your account could not be saved.");
       setAccountType(type);
+      setAcceptanceComplete(true);
       setAccountOpen(false);
       profileIntentRef.current = false;
       setNotice(type === "CREATOR" ? "Creator account ready. Build your profile now and connect a payout wallet when you want to earn." : "Private Sugar Daddy account ready.");
@@ -1051,7 +1063,7 @@ export function DiscoveryApp() {
         </div>;
       })()}
 
-      {accountOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !accountSaving) setAccountOpen(false); }}><section className="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={() => setAccountOpen(false)} aria-label="Close account choice"><Icon name="close" size={20}/></button><span className="section-kicker">CHOOSE YOUR SIDE</span><h2 id="account-title">How will you use Crypto Sugar?</h2><p className="wallet-intro">Both account types can begin with email and message for free. Wallets are only required for sending or receiving paid support.</p><div className="account-role-grid"><article><Icon name="spark" size={24}/><h3>Sugar Babe</h3><p>Create a public profile, upload up to eight photos free, and message free. Profiles publish automatically and remain subject to administrator review.</p><button className="primary-button full" disabled={accountSaving} onClick={() => saveAccount("CREATOR")}>Continue as creator</button></article><article><Icon name="user" size={24}/><h3>Sugar Daddy</h3><p>Keep your account private, save favorites, and message creators free. Connect a wallet only when sending paid support.</p><label><span>PRIVATE DISPLAY NAME</span><input maxLength={80} value={accountDisplayName} onChange={(event) => setAccountDisplayName(event.target.value)} placeholder="Your first name or alias"/></label><label><span>PRIVATE BIO · OPTIONAL</span><textarea maxLength={300} value={accountBio} onChange={(event) => setAccountBio(event.target.value)} placeholder="A short private introduction…"/></label><button className="primary-button full" disabled={accountSaving} onClick={() => saveAccount("CUSTOMER")}>Continue as customer</button></article></div>{walletError && <div className="form-error">{walletError}</div>}</section></div>}
+      {accountOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !accountSaving) setAccountOpen(false); }}><section className="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title"><button className="modal-close" onClick={() => setAccountOpen(false)} aria-label="Close account choice"><Icon name="close" size={20}/></button><span className="section-kicker">{accountType ? "MEMBERSHIP CONFIRMATION" : "CHOOSE YOUR SIDE"}</span><h2 id="account-title">{accountType ? "Confirm your membership." : "How will you use Crypto Sugar?"}</h2><p className="wallet-intro">Both account types can begin with email and message for free. Wallets are only required for sending or receiving paid support.</p>{!accountType && <div className="account-role-grid"><article><Icon name="spark" size={24}/><h3>Sugar Babe</h3><p>Create a public profile, upload up to eight photos free, and message free. Profiles publish automatically and remain subject to administrator review.</p><button className="primary-button full" disabled={accountSaving || !acceptanceReady} onClick={() => saveAccount("CREATOR")}>Continue as creator</button></article><article><Icon name="user" size={24}/><h3>Sugar Daddy</h3><p>Keep your account private, save favorites, and message creators free. Connect a wallet only when sending paid support.</p><label><span>PRIVATE DISPLAY NAME</span><input maxLength={80} value={accountDisplayName} onChange={(event) => setAccountDisplayName(event.target.value)} placeholder="Your first name or alias"/></label><label><span>PRIVATE BIO · OPTIONAL</span><textarea maxLength={300} value={accountBio} onChange={(event) => setAccountBio(event.target.value)} placeholder="A short private introduction…"/></label><button className="primary-button full" disabled={accountSaving || !acceptanceReady} onClick={() => saveAccount("CUSTOMER")}>Continue as customer</button></article></div>}<div className="acceptance-checks"><label><input type="checkbox" checked={acceptedAdult} onChange={(event) => setAcceptedAdult(event.target.checked)}/><span>I attest that I am at least 18 and have reached the age of majority where I live.</span></label><label><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)}/><span>I have read and accept the <a href="/terms" target="_blank">Terms</a>.</span></label><label><input type="checkbox" checked={acceptedPrivacy} onChange={(event) => setAcceptedPrivacy(event.target.checked)}/><span>I have read and accept the <a href="/privacy" target="_blank">Privacy Policy</a>.</span></label></div>{accountType && !acceptanceComplete && <button className="primary-button full acceptance-submit" disabled={accountSaving || !acceptanceReady} onClick={() => saveAccount(accountType)}>{accountSaving ? "Saving…" : "Accept & continue"}</button>}{walletError && <div className="form-error">{walletError}</div>}</section></div>}
 
       {inboxOpen && (() => {
         const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) || conversations[0];
