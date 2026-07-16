@@ -51,7 +51,7 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: {
         </div>
       </article>
       <footer className="legal-footer">
-        <div className="legal-footer-brand"><span>© 2026 Crypto Sugar Babes. Adults only.</span><InstagramLink/><XLink/></div>
+        <div className="legal-footer-brand"><span>© 2026 Crypto Sugar Babes. Safety First Always.</span><InstagramLink/><XLink/></div>
         <nav><Link href="/safety">Safety</Link><Link href="/disputes">Disputes</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
       </footer>
     </main>
