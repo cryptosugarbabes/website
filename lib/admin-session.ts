@@ -39,7 +39,7 @@ export function adminIdentity(request: NextRequest) {
   if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
   try {
     return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")).expiresAt > Date.now()
-      ? "emergency-password"
+      ? "administrator-password"
       : null;
   } catch {
     return null;
