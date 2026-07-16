@@ -39,10 +39,6 @@ export async function POST(request: NextRequest) {
   if (!type || (type === "CUSTOMER" && !displayName)) {
     return NextResponse.json({ error: "Choose an account type and add your display name." }, { status: 400 });
   }
-  if (type === "CREATOR" && !session.address) {
-    return NextResponse.json({ error: "Connect and verify a wallet before creating a creator profile." }, { status: 403 });
-  }
-
   try {
     const account = await transaction(async (client) => {
       const user = await ensureUser(client, session);

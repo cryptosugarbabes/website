@@ -1,20 +1,25 @@
 import fs from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
-import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
+import { accountForSession } from "@/lib/accounts";
+import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 import { safeStoragePath } from "@/lib/uploads";
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const session = walletSession(request);
-  if (!session) return NextResponse.json({ error: "Connect and verify your wallet first." }, { status: 401 });
+  const session = authenticatedSession(request);
+  if (!session) return NextResponse.json({ error: "Sign in before removing photos." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const { id } = await context.params;
   try {
+    const account = await accountForSession(session);
+    if (!account || account.account_type !== "CREATOR") {
+      return NextResponse.json({ error: "Choose a creator account before managing photos." }, { status: 403 });
+    }
     const media = await query<{ storage_key: string; profile_id: string }>(`
       SELECT m.storage_key, m.profile_id FROM profile_media m
-      JOIN profiles p ON p.id = m.profile_id JOIN users u ON u.id = p.user_id
-      WHERE m.id = $1 AND u.wallet_chain = $2 AND u.wallet_address = $3
-    `, [id, session.chain, session.address]);
+      JOIN profiles p ON p.id = m.profile_id
+      WHERE m.id = $1 AND p.user_id = $2
+    `, [id, account.id]);
     if (!media.rowCount) return NextResponse.json({ error: "That photo was not found." }, { status: 404 });
     await transaction(async (client) => {
       await client.query(`DELETE FROM profile_media WHERE id = $1`, [id]);

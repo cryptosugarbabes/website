@@ -1,4 +1,4 @@
-export const MAX_PROFILE_PHOTOS = 20;
+export const MAX_PROFILE_PHOTOS = 4;
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 export const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 

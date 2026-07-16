@@ -10,8 +10,8 @@ type PaymentKind = "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST";
 type CreatorRow = {
   id: string;
   photo_likes: string;
-  wallet_chain: "evm" | "solana";
-  wallet_address: string;
+  wallet_chain: "evm" | "solana" | null;
+  wallet_address: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
     `, [input.profileId]);
     if (!creator.rowCount) return NextResponse.json({ error: "That creator profile is not available." }, { status: 404 });
     const target = creator.rows[0];
+    if (!target.wallet_chain || !target.wallet_address) {
+      return NextResponse.json({ error: "This creator has not connected a payout wallet yet. Free messaging is still available." }, { status: 409 });
+    }
     if (target.wallet_chain !== session.chain) {
       return NextResponse.json({ error: `This creator receives on ${target.wallet_chain === "solana" ? "Solana" : "Base"}. Connect a matching wallet to pay.` }, { status: 409 });
     }

@@ -22,6 +22,8 @@ export type Profile = {
   giftsUsdc?: number;
   creatorPoints?: number;
   points24h?: number;
+  supportEnabled?: boolean;
+  supportNetwork?: "evm" | "solana" | null;
   reviewStatus?: "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
   isOwn?: boolean;
 };

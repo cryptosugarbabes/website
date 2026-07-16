@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { ensureUser } from "@/lib/accounts";
-import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
+import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 
 type ProfileRow = {
   id: string;
@@ -20,6 +20,8 @@ type ProfileRow = {
   support_usdc: string;
   creator_points: string;
   points_24h: string;
+  support_enabled: boolean;
+  support_network: "evm" | "solana" | null;
   is_own: boolean;
   media: Array<{ id: string; approved: boolean; paidLikes: number }>;
 };
@@ -51,16 +53,21 @@ function publicProfile(row: ProfileRow) {
     giftsUsdc: Number(row.support_usdc),
     creatorPoints: Number(row.creator_points),
     points24h: Number(row.points_24h),
+    supportEnabled: row.support_enabled,
+    supportNetwork: row.support_network,
     reviewStatus: row.review_status,
     isOwn: row.is_own
   };
 }
 
 export async function GET(request: NextRequest) {
-  const session = walletSession(request);
+  const session = authenticatedSession(request);
   const values: unknown[] = [];
   let ownerClause = "FALSE";
-  if (session) {
+  if (session?.userId) {
+    values.push(session.userId);
+    ownerClause = `(u.id = $1)`;
+  } else if (session?.chain && session.address) {
     values.push(session.chain, session.address);
     ownerClause = `(u.wallet_chain = $1 AND u.wallet_address = $2)`;
   }
@@ -79,6 +86,8 @@ export async function GET(request: NextRequest) {
           + floor(support_stats.support_total)
           - floor(GREATEST(support_stats.support_total - support_stats.support_24h, 0))
         ) AS points_24h,
+        (u.wallet_chain IS NOT NULL AND u.wallet_address IS NOT NULL) AS support_enabled,
+        u.wallet_chain AS support_network,
         ${ownerClause} AS is_own,
         COALESCE(json_agg(json_build_object('id', m.id, 'approved', m.is_approved, 'paidLikes', m.paid_likes)
           ORDER BY m.sort_order, m.created_at) FILTER (WHERE m.id IS NOT NULL), '[]') AS media
@@ -104,7 +113,7 @@ export async function GET(request: NextRequest) {
         AND (p.review_status <> 'APPROVED' OR m.is_approved = TRUE)
       WHERE u.status = 'ACTIVE'
         AND ((p.review_status = 'APPROVED' AND u.account_type = 'CREATOR') OR ${ownerClause})
-      GROUP BY p.id, u.wallet_chain, u.wallet_address,
+      GROUP BY p.id, u.id, u.wallet_chain, u.wallet_address,
         support_stats.likes_24h, support_stats.support_total, support_stats.support_24h
       ORDER BY CASE WHEN ${ownerClause} THEN 0 ELSE 1 END,
         points_24h DESC, creator_points DESC, p.updated_at DESC
@@ -121,8 +130,8 @@ function text(value: unknown, maximum: number) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = walletSession(request);
-  if (!session) return NextResponse.json({ error: "Connect and verify your wallet first." }, { status: 401 });
+  const session = authenticatedSession(request);
+  if (!session) return NextResponse.json({ error: "Sign in with email or a wallet first." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
