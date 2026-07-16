@@ -160,19 +160,19 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
 .filter-bar {
   position: relative;
   z-index: 12;
-  min-height: 74px;
+  min-height: 60px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(255,255,255,.025);
   display: grid;
-  grid-template-columns: 1fr 210px 210px;
+  grid-template-columns: 1fr 190px;
   align-items: stretch;
   margin-bottom: 25px;
 }
-.search-field { display: flex; align-items: center; gap: 13px; padding: 0 22px; color: var(--dim); }
+.search-field { display: flex; align-items: center; gap: 11px; padding: 0 18px; color: var(--dim); }
 .search-field input { width: 100%; background: transparent; border: 0; outline: 0; color: white; font-size: 13px; }
 .search-field input::placeholder { color: #766b74; }
-.select-field { border-left: 1px solid rgba(255,126,192,.55); padding: 15px 20px; display: flex; flex-direction: column; justify-content: center; gap: 5px; background: linear-gradient(135deg, #d90073, #ff2f9b); box-shadow: inset 0 0 30px rgba(255,255,255,.08), 0 0 28px rgba(255,22,135,.18); }
+.select-field { border-left: 1px solid rgba(255,126,192,.32); border-radius: 0 13px 13px 0; padding: 9px 16px; display: flex; flex-direction: column; justify-content: center; gap: 2px; background: linear-gradient(135deg, #9f0a57, #c91573); box-shadow: inset 0 0 22px rgba(255,255,255,.05), 0 0 18px rgba(255,22,135,.12); }
 .select-field > span { color: rgba(255,255,255,.76); font-size: 8px; letter-spacing: .17em; }
 .select-field select { width: 100%; color: white; background: transparent; border: 0; outline: 0; font-size: 13px; font-weight: 700; cursor: pointer; }
 .select-field option { color: white; background: #9e0c58; }
@@ -227,8 +227,10 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
 .region-select-menu button:hover,
 .region-select-menu button:focus-visible { background: rgba(255,255,255,.14); outline: 1px solid rgba(255,255,255,.42); }
 .region-select-menu button.selected { background: linear-gradient(135deg, #e5097d, #ff3aa4); box-shadow: 0 0 18px rgba(255,28,143,.45); }
-.filter-meta { border-left: 1px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 8px; color: #b9a5b0; font-size: 11px; }
-.filter-meta svg { color: var(--gold); }
+body .filter-bar .search-field input,
+body .filter-bar .region-select-trigger,
+body .filter-bar .region-select-menu button { font-size: .95rem !important; }
+body .filter-bar .select-field > span { font-size: .7rem !important; }
 
 .profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .profile-card { position: relative; border: 1px solid var(--line); background: #161218; border-radius: 18px; overflow: hidden; transition: transform .3s ease, border-color .3s ease; }
@@ -483,7 +485,6 @@ footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
   .desire-strip { overflow: hidden; justify-content: flex-start; padding: 0 25px; white-space: nowrap; }
   .profile-grid { grid-template-columns: repeat(2, 1fr); }
   .filter-bar { grid-template-columns: 1fr 180px; }
-  .filter-meta { display: none; }
   .steps-grid { grid-template-columns: 1fr; gap: 1px; }
   .step-card { min-height: 220px; }
   .crypto-section { grid-template-columns: 1fr; gap: 55px; }
@@ -517,7 +518,7 @@ footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
   .section-heading > p { text-align: left; }
   .filter-bar { grid-template-columns: 1fr; }
   .search-field { min-height: 60px; }
-  .select-field { border-left: 0; border-top: 1px solid var(--line); }
+  .select-field { border-left: 0; border-top: 1px solid var(--line); border-radius: 0 0 13px 13px; }
   .profile-grid { grid-template-columns: 1fr; }
   .steps-section { padding: 85px 22px; }
   .crypto-section { padding: 85px 22px; }
@@ -732,7 +733,6 @@ body .social-follow-actions a {
 
 body small,
 body .location,
-body .filter-meta,
 body .select-field span,
 body .trust-row,
 body .desire-strip,

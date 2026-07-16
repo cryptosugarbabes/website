@@ -1032,7 +1032,6 @@ export function DiscoveryApp() {
               </button>)}
             </div>}
           </div>
-          <div className="filter-meta"><Icon name="check" size={16}/>Published creators</div>
         </div>
         <div className="profile-grid">
           {filteredProfiles.map((profile) => <article className="profile-card" key={profile.id}>
