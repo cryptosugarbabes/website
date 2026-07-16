@@ -606,3 +606,186 @@ footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
 .social-follow-actions a:hover { transform: translateY(-2px); border-color: rgba(255,47,146,.62); background: rgba(255,47,146,.1); }
 .social-follow-actions small { display: block; margin-top: 4px; color: #a8909d; font-size: 9px; font-weight: 400; }
 @media (max-width: 760px) { .social-follow-panel { align-items: stretch; flex-direction: column; }.social-follow-actions { flex-direction: column; }.social-follow-actions a { min-width: 0; } }
+
+/* Larger interface copy. Display headings and brand typography intentionally retain their existing scale. */
+:root {
+  --interface-copy: 1.18rem;
+  --interface-control: 1.08rem;
+  --interface-label: .92rem;
+  --interface-small: .86rem;
+}
+
+body p,
+body li,
+body blockquote,
+body dd,
+body dt {
+  font-size: var(--interface-copy) !important;
+  line-height: 1.65;
+}
+
+body label,
+body legend,
+body .eyebrow,
+body .section-kicker,
+body .dashboard-kicker,
+body .member-signin > span,
+body .member-identity > span,
+body .metric-grid span,
+body .identity-list span,
+body .admin-page-heading > span,
+body .admin-metric-grid span,
+body .admin-account-list header span,
+body .admin-audit-list span,
+body .social-follow-panel > div:first-child > span {
+  font-size: var(--interface-label) !important;
+  line-height: 1.45;
+}
+
+body input,
+body textarea,
+body select,
+body button,
+body .primary-button,
+body .secondary-button,
+body .text-button,
+body .wallet-button,
+body .site-header nav,
+body .site-header nav a,
+body .member-public-header > a:last-child,
+body .member-topbar > div:last-child a,
+body .member-topbar > div:last-child button,
+body .member-sidebar nav button,
+body .admin-console aside button,
+body .admin-console .admin-header a,
+body .admin-export-button,
+body .social-follow-actions a {
+  font-size: var(--interface-control) !important;
+  line-height: 1.35;
+}
+
+body small,
+body .location,
+body .filter-meta,
+body .select-field span,
+body .trust-row,
+body .desire-strip,
+body .profile-online,
+body .draft-badge,
+body .sample-badge,
+body .sample-photo-badge,
+body .review-pill,
+body .dashboard-empty,
+body .dashboard-photo-grid small,
+body .photo-editor-help,
+body .current-photo-heading p,
+body .current-photo-heading > span,
+body .reposition-hint,
+body .table-row,
+body .table-row.table-head,
+body .admin-member-summary,
+body .admin-payment-row,
+body .admin-payment-row.head,
+body .admin-audit-list p,
+body .admin-audit-list small,
+body .social-follow-actions small {
+  font-size: var(--interface-small) !important;
+  line-height: 1.5;
+}
+
+body .headline,
+body .tag-row span,
+body .step-number,
+body .access-card > span,
+body .access-card > p,
+body .access-networks button,
+body .payment-breakdown,
+body .dashboard-error,
+body .dashboard-notice,
+body .dashboard-warning,
+body .creator-position span,
+body .dashboard-panel-title button,
+body .dashboard-panel-title a,
+body .admin-alert-card span,
+body .admin-section-heading button,
+body .admin-compact-row,
+body .admin-account-identifiers,
+body .admin-account-stats,
+body .admin-account-list > article > p,
+body .deletion-request p,
+body .safety-links a,
+body .deletion-panel p {
+  font-size: var(--interface-small) !important;
+  line-height: 1.55;
+}
+
+body input,
+body select {
+  min-height: 58px;
+}
+
+body textarea {
+  min-height: 132px;
+}
+
+body button,
+body .primary-button,
+body .secondary-button {
+  min-height: initial;
+}
+
+body form button,
+body .primary-button,
+body .secondary-button,
+body .wallet-button {
+  min-height: 56px;
+}
+
+body .photo-upload-field,
+body .photo-upload-field input[type="file"] {
+  font-size: var(--interface-control) !important;
+}
+
+body .photo-upload-field input[type="file"]::file-selector-button,
+body .dashboard-form > .creator-save-button,
+body .message-send-button,
+body .dashboard-thread form .message-send-button {
+  font-size: 1.28rem !important;
+}
+
+body .member-dashboard-grid {
+  grid-template-columns: 310px minmax(0, 1fr);
+}
+
+body .site-header {
+  column-gap: 24px;
+}
+
+body .site-header .brand-social {
+  margin-right: 12px;
+}
+
+body .site-header nav {
+  margin-left: 20px;
+}
+
+body .dashboard-form .form-grid {
+  grid-template-columns: minmax(0, 1fr) 155px minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (max-width: 1050px) {
+  body .dashboard-form .form-grid { grid-template-columns: minmax(0, 1fr) 155px; }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --interface-copy: 1.08rem;
+    --interface-control: 1rem;
+    --interface-label: .86rem;
+    --interface-small: .8rem;
+  }
+
+  body .member-dashboard-grid { grid-template-columns: 1fr; }
+  body .dashboard-form .form-grid { grid-template-columns: 1fr; }
+  body .site-header nav { margin-left: 0; font-size: var(--interface-small) !important; }
+}
