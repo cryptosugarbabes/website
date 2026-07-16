@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { InstagramLink } from "@/components/instagram-link";
 
 type Tab = "overview" | "messages" | "profile" | "activity" | "safety" | "settings";
@@ -29,6 +29,7 @@ type Conversation = {
   priorityBoostUsdc: number; updatedAt: string;
   messages: Array<{ id: string; body: string; mine: boolean; status: string; boostAmountUsdc: number; createdAt: string }>;
 };
+type PendingPhoto = { id: string; file: File; previewUrl: string };
 
 function money(value: number) { return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDC`; }
 function short(value?: string | null) { return value ? `${value.slice(0, 7)}…${value.slice(-5)}` : "Not connected"; }
@@ -52,6 +53,8 @@ export function MemberDashboard() {
   const [customerName, setCustomerName] = useState("");
   const [customerBio, setCustomerBio] = useState("");
   const [profileForm, setProfileForm] = useState({ name: "", age: "", city: "", country: "", headline: "", bio: "", interests: "" });
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const pendingPhotoUrls = useRef<string[]>([]);
   const [deletionConfirmation, setDeletionConfirmation] = useState("");
   const [safetyBusy, setSafetyBusy] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ conversationId: string; messageId?: string; label: string } | null>(null);
@@ -88,6 +91,40 @@ export function MemberDashboard() {
   useEffect(() => { if (data?.account.type) loadMessages().catch(() => undefined); }, [data?.account.type]);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(""), 4500); return () => window.clearTimeout(timer); }, [notice]);
   useEffect(() => { setNotificationsEnabled(typeof Notification !== "undefined" && Notification.permission === "granted"); }, []);
+  useEffect(() => () => { pendingPhotoUrls.current.forEach((url) => URL.revokeObjectURL(url)); }, []);
+
+  function selectPhotos(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    const existingPhotos = data?.creatorProfile?.photos.length || 0;
+    const available = Math.max(0, 4 - existingPhotos - pendingPhotos.length);
+    if (files.length > available) {
+      setError(available > 0 ? `You can select ${available} more photo${available === 1 ? "" : "s"}.` : "Remove a current or selected photo before adding another.");
+      return;
+    }
+    const invalid = files.find((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024);
+    if (invalid) {
+      setError(`${invalid.name} must be a JPG, PNG, or WebP smaller than 5 MB.`);
+      return;
+    }
+    const selected = files.map((file) => {
+      const previewUrl = URL.createObjectURL(file);
+      pendingPhotoUrls.current.push(previewUrl);
+      return { id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`, file, previewUrl };
+    });
+    setPendingPhotos((current) => [...current, ...selected]);
+    setError("");
+  }
+
+  function discardPendingPhotos(ids: Set<string>) {
+    setPendingPhotos((current) => current.filter((photo) => {
+      if (!ids.has(photo.id)) return true;
+      URL.revokeObjectURL(photo.previewUrl);
+      pendingPhotoUrls.current = pendingPhotoUrls.current.filter((url) => url !== photo.previewUrl);
+      return false;
+    }));
+  }
 
   async function requestCode(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
@@ -132,9 +169,7 @@ export function MemberDashboard() {
 
   async function saveCreator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
-    const form = event.currentTarget;
-    const photoInput = form.elements.namedItem("photos") as HTMLInputElement | null;
-    const files = Array.from(photoInput?.files || []);
+    const files = pendingPhotos.map((photo) => photo.file);
     const existingPhotos = data?.creatorProfile?.photos.length || 0;
     if (existingPhotos + files.length > 4) {
       const excess = existingPhotos + files.length - 4;
@@ -148,11 +183,14 @@ export function MemberDashboard() {
     const next = await response.json() as { error?: string };
     if (!response.ok) { setError(next.error || "Could not save your profile."); setBusy(false); return; }
     let uploadFailed = false;
+    let uploadedCount = 0;
     for (const file of files) {
       const upload = new FormData(); upload.append("photo", file);
       const uploaded = await fetch("/api/profile/photos", { method: "POST", body: upload });
       if (!uploaded.ok) { const issue = await uploaded.json() as { error?: string }; setError(issue.error || "One photo could not be uploaded."); uploadFailed = true; break; }
+      uploadedCount += 1;
     }
+    if (uploadedCount > 0) discardPendingPhotos(new Set(pendingPhotos.slice(0, uploadedCount).map((photo) => photo.id)));
     if (!uploadFailed) setNotice("Your creator profile was submitted for administrator review.");
     await loadDashboard(); setBusy(false);
   }
@@ -240,8 +278,9 @@ export function MemberDashboard() {
               <form className="dashboard-panel dashboard-form" onSubmit={saveCreator}>
                 <div className="form-grid"><label>Display name<input required maxLength={80} value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}/></label><label>Age<input required type="number" min={18} max={99} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })}/></label><label>City<input required maxLength={100} value={profileForm.city} onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}/></label><label>Country<input required maxLength={100} value={profileForm.country} onChange={(e) => setProfileForm({ ...profileForm, country: e.target.value })}/></label></div>
                 <label>Headline<input required maxLength={90} value={profileForm.headline} onChange={(e) => setProfileForm({ ...profileForm, headline: e.target.value })}/></label><label>About<textarea required maxLength={500} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}/></label><label>Interests · comma separated<input value={profileForm.interests} onChange={(e) => setProfileForm({ ...profileForm, interests: e.target.value })}/></label>
-                <label>Add photos · 4 maximum<input name="photos" type="file" multiple accept="image/jpeg,image/png,image/webp"/></label>
-                {data.creatorProfile?.photos.length ? <div className="dashboard-photo-grid">{data.creatorProfile.photos.map((photo) => <div key={photo.id}><img src={photo.url} alt=""/><small>{photo.approved ? "Approved" : "Reviewing"} · {photo.paidLikes} likes</small><button type="button" disabled={busy} onClick={() => removePhoto(photo.id)}>Remove</button></div>)}</div> : null}
+                <label>Add photos · 4 maximum<input name="photos" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy || (data.creatorProfile?.photos.length || 0) + pendingPhotos.length >= 4} onChange={selectPhotos}/></label>
+                {pendingPhotos.length ? <div className="dashboard-photo-preview-block"><div><strong>Ready to upload</strong><span>{pendingPhotos.length} selected · {(data.creatorProfile?.photos.length || 0) + pendingPhotos.length}/4 total</span></div><div className="dashboard-photo-grid pending-photo-grid">{pendingPhotos.map((photo, index) => <div key={photo.id}><img src={photo.previewUrl} alt={`Selected profile photo ${index + 1}`}/><small title={photo.file.name}>{photo.file.name}</small><button type="button" disabled={busy} onClick={() => discardPendingPhotos(new Set([photo.id]))}>Remove</button></div>)}</div></div> : null}
+                {data.creatorProfile?.photos.length ? <div className="dashboard-current-photos"><strong>Current photos</strong><div className="dashboard-photo-grid">{data.creatorProfile.photos.map((photo, index) => <div key={photo.id}><img src={photo.url} alt={`Current profile photo ${index + 1}`}/><small>{photo.approved ? "Approved" : "Reviewing"} · {photo.paidLikes} likes</small><button type="button" disabled={busy} onClick={() => removePhoto(photo.id)}>Remove</button></div>)}</div></div> : null}
                 <button disabled={busy}>{busy ? "Saving…" : "Save & submit for review"}</button>{data.creatorProfile?.rejectionReason && <div className="dashboard-warning"><strong>Previous review note</strong><p>{data.creatorProfile.rejectionReason}</p></div>}
               </form>
             </> : <><form className="dashboard-panel dashboard-form" onSubmit={saveCustomer}><label>Private display name<input required maxLength={80} value={customerName} onChange={(event) => setCustomerName(event.target.value)}/></label><label>Private introduction<textarea maxLength={300} value={customerBio} onChange={(event) => setCustomerBio(event.target.value)}/></label><button disabled={busy}>Save private profile</button></form><div className="dashboard-panel"><div className="dashboard-panel-title"><h2>Favorites</h2><span>{data.favorites.length}</span></div><div className="favorite-dashboard-grid">{data.favorites.map((item) => <a href={`/?profile=${item.id}`} key={item.id}>{item.imageUrl ? <img src={item.imageUrl} alt=""/> : <span>{item.name[0]}</span>}<strong>{item.name}</strong><small>{item.city}, {item.country}</small></a>)}{!data.favorites.length && <p className="dashboard-empty">No saved creators yet.</p>}</div></div></>}
