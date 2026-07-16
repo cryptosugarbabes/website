@@ -21,7 +21,7 @@ Passwordless email access uses a six-digit, ten-minute code. Configure the `EMAI
 
 - Email sign-in creates a private account without a password or wallet.
 - Email-authenticated customers can save favorites, send and receive messages, block accounts, and submit safety reports for free.
-- Email-authenticated creators can publish a reviewed profile, upload four photos, and message without a wallet.
+- Email-authenticated creators can publish a reviewed profile, upload up to eight photos free, and message without a wallet.
 - Paid photo likes, gifts, and message boosts require the customer to connect and sign the matching wallet.
 - Connecting a wallet while signed in by email links that wallet to the same account; it does not create a second profile.
 
@@ -29,7 +29,7 @@ Passwordless email access uses a six-digit, ten-minute code. Configure the `EMAI
 
 - Each verified email or wallet account can own one creator profile.
 - Saving creates or updates a permanent PostgreSQL record with `PENDING_REVIEW` status.
-- A creator can join by email, publish a reviewed profile, message for free, and upload up to 4 JPG, PNG, or WebP files of 5 MB each.
+- A creator can join by email, publish a reviewed profile, message for free, and upload up to 8 JPG, PNG, or WebP files of 5 MB each at no cost.
 - A creator must link a verified Base or Solana wallet before paid likes, gifts, or message boosts can be sent to the profile.
 - Uploads are re-encoded as WebP, resized to a maximum of 2400×2400, and stripped of embedded metadata.
 - Unapproved images are served only to their signed-in owner and administrators.
