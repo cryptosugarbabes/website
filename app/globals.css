@@ -802,3 +802,58 @@ body .dashboard-form .form-grid {
   body .dashboard-form .form-grid { grid-template-columns: 1fr; }
   body .site-header nav { margin-left: 0; font-size: var(--interface-small) !important; }
 }
+
+/* Shared treatment for primary member actions. Navigation, compact controls and destructive actions remain distinct. */
+:is(
+  .primary-button,
+  .member-signin form > button:not(.member-subtle-button),
+  .acceptance-panel > button,
+  .onboarding-grid article > button,
+  .dashboard-form > button,
+  .dashboard-thread form .message-send-button,
+  .automated-message-notice > button,
+  .account-email-panel form > button,
+  .account-email-actions > button:first-child
+) {
+  border: 1px solid rgba(255, 164, 213, .88) !important;
+  border-radius: 17px !important;
+  background: linear-gradient(135deg, #ff3296 0%, #f20a98 56%, #d90082 100%) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 13px 34px rgba(255, 47, 146, .38), 0 0 24px rgba(255, 47, 146, .24), inset 0 1px 0 rgba(255,255,255,.25) !important;
+  text-shadow: 0 1px 1px rgba(71, 0, 38, .35);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+
+:is(
+  .primary-button,
+  .member-signin form > button:not(.member-subtle-button),
+  .acceptance-panel > button,
+  .onboarding-grid article > button,
+  .dashboard-form > button,
+  .dashboard-thread form .message-send-button,
+  .automated-message-notice > button,
+  .account-email-panel form > button,
+  .account-email-actions > button:first-child
+):hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+  box-shadow: 0 17px 42px rgba(255, 47, 146, .5), 0 0 34px rgba(255, 47, 146, .34), inset 0 1px 0 rgba(255,255,255,.3) !important;
+}
+
+:is(
+  .primary-button,
+  .member-signin form > button:not(.member-subtle-button),
+  .acceptance-panel > button,
+  .onboarding-grid article > button,
+  .dashboard-form > button,
+  .dashboard-thread form .message-send-button,
+  .automated-message-notice > button,
+  .account-email-panel form > button,
+  .account-email-actions > button:first-child
+):disabled {
+  opacity: .48;
+  cursor: wait;
+  transform: none;
+  box-shadow: 0 7px 18px rgba(255, 47, 146, .2) !important;
+}
