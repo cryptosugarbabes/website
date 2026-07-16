@@ -37,8 +37,9 @@ type SolanaProvider = {
 
 type AccountType = "CREATOR" | "CUSTOMER";
 type ConversationMessage = { id: string; body: string; mine: boolean; status: string; boostAmountUsdc?: number; boostedAt?: string | null; createdAt: string };
-type Conversation = { id: string; profileId: string; counterpartName: string; creatorName: string; imageUrl?: string | null; blockedByMe?: boolean; blockedMe?: boolean; priorityBoostUsdc?: number; updatedAt: string; messages: ConversationMessage[] };
-type PaymentKind = "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST";
+type Conversation = { id: string; profileId: string; counterpartName: string; creatorName: string; imageUrl?: string | null; blockedByMe?: boolean; blockedMe?: boolean; priorityBoostUsdc?: number; consecutiveMessages: number; messageGate: "OPEN" | "WARNING" | "REPLY_REQUIRED" | "PAID_UNLOCK_READY"; hasPaidUnlock: boolean; canPurchaseUnlock: boolean; nextUnlockAt?: string | null; updatedAt: string; messages: ConversationMessage[] };
+type PaymentKind = "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST" | "MESSAGE_UNLOCK";
+type MessageGate = { code: "UNANSWERED_WARNING" | "REPLY_REQUIRED"; conversationId: string; error: string; hasPaidUnlock?: boolean; canPurchaseUnlock?: boolean; nextUnlockAt?: string | null };
 type PaymentQuote = {
   quoteId: string;
   kind: PaymentKind;
@@ -55,6 +56,7 @@ type PaymentQuote = {
   splitterAddress?: string | null;
   mediaId?: string | null;
   messageId?: string | null;
+  conversationId?: string | null;
   expiresAt: string;
 };
 
@@ -192,6 +194,7 @@ export function DiscoveryApp() {
   const [activeConversationId, setActiveConversationId] = useState("");
   const [replyText, setReplyText] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
+  const [messageGate, setMessageGate] = useState<MessageGate | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [reportTarget, setReportTarget] = useState<{ profileId?: string; conversationId?: string; messageId?: string; label: string } | null>(null);
   const [reportCategory, setReportCategory] = useState("HARASSMENT");
@@ -330,13 +333,22 @@ export function DiscoveryApp() {
 
   async function sendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await submitReply();
+  }
+
+  async function submitReply(options: { acknowledgeUnansweredWarning?: boolean; usePaidUnlock?: boolean } = {}) {
     if (!activeConversationId || !replyText.trim()) return;
     setMessageBusy(true); setWalletError("");
     try {
-      const response = await fetch("/api/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ conversationId: activeConversationId, body: replyText }) });
-      const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error || "Your reply could not be sent.");
+      const response = await fetch("/api/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ conversationId: activeConversationId, body: replyText, ...options }) });
+      const data = await response.json() as MessageGate & { automatedNotice?: string };
+      if (!response.ok) {
+        if (data.code === "UNANSWERED_WARNING" || data.code === "REPLY_REQUIRED") { setMessageGate(data); return; }
+        throw new Error(data.error || "Your reply could not be sent.");
+      }
       setReplyText("");
+      setMessageGate(null);
+      if (data.automatedNotice) setNotice(data.automatedNotice);
       await loadMessages(false);
     } catch (error) { setWalletError(error instanceof Error ? error.message : "Your reply could not be sent."); }
     finally { setMessageBusy(false); }
@@ -385,6 +397,15 @@ export function DiscoveryApp() {
     const timer = window.setInterval(() => loadUnread().catch(() => undefined), 30_000);
     return () => window.clearInterval(timer);
   }, [isAuthenticated, accountType]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !accountType) return;
+    const requestedConversation = new URLSearchParams(window.location.search).get("unlockConversation");
+    if (!requestedConversation) return;
+    loadMessages(true).then(() => setActiveConversationId(requestedConversation)).catch(() => setWalletError("That conversation could not be opened."));
+  }, [isAuthenticated, accountType]);
+
+  useEffect(() => { setMessageGate(null); }, [activeConversationId, messageTarget?.id]);
 
   useEffect(() => {
     setNotificationsEnabled(typeof Notification !== "undefined" && Notification.permission === "granted");
@@ -653,6 +674,10 @@ export function DiscoveryApp() {
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await submitNewMessage();
+  }
+
+  async function submitNewMessage(options: { acknowledgeUnansweredWarning?: boolean; usePaidUnlock?: boolean } = {}) {
     if (!messageTarget || !messageText.trim()) return;
     const boostAmount = Number(messageBoostAmount || 0);
     if (!Number.isFinite(boostAmount) || boostAmount < 0 || boostAmount > 100_000) {
@@ -670,19 +695,22 @@ export function DiscoveryApp() {
     }
     setMessageBusy(true); setWalletError("");
     try {
-      const response = await fetch("/api/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profileId: messageTarget.id, body: messageText }) });
-      const data = await response.json() as { id?: string; conversationId?: string; error?: string };
-      if (!response.ok) throw new Error(data.error || "Your message could not be sent.");
+      const response = await fetch("/api/messages", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profileId: messageTarget.id, body: messageText, ...options }) });
+      const data = await response.json() as MessageGate & { id?: string; conversationId?: string; automatedNotice?: string };
+      if (!response.ok) {
+        if (data.code === "UNANSWERED_WARNING" || data.code === "REPLY_REQUIRED") { setMessageGate(data); return; }
+        throw new Error(data.error || "Your message could not be sent.");
+      }
       const target = messageTarget;
-      setMessageTarget(null); setMessageText("");
+      setMessageTarget(null); setMessageText(""); setMessageGate(null);
       await loadMessages(false);
       if (boostAmount > 0 && data.id) await settlePayment(target, "MESSAGE_BOOST", String(boostAmount), { messageId: data.id });
-      else setNotice(`Your message to ${target.name} was delivered.`);
+      else setNotice(data.automatedNotice || `Your message to ${target.name} was delivered.`);
     } catch (error) { setWalletError(error instanceof Error ? error.message : "Your message could not be sent."); }
     finally { setMessageBusy(false); setMessageBoostAmount(""); }
   }
 
-  async function paymentQuote(profile: Profile, kind: PaymentKind, amountUsdc?: string, link?: { mediaId?: string; messageId?: string }) {
+  async function paymentQuote(profile: Profile, kind: PaymentKind, amountUsdc?: string, link?: { mediaId?: string; messageId?: string; conversationId?: string }) {
     const response = await fetch("/api/payments/quotes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ profileId: profile.id, kind, amountUsdc, ...link }) });
     const data = await response.json() as PaymentQuote & { error?: string };
     if (!response.ok) throw new Error(data.error || "A secure payment quote could not be created.");
@@ -704,12 +732,20 @@ export function DiscoveryApp() {
     const walletClient = createWalletClient({ account: getAddress(wallet), chain: base, transport: custom(provider) });
     const publicClient = createPublicClient({ chain: base, transport: http("https://mainnet.base.org") });
     const token = getAddress(quote.tokenAddress);
+    const owner = getAddress(wallet);
+    if (quote.kind === "MESSAGE_UNLOCK") {
+      if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("That payment quote expired. Start again to receive a current price.");
+      const hash = await walletClient.writeContract({ account: owner, chain: base, address: token, abi: erc20Abi, functionName: "transfer", args: [getAddress(quote.treasuryAddress), BigInt(quote.grossMicros)] });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+      if (receipt.status !== "success") throw new Error("The Base USDC message-unlock payment reverted.");
+      await confirmPayment(quote, [hash]);
+      return;
+    }
     if (!quote.splitterAddress) {
       throw new Error("Base payments are temporarily unavailable while atomic 90/10 settlement is being completed.");
     }
     if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("That payment quote expired. Start again to receive a current price.");
     const splitter = getAddress(quote.splitterAddress);
-    const owner = getAddress(wallet);
     const allowance = await publicClient.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [owner, splitter] });
     if (allowance < BigInt(quote.grossMicros)) {
       const approvalHash = await walletClient.writeContract({ account: owner, chain: base, address: token, abi: erc20Abi, functionName: "approve", args: [splitter, BigInt(quote.grossMicros)] });
@@ -741,12 +777,10 @@ export function DiscoveryApp() {
     const treasuryAta = token.getAssociatedTokenAddressSync(mint, treasury);
     if (!await connection.getAccountInfo(sourceAta)) throw new Error("This Solana wallet does not have a USDC token account.");
     const transaction = new Transaction();
-    if (!await connection.getAccountInfo(creatorAta)) transaction.add(token.createAssociatedTokenAccountInstruction(owner, creatorAta, creator, mint));
+    if (BigInt(quote.creatorMicros) > BigInt(0) && !await connection.getAccountInfo(creatorAta)) transaction.add(token.createAssociatedTokenAccountInstruction(owner, creatorAta, creator, mint));
     if (!await connection.getAccountInfo(treasuryAta)) transaction.add(token.createAssociatedTokenAccountInstruction(owner, treasuryAta, treasury, mint));
-    transaction.add(
-      token.createTransferCheckedInstruction(sourceAta, mint, creatorAta, owner, BigInt(quote.creatorMicros), 6),
-      token.createTransferCheckedInstruction(sourceAta, mint, treasuryAta, owner, BigInt(quote.platformMicros), 6)
-    );
+    if (BigInt(quote.creatorMicros) > BigInt(0)) transaction.add(token.createTransferCheckedInstruction(sourceAta, mint, creatorAta, owner, BigInt(quote.creatorMicros), 6));
+    transaction.add(token.createTransferCheckedInstruction(sourceAta, mint, treasuryAta, owner, BigInt(quote.platformMicros), 6));
     const latest = await connection.getLatestBlockhash("confirmed");
     transaction.feePayer = owner;
     transaction.recentBlockhash = latest.blockhash;
@@ -782,6 +816,26 @@ export function DiscoveryApp() {
       setNotice(`${kind === "PAID_LIKE" ? "Paid like" : kind === "GIFT" ? "Gift" : "Message boost"} confirmed on-chain: ${formatUsdc(amount)} USDC split 90/10.`);
     } catch (error) {
       setWalletError(error instanceof Error ? error.message : "The payment was not completed.");
+    } finally { setPaymentBusy(false); setPaymentExpiresAt(null); }
+  }
+
+  async function purchaseMessageUnlock(conversationId: string) {
+    if (!wallet) { setWalletError("Connect a Base or Solana wallet to unlock one paid message."); showWalletPicker(); return false; }
+    if (!accountType) { setAccountOpen(true); return false; }
+    setPaymentBusy(true); setWalletError("");
+    try {
+      const response = await fetch("/api/payments/quotes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "MESSAGE_UNLOCK", conversationId }) });
+      const quote = await response.json() as PaymentQuote & { error?: string };
+      if (!response.ok) throw new Error(quote.error || "A secure message-unlock quote could not be created.");
+      setPaymentExpiresAt(quote.expiresAt); setPaymentClock(Date.now());
+      setNotice("Approve the 10 USDC weekly message unlock in your wallet.");
+      if (quote.network === "BASE") await settleBasePayment(quote); else await settleSolanaPayment(quote);
+      await loadMessages(false);
+      setNotice("Your weekly paid-message unlock is confirmed. One additional message can now be sent.");
+      return true;
+    } catch (error) {
+      setWalletError(error instanceof Error ? error.message : "The paid-message unlock was not completed.");
+      return false;
     } finally { setPaymentBusy(false); setPaymentExpiresAt(null); }
   }
 
@@ -974,7 +1028,8 @@ export function DiscoveryApp() {
             <form onSubmit={sendMessage}><label className="message-field"><span>YOUR MESSAGE</span><textarea required maxLength={800} autoFocus value={messageText} onChange={(event) => setMessageText(event.target.value)} placeholder="Start with something thoughtful…"/><small>{messageText.length}/800</small></label>
               <div className="boost-panel"><div><span>OPTIONAL MESSAGE BOOST</span><small>{messageTarget.supportEnabled ? "Boosted introductions receive priority placement." : "This creator has not enabled USDC earnings yet. Your message remains free."}</small></div><div className="preset-buttons"><button type="button" className={!messageBoostAmount ? "active" : ""} onClick={() => setMessageBoostAmount("")}>Free</button>{messageTarget.supportEnabled && [5, 10, 25].map((amount) => <button type="button" className={messageBoostAmount === String(amount) ? "active" : ""} onClick={() => setMessageBoostAmount(String(amount))} key={amount}>{amount} USDC</button>)}</div>{messageTarget.supportEnabled && <label><span>Custom boost</span><input type="number" min="0" max="100000" step="0.01" value={messageBoostAmount} onChange={(event) => setMessageBoostAmount(event.target.value)} placeholder="0.00"/></label>}</div>
               <div className="message-checkout"><div><span>Normal message</span><strong>Free</strong></div><div><span>Creator support score</span><strong>{stats.points} points</strong></div><div className="message-total"><span>{messageBoostAmount ? "Optional boost" : "Amount due"}</span><strong>{messageBoostAmount ? `${formatUsdc(Number(messageBoostAmount) || 0)} USDC` : "Free"}</strong></div></div>
-              <button className="primary-button full message-send-button" type="submit" disabled={messageBusy || paymentBusy}>{messageBusy || paymentBusy ? "Sending…" : messageBoostAmount ? `Send & boost · ${formatUsdc(Number(messageBoostAmount) || 0)} USDC` : "Send message"} <Icon name="arrow" size={18}/></button><p className="checkout-note"><Icon name="lock" size={13}/>The message is delivered first. Any optional boost then requires wallet approval and on-chain confirmation.</p>
+              {messageGate && <aside className="automated-message-notice"><strong>Crypto Sugar reminder</strong><p>{messageGate.error}</p>{messageGate.code === "UNANSWERED_WARNING" && <button type="button" disabled={messageBusy} onClick={() => submitNewMessage({ acknowledgeUnansweredWarning: true })}>Send third message</button>}{messageGate.hasPaidUnlock && <button type="button" disabled={messageBusy} onClick={() => submitNewMessage({ usePaidUnlock: true })}>Send with paid unlock</button>}{messageGate.canPurchaseUnlock && <button type="button" disabled={paymentBusy} onClick={async () => { if (await purchaseMessageUnlock(messageGate.conversationId)) await submitNewMessage({ usePaidUnlock: true }); }}>{paymentBusy ? "Confirming…" : "Unlock & send · 10 USDC"}</button>}{messageGate.nextUnlockAt && !messageGate.hasPaidUnlock && !messageGate.canPurchaseUnlock && <small>Next paid unlock: {new Date(messageGate.nextUnlockAt).toLocaleString()}</small>}</aside>}
+              <button className="primary-button full message-send-button" type="submit" disabled={messageBusy || paymentBusy || Boolean(messageGate)}>{messageBusy || paymentBusy ? "Sending…" : messageBoostAmount ? `Send & boost · ${formatUsdc(Number(messageBoostAmount) || 0)} USDC` : "Send message"} <Icon name="arrow" size={18}/></button><p className="checkout-note"><Icon name="lock" size={13}/>The message is delivered first. Any optional boost then requires wallet approval and on-chain confirmation.</p>
             </form>
           </section>
         </div>;
@@ -999,7 +1054,7 @@ export function DiscoveryApp() {
 
       {inboxOpen && (() => {
         const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) || conversations[0];
-        return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInboxOpen(false); }}><section className="inbox-modal" role="dialog" aria-modal="true" aria-labelledby="inbox-title"><button className="modal-close" onClick={() => setInboxOpen(false)} aria-label="Close inbox"><Icon name="close" size={20}/></button><div className="inbox-sidebar"><span className="section-kicker">PRIVATE MESSAGES</span><h2 id="inbox-title">Inbox</h2>{!notificationsEnabled && <button className="notification-opt-in" onClick={enableNotifications}>Add browser alerts</button>}{conversations.length ? conversations.map((conversation) => <button className={conversation.id === activeConversation?.id ? "active" : ""} onClick={() => setActiveConversationId(conversation.id)} key={conversation.id}>{conversation.imageUrl ? <img src={conversation.imageUrl} alt=""/> : <span>{conversation.counterpartName.slice(0, 1).toUpperCase()}</span>}<div><strong>{conversation.counterpartName}{Boolean(conversation.priorityBoostUsdc) && <em className="boost-list-badge">BOOST</em>}</strong><small>{conversation.messages.at(-1)?.body || "New conversation"}</small></div></button>) : <p className="inbox-empty">No conversations yet.</p>}</div><div className="conversation-panel">{activeConversation ? <><header><div><strong>{activeConversation.counterpartName}</strong><span>{activeConversation.blockedByMe ? "You blocked this account" : activeConversation.blockedMe ? "This account has blocked messaging" : "Private conversation"}</span></div><div className="conversation-safety-actions"><button onClick={() => openReport({ conversationId: activeConversation.id, label: `conversation with ${activeConversation.counterpartName}` })}>Report</button><button disabled={safetyBusy} onClick={() => toggleBlock(activeConversation)}>{activeConversation.blockedByMe ? "Unblock" : "Block"}</button></div></header><div className="message-thread">{activeConversation.messages.map((message) => <div className={message.mine ? "message-bubble mine" : "message-bubble"} key={message.id}>{Boolean(message.boostAmountUsdc) && <span className="message-boost-badge">BOOSTED · {formatUsdc(message.boostAmountUsdc || 0)} USDC</span>}<p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small>{!message.mine && <button className="message-report" onClick={() => openReport({ conversationId: activeConversation.id, messageId: message.id, label: "message" })}>Report</button>}</div>)}</div>{activeConversation.blockedByMe || activeConversation.blockedMe ? <div className="messaging-disabled">Messaging is disabled for this conversation.</div> : <form onSubmit={sendReply}><textarea required maxLength={800} value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a message…"/><button className="primary-button message-send-button" type="submit" disabled={messageBusy}>{messageBusy ? "Sending…" : "Send message"}</button></form>}</> : <div className="conversation-empty"><Icon name="message" size={31}/><h3>Your private conversations</h3><p>Open an approved creator profile to begin a free conversation.</p></div>}</div></section></div>;
+        return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInboxOpen(false); }}><section className="inbox-modal" role="dialog" aria-modal="true" aria-labelledby="inbox-title"><button className="modal-close" onClick={() => setInboxOpen(false)} aria-label="Close inbox"><Icon name="close" size={20}/></button><div className="inbox-sidebar"><span className="section-kicker">PRIVATE MESSAGES</span><h2 id="inbox-title">Inbox</h2>{!notificationsEnabled && <button className="notification-opt-in" onClick={enableNotifications}>Add browser alerts</button>}{conversations.length ? conversations.map((conversation) => <button className={conversation.id === activeConversation?.id ? "active" : ""} onClick={() => setActiveConversationId(conversation.id)} key={conversation.id}>{conversation.imageUrl ? <img src={conversation.imageUrl} alt=""/> : <span>{conversation.counterpartName.slice(0, 1).toUpperCase()}</span>}<div><strong>{conversation.counterpartName}{Boolean(conversation.priorityBoostUsdc) && <em className="boost-list-badge">BOOST</em>}</strong><small>{conversation.messages.at(-1)?.body || "New conversation"}</small></div></button>) : <p className="inbox-empty">No conversations yet.</p>}</div><div className="conversation-panel">{activeConversation ? <><header><div><strong>{activeConversation.counterpartName}</strong><span>{activeConversation.blockedByMe ? "You blocked this account" : activeConversation.blockedMe ? "This account has blocked messaging" : "Private conversation"}</span></div><div className="conversation-safety-actions"><button onClick={() => openReport({ conversationId: activeConversation.id, label: `conversation with ${activeConversation.counterpartName}` })}>Report</button><button disabled={safetyBusy} onClick={() => toggleBlock(activeConversation)}>{activeConversation.blockedByMe ? "Unblock" : "Block"}</button></div></header><div className="message-thread">{activeConversation.messages.map((message) => <div className={message.mine ? "message-bubble mine" : "message-bubble"} key={message.id}>{Boolean(message.boostAmountUsdc) && <span className="message-boost-badge">BOOSTED · {formatUsdc(message.boostAmountUsdc || 0)} USDC</span>}<p>{message.body}</p><small>{new Date(message.createdAt).toLocaleString()}</small>{!message.mine && <button className="message-report" onClick={() => openReport({ conversationId: activeConversation.id, messageId: message.id, label: "message" })}>Report</button>}</div>)}</div>{(messageGate || activeConversation.messageGate !== "OPEN") && <aside className="automated-message-notice"><strong>Crypto Sugar reminder</strong><p>{messageGate?.error || (activeConversation.messageGate === "WARNING" ? "You have sent two messages without a reply. Your third message will require confirmation, then please wait for a reply." : activeConversation.messageGate === "PAID_UNLOCK_READY" ? "Your weekly paid-message unlock is ready for one additional message." : "You have sent three messages without a reply. Please wait for a response before continuing.")}</p>{messageGate?.code === "UNANSWERED_WARNING" && <button type="button" disabled={messageBusy || !replyText.trim()} onClick={() => submitReply({ acknowledgeUnansweredWarning: true })}>Send third message</button>}{(messageGate?.hasPaidUnlock || activeConversation.hasPaidUnlock) && <button type="button" disabled={messageBusy || !replyText.trim()} onClick={() => submitReply({ usePaidUnlock: true })}>Send with paid unlock</button>}{(messageGate?.canPurchaseUnlock || activeConversation.canPurchaseUnlock) && activeConversation.messageGate !== "WARNING" && <button type="button" disabled={paymentBusy} onClick={async () => { const conversationId = messageGate?.conversationId || activeConversation.id; if (await purchaseMessageUnlock(conversationId)) { await loadMessages(false); setMessageGate(null); } }}>{paymentBusy ? "Confirming…" : "Unlock one message · 10 USDC"}</button>}{!(messageGate?.canPurchaseUnlock || activeConversation.canPurchaseUnlock || messageGate?.hasPaidUnlock || activeConversation.hasPaidUnlock) && (messageGate?.nextUnlockAt || activeConversation.nextUnlockAt) && <small>Next paid unlock: {new Date(messageGate?.nextUnlockAt || activeConversation.nextUnlockAt || "").toLocaleString()}</small>}</aside>}{activeConversation.blockedByMe || activeConversation.blockedMe ? <div className="messaging-disabled">Messaging is disabled for this conversation.</div> : <form onSubmit={sendReply}><textarea required maxLength={800} value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="Write a message…"/><button className="primary-button message-send-button" type="submit" disabled={messageBusy || (activeConversation.messageGate !== "OPEN" && activeConversation.messageGate !== "WARNING")}>{messageBusy ? "Sending…" : "Send message"}</button></form>}</> : <div className="conversation-empty"><Icon name="message" size={31}/><h3>Your private conversations</h3><p>Open an approved creator profile to begin a free conversation.</p></div>}</div></section></div>;
       })()}
 
       {reportTarget && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !safetyBusy) setReportTarget(null); }}><section className="message-modal report-modal" role="dialog" aria-modal="true" aria-labelledby="report-title"><button className="modal-close" onClick={() => setReportTarget(null)} aria-label="Close report"><Icon name="close" size={20}/></button><span className="section-kicker">CONFIDENTIAL SAFETY REPORT</span><h2 id="report-title">Report {reportTarget.label}.</h2><p className="wallet-intro">Reports are reviewed by an administrator. Use immediate local emergency or trafficking services when someone may be in danger.</p><form onSubmit={submitReport}><label><span>CATEGORY</span><select value={reportCategory} onChange={(event) => setReportCategory(event.target.value)}><option value="HARASSMENT">Harassment or threats</option><option value="SPAM">Spam</option><option value="SCAM">Scam or fraud</option><option value="EXTORTION">Extortion</option><option value="UNDERAGE">Suspected underage user</option><option value="TRAFFICKING">Trafficking or coercion</option><option value="IMPERSONATION">Impersonation</option><option value="OTHER">Other safety concern</option></select></label><label className="message-field"><span>WHAT HAPPENED?</span><textarea required minLength={10} maxLength={1500} value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} placeholder="Add dates, context, and specific conduct. Never include a recovery phrase or private key."/><small>{reportDetails.length}/1500</small></label><button className="primary-button full" type="submit" disabled={safetyBusy}>{safetyBusy ? "Submitting…" : "Submit confidential report"}</button></form></section></div>}

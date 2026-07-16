@@ -14,7 +14,7 @@ type QuoteRow = {
   id: string;
   buyer_user_id: string;
   creator_profile_id: string;
-  kind: "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST";
+  kind: "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST" | "MESSAGE_UNLOCK";
   network: "BASE" | "SOLANA";
   gross_amount_usdc: string;
   creator_amount_usdc: string;
@@ -24,8 +24,9 @@ type QuoteRow = {
   expires_at: Date;
   message_id: string | null;
   media_id: string | null;
+  conversation_id: string | null;
   buyer_address: string;
-  creator_address: string;
+  creator_address: string | null;
 };
 
 const transferEvent = [{
@@ -64,6 +65,24 @@ async function verifyBaseAtomicTransfer(hash: `0x${string}`, from: string, creat
   return { valid, timestampMs: block ? Number(block.timestamp) * 1000 : 0 };
 }
 
+async function verifyBasePlatformTransfer(hash: `0x${string}`, from: string, grossAmount: bigint) {
+  const client = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org") });
+  const [receipt, sent] = await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
+  if (receipt.status !== "success" || getAddress(sent.from) !== getAddress(from) || !sent.to || getAddress(sent.to) !== PAYMENT_CONFIG.base.usdcContractAddress) return { valid: false, timestampMs: 0 };
+  const valid = receipt.logs.some((log) => {
+    if (getAddress(log.address) !== PAYMENT_CONFIG.base.usdcContractAddress) return false;
+    try {
+      const decoded = decodeEventLog({ abi: transferEvent, data: log.data, topics: log.topics });
+      return decoded.eventName === "Transfer"
+        && getAddress(decoded.args.from) === getAddress(from)
+        && getAddress(decoded.args.to) === PAYMENT_CONFIG.base.treasuryAddress
+        && decoded.args.value === grossAmount;
+    } catch { return false; }
+  });
+  const block = valid ? await client.getBlock({ blockNumber: receipt.blockNumber }) : null;
+  return { valid, timestampMs: block ? Number(block.timestamp) * 1000 : 0 };
+}
+
 async function verifySolanaTransfer(signature: string, buyer: string, creator: string, creatorAmount: bigint, platformAmount: bigint) {
   const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com", "finalized");
   const parsed = await connection.getParsedTransaction(signature, { commitment: "finalized", maxSupportedTransactionVersion: 0 });
@@ -79,7 +98,8 @@ async function verifySolanaTransfer(signature: string, buyer: string, creator: s
     const info = instruction.parsed.info as { authority?: string; destination?: string; mint?: string; tokenAmount?: { amount?: string } };
     return info.authority === buyer && info.destination === destination && info.mint === mint.toString() && info.tokenAmount?.amount === amount.toString();
   });
-  return { valid: matches(creatorAta, creatorAmount) && matches(platformAta, platformAmount), timestampMs: (parsed.blockTime || 0) * 1000 };
+  const creatorValid = creatorAmount === BigInt(0) || matches(creatorAta, creatorAmount);
+  return { valid: creatorValid && matches(platformAta, platformAmount), timestampMs: (parsed.blockTime || 0) * 1000 };
 }
 
 export async function POST(request: NextRequest) {
@@ -117,13 +137,24 @@ export async function POST(request: NextRequest) {
 
     let purposes: Array<{ purpose: "CREATOR" | "PLATFORM" | "ATOMIC"; hash: string }>;
     if (quote.network === "BASE") {
-      if (!PAYMENT_CONFIG.base.splitterAddress) {
+      if (quote.kind === "MESSAGE_UNLOCK") {
+        if (input.transactionHashes.length !== 1 || !isHash(input.transactionHashes[0])) return NextResponse.json({ error: "One Base payment hash is required." }, { status: 400 });
+        const hash = input.transactionHashes[0] as `0x${string}`;
+        const transfer = await verifyBasePlatformTransfer(hash, quote.buyer_address, grossAmount);
+        if (!transfer.valid) return NextResponse.json({ error: "The Base message-unlock payment could not be verified on-chain." }, { status: 409 });
+        if (!transferFallsWithinQuoteWindow({ createdAtMs: quote.created_at.getTime(), expiresAtMs: quote.expires_at.getTime(), transferTimestampMs: transfer.timestampMs, expiryGraceMs })) {
+          await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);
+          return NextResponse.json({ error: "That payment quote expired before the transfer was confirmed." }, { status: 409 });
+        }
+        purposes = [{ purpose: "PLATFORM", hash }];
+      } else if (!PAYMENT_CONFIG.base.splitterAddress) {
         return NextResponse.json({
           error: "Base settlement is disabled until the atomic splitter is configured. No non-atomic payment will be accepted."
         }, { status: 503 });
       } else {
         if (input.transactionHashes.length !== 1 || !isHash(input.transactionHashes[0])) return NextResponse.json({ error: "One atomic Base payment hash is required." }, { status: 400 });
         const hash = input.transactionHashes[0] as `0x${string}`;
+        if (!quote.creator_address) return NextResponse.json({ error: "The creator payout address is unavailable." }, { status: 409 });
         const transfer = await verifyBaseAtomicTransfer(hash, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount, grossAmount, PAYMENT_CONFIG.base.splitterAddress);
         if (!transfer.valid) return NextResponse.json({ error: "The atomic Base payment could not be verified on-chain." }, { status: 409 });
         if (!transferFallsWithinQuoteWindow({ createdAtMs: quote.created_at.getTime(), expiresAtMs: quote.expires_at.getTime(), transferTimestampMs: transfer.timestampMs, expiryGraceMs })) {
@@ -135,13 +166,13 @@ export async function POST(request: NextRequest) {
     } else {
       if (input.transactionHashes.length !== 1) return NextResponse.json({ error: "One Solana transaction signature is required." }, { status: 400 });
       const signature = input.transactionHashes[0];
-      const transfer = await verifySolanaTransfer(signature, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount);
+      const transfer = await verifySolanaTransfer(signature, quote.buyer_address, quote.creator_address || PAYMENT_CONFIG.solana.treasuryAddress, creatorAmount, platformAmount);
       if (!transfer.valid) return NextResponse.json({ error: "The Solana transfer could not be verified on-chain." }, { status: 409 });
       if (!transferFallsWithinQuoteWindow({ createdAtMs: quote.created_at.getTime(), expiresAtMs: quote.expires_at.getTime(), transferTimestampMs: transfer.timestampMs, expiryGraceMs })) {
         await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);
         return NextResponse.json({ error: "That payment quote expired before the transfer was confirmed." }, { status: 409 });
       }
-      purposes = [{ purpose: "ATOMIC", hash: signature }];
+      purposes = [{ purpose: quote.kind === "MESSAGE_UNLOCK" ? "PLATFORM" : "ATOMIC", hash: signature }];
     }
 
     await transaction(async (client) => {
@@ -150,10 +181,18 @@ export async function POST(request: NextRequest) {
       if (locked.rows[0]?.status !== "QUOTED") throw new Error("QUOTE_NO_LONGER_PAYABLE");
       for (const item of purposes) await client.query(`INSERT INTO payment_transactions (quote_id, purpose, transaction_hash) VALUES ($1, $2, $3)`, [quote.id, item.purpose, item.hash]);
       await client.query(`UPDATE payment_quotes SET status = 'CONFIRMED', confirmed_at = now() WHERE id = $1`, [quote.id]);
-      await client.query(`
-        INSERT INTO support_events (id, quote_id, supporter_user_id, creator_profile_id, kind, gross_amount_usdc, media_id, message_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `, [randomUUID(), quote.id, quote.buyer_user_id, quote.creator_profile_id, quote.kind, quote.gross_amount_usdc, quote.media_id, quote.message_id]);
+      if (quote.kind === "MESSAGE_UNLOCK") {
+        if (!quote.conversation_id) throw new Error("MESSAGE_UNLOCK_CONVERSATION_REQUIRED");
+        await client.query(`
+          INSERT INTO message_unlocks (id, quote_id, conversation_id, sender_user_id)
+          VALUES ($1, $2, $3, $4)
+        `, [randomUUID(), quote.id, quote.conversation_id, quote.buyer_user_id]);
+      } else {
+        await client.query(`
+          INSERT INTO support_events (id, quote_id, supporter_user_id, creator_profile_id, kind, gross_amount_usdc, media_id, message_id)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [randomUUID(), quote.id, quote.buyer_user_id, quote.creator_profile_id, quote.kind, quote.gross_amount_usdc, quote.media_id, quote.message_id]);
+      }
       if (quote.kind === "PAID_LIKE") {
         if (!quote.media_id) throw new Error("PAID_LIKE_MEDIA_REQUIRED");
         await client.query(`UPDATE profile_media SET paid_likes = paid_likes + 1 WHERE id = $1 AND profile_id = $2`, [quote.media_id, quote.creator_profile_id]);
@@ -163,7 +202,9 @@ export async function POST(request: NextRequest) {
         if (!quote.message_id) throw new Error("MESSAGE_BOOST_LINK_REQUIRED");
         await client.query(`UPDATE messages SET boost_amount_usdc = $1, boosted_at = now() WHERE id = $2`, [quote.gross_amount_usdc, quote.message_id]);
       }
-      await client.query(`UPDATE customer_profiles SET generosity_points = generosity_points + floor($1::numeric)::bigint, updated_at = now() WHERE user_id = $2`, [quote.gross_amount_usdc, quote.buyer_user_id]);
+      if (quote.kind !== "MESSAGE_UNLOCK") {
+        await client.query(`UPDATE customer_profiles SET generosity_points = generosity_points + floor($1::numeric)::bigint, updated_at = now() WHERE user_id = $2`, [quote.gross_amount_usdc, quote.buyer_user_id]);
+      }
     });
     return NextResponse.json({ confirmed: true, quoteId: quote.id, kind: quote.kind });
   } catch (error) {

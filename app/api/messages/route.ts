@@ -5,6 +5,7 @@ import { query, transaction } from "@/lib/db";
 import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 import { decryptMessage, encryptMessage, messageHash } from "@/lib/message-crypto";
 import { sendNewMessageEmail } from "@/lib/email-auth";
+import { FREE_UNANSWERED_MESSAGES, MESSAGE_UNLOCK_DAYS, unansweredMessageState } from "@/lib/message-limits";
 
 type ConversationRow = {
   id: string;
@@ -33,6 +34,33 @@ type MessageRow = {
   boosted_at: Date | null;
   created_at: Date;
 };
+
+type MessageUnlockRow = {
+  conversation_id: string;
+  has_unused: boolean;
+  last_unlock_at: Date;
+};
+
+class MessageGateError extends Error {
+  constructor(
+    public code: "UNANSWERED_WARNING" | "REPLY_REQUIRED",
+    public conversationId: string,
+    public consecutiveMessages: number,
+    public hasPaidUnlock = false,
+    public canPurchaseUnlock = false,
+    public nextUnlockAt: Date | null = null
+  ) { super(code); }
+}
+
+function consecutiveMessagesFromSender(messages: MessageRow[], senderUserId: string) {
+  let count = 0;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].status === "MODERATED") continue;
+    if (messages[index].sender_user_id !== senderUserId) break;
+    count += 1;
+  }
+  return count;
+}
 
 export async function GET(request: NextRequest) {
   const session = authenticatedSession(request);
@@ -82,6 +110,15 @@ export async function GET(request: NextRequest) {
       ORDER BY created_at
     `, [ids]) : { rows: [] as MessageRow[] };
 
+    const unlocks = ids.length ? await query<MessageUnlockRow>(`
+      SELECT conversation_id, bool_or(used_message_id IS NULL) AS has_unused,
+        max(created_at) AS last_unlock_at
+      FROM message_unlocks
+      WHERE conversation_id = ANY($1::uuid[]) AND sender_user_id = $2
+        AND created_at >= now() - interval '${MESSAGE_UNLOCK_DAYS} days'
+      GROUP BY conversation_id
+    `, [ids, account.id]) : { rows: [] as MessageUnlockRow[] };
+
     if (ids.length) {
       await query(`
         UPDATE messages SET status = 'READ', read_at = COALESCE(read_at, now())
@@ -91,7 +128,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       accountType: account.account_type,
-      conversations: conversations.rows.map((conversation) => ({
+      conversations: conversations.rows.map((conversation) => {
+        const conversationMessages = messages.rows.filter((message) => message.conversation_id === conversation.id);
+        const consecutiveMessages = consecutiveMessagesFromSender(conversationMessages, account.id);
+        const recentUnlock = unlocks.rows.find((unlock) => unlock.conversation_id === conversation.id);
+        const messageGate = unansweredMessageState(consecutiveMessages, Boolean(recentUnlock?.has_unused));
+        const nextUnlockAt = recentUnlock?.last_unlock_at
+          ? new Date(recentUnlock.last_unlock_at.getTime() + MESSAGE_UNLOCK_DAYS * 24 * 60 * 60 * 1000)
+          : null;
+        return {
         id: conversation.id,
         profileId: conversation.creator_profile_id,
         counterpartName: account.account_type === "CREATOR" ? conversation.customer_name : conversation.creator_name,
@@ -100,8 +145,13 @@ export async function GET(request: NextRequest) {
         blockedByMe: conversation.blocked_by_me,
         blockedMe: conversation.blocked_me,
         priorityBoostUsdc: Number(conversation.priority_boost_usdc),
+        consecutiveMessages,
+        messageGate,
+        hasPaidUnlock: Boolean(recentUnlock?.has_unused),
+        canPurchaseUnlock: !recentUnlock,
+        nextUnlockAt,
         updatedAt: conversation.updated_at,
-        messages: messages.rows.filter((message) => message.conversation_id === conversation.id).map((message) => ({
+        messages: conversationMessages.map((message) => ({
           id: message.id,
           body: decryptMessage(message),
           mine: message.sender_user_id === account.id,
@@ -110,7 +160,7 @@ export async function GET(request: NextRequest) {
           boostedAt: message.boosted_at,
           createdAt: message.created_at
         }))
-      }))
+      }})
     });
   } catch (error) {
     console.error("Message load failed", error);
@@ -122,7 +172,13 @@ export async function POST(request: NextRequest) {
   const session = authenticatedSession(request);
   if (!session) return NextResponse.json({ error: "Sign in to send a message." }, { status: 401 });
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
-  const input = await request.json().catch(() => null) as { profileId?: string; conversationId?: string; body?: string } | null;
+  const input = await request.json().catch(() => null) as {
+    profileId?: string;
+    conversationId?: string;
+    body?: string;
+    acknowledgeUnansweredWarning?: boolean;
+    usePaidUnlock?: boolean;
+  } | null;
   const body = typeof input?.body === "string" ? input.body.trim().slice(0, 800) : "";
   if (!body) return NextResponse.json({ error: "Write a message first." }, { status: 400 });
 
@@ -201,6 +257,38 @@ export async function POST(request: NextRequest) {
       `, [account.id, counterpartUserId]);
       if (blocked.rowCount) throw new Error("CONVERSATION_BLOCKED");
 
+      const unanswered = await client.query<{ count: string }>(`
+        SELECT count(*)::text
+        FROM messages m
+        WHERE m.conversation_id = $1 AND m.sender_user_id = $2 AND m.status <> 'MODERATED'
+          AND m.created_at > COALESCE((
+            SELECT max(reply.created_at) FROM messages reply
+            WHERE reply.conversation_id = $1 AND reply.sender_user_id = $3 AND reply.status <> 'MODERATED'
+          ), to_timestamp(0))
+      `, [conversationId, account.id, counterpartUserId]);
+      const consecutiveMessages = Number(unanswered.rows[0]?.count || 0);
+      if (consecutiveMessages === FREE_UNANSWERED_MESSAGES - 1 && !input?.acknowledgeUnansweredWarning) {
+        throw new MessageGateError("UNANSWERED_WARNING", conversationId, consecutiveMessages);
+      }
+
+      let paidUnlockId: string | null = null;
+      if (consecutiveMessages >= FREE_UNANSWERED_MESSAGES) {
+        const recentUnlock = await client.query<{ id: string; used_message_id: string | null; created_at: Date }>(`
+          SELECT id, used_message_id, created_at
+          FROM message_unlocks
+          WHERE conversation_id = $1 AND sender_user_id = $2
+            AND created_at >= now() - interval '${MESSAGE_UNLOCK_DAYS} days'
+          ORDER BY created_at DESC LIMIT 1
+          FOR UPDATE
+        `, [conversationId, account.id]);
+        const unlock = recentUnlock.rows[0];
+        if (input?.usePaidUnlock && unlock && !unlock.used_message_id) paidUnlockId = unlock.id;
+        else {
+          const nextUnlockAt = unlock ? new Date(unlock.created_at.getTime() + MESSAGE_UNLOCK_DAYS * 24 * 60 * 60 * 1000) : null;
+          throw new MessageGateError("REPLY_REQUIRED", conversationId, consecutiveMessages, Boolean(unlock && !unlock.used_message_id), !unlock, nextUnlockAt);
+        }
+      }
+
       const messageRate = await client.query<{ recent_minute: string; recent_hour: string; repeated: string }>(`
         SELECT
           count(*) FILTER (WHERE created_at >= now() - interval '1 minute')::text AS recent_minute,
@@ -231,6 +319,12 @@ export async function POST(request: NextRequest) {
         INSERT INTO messages (id, conversation_id, sender_user_id, body, body_ciphertext, body_iv, body_tag, body_hash)
         VALUES ($1, $2, $3, '[encrypted]', $4, $5, $6, $7)
       `, [id, conversationId, account.id, encrypted.ciphertext, encrypted.iv, encrypted.tag, encrypted.hash]);
+      if (paidUnlockId) {
+        await client.query(`
+          UPDATE message_unlocks SET used_message_id = $1, used_at = now()
+          WHERE id = $2 AND used_message_id IS NULL
+        `, [id, paidUnlockId]);
+      }
       await client.query(`UPDATE conversations SET updated_at = now() WHERE id = $1`, [conversationId]);
       await client.query(`
         UPDATE profiles
@@ -244,7 +338,12 @@ export async function POST(request: NextRequest) {
         conversationId,
         recipientEmail: counterpart.rows[0].email,
         senderName: sender.rows[0]?.display_name || "A member",
-        shouldNotify: Boolean(unread.rows[0]?.should_notify)
+        shouldNotify: Boolean(unread.rows[0]?.should_notify),
+        automatedNotice: consecutiveMessages === FREE_UNANSWERED_MESSAGES - 1
+          ? "Your third unanswered message was sent. Please wait for a reply before sending another, or use the weekly paid-message option."
+          : paidUnlockId
+            ? "Your weekly paid-message unlock was used. Further messages now require a reply."
+            : null
       };
     });
     if (result.shouldNotify && result.recipientEmail) {
@@ -254,8 +353,27 @@ export async function POST(request: NextRequest) {
         console.error("New message email could not be sent", error);
       }
     }
-    return NextResponse.json({ id: result.id, conversationId: result.conversationId, body, createdAt: new Date().toISOString() });
+    return NextResponse.json({ id: result.id, conversationId: result.conversationId, body, automatedNotice: result.automatedNotice, createdAt: new Date().toISOString() });
   } catch (error) {
+    if (error instanceof MessageGateError) {
+      const warning = error.code === "UNANSWERED_WARNING";
+      return NextResponse.json({
+        code: error.code,
+        conversationId: error.conversationId,
+        consecutiveMessages: error.consecutiveMessages,
+        hasPaidUnlock: error.hasPaidUnlock,
+        canPurchaseUnlock: error.canPurchaseUnlock,
+        nextUnlockAt: error.nextUnlockAt,
+        unlockAmountUsdc: 10,
+        error: warning
+          ? "You have sent two messages without a reply. Sending a third is allowed, but please be considerate—after that you must wait for a reply."
+          : error.hasPaidUnlock
+            ? "You have sent three messages without a reply. Use your paid-message unlock or wait for a reply."
+            : error.canPurchaseUnlock
+              ? "You have sent three messages without a reply. Wait for a reply, or unlock one additional message for 10 USDC."
+              : "You have sent three messages without a reply and used this week's paid message. Please wait for a reply."
+      }, { status: 409 });
+    }
     const message = error instanceof Error ? error.message : "";
     if (message === "ACCOUNT_REQUIRED") return NextResponse.json({ error: "Choose whether this is a creator or customer account first." }, { status: 409 });
     if (["PROFILE_REQUIRED", "PROFILE_NOT_FOUND"].includes(message)) return NextResponse.json({ error: "That creator profile is not available." }, { status: 404 });
