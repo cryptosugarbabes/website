@@ -58,6 +58,10 @@ export function MemberDashboard() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [challengeId, setChallengeId] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountEmailCode, setAccountEmailCode] = useState("");
+  const [accountEmailChallengeId, setAccountEmailChallengeId] = useState("");
+  const [pendingAccountEmail, setPendingAccountEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
@@ -93,6 +97,7 @@ export function MemberDashboard() {
     const next = await response.json() as DashboardData & { error?: string };
     if (!response.ok) { setError(next.error || "Dashboard unavailable."); setLoading(false); return; }
     setData(next); setSignedOut(false);
+    setAccountEmail(next.identity.email || "");
     managedPhotosRef.current = next.creatorProfile?.photos || [];
     setManagedPhotos(next.creatorProfile?.photos || []);
     setAcceptedAdult(next.identity.acceptanceComplete);
@@ -408,6 +413,48 @@ export function MemberDashboard() {
     setBusy(false);
   }
 
+  async function requestAccountEmailCode(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError("");
+    const response = await fetch("/api/dashboard/email", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "REQUEST", email: accountEmail })
+    });
+    const next = await response.json() as { challengeId?: string; error?: string };
+    if (!response.ok || !next.challengeId) setError(next.error || "Could not send a verification code.");
+    else {
+      setAccountEmailChallengeId(next.challengeId);
+      setPendingAccountEmail(accountEmail.trim().toLowerCase());
+      setAccountEmailCode("");
+      setNotice("Check the new email address for its six-digit verification code.");
+    }
+    setBusy(false);
+  }
+
+  async function confirmAccountEmail(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError("");
+    const response = await fetch("/api/dashboard/email", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "CONFIRM",
+        email: pendingAccountEmail,
+        code: accountEmailCode,
+        challengeId: accountEmailChallengeId
+      })
+    });
+    const next = await response.json() as { verified?: boolean; email?: string; error?: string };
+    if (!response.ok || !next.verified) setError(next.error || "That email could not be verified.");
+    else {
+      setAccountEmailChallengeId("");
+      setPendingAccountEmail("");
+      setAccountEmailCode("");
+      setNotice("Your verified account email has been updated.");
+      await loadDashboard();
+    }
+    setBusy(false);
+  }
+
   async function signOut() { await fetch("/api/auth/logout", { method: "POST" }); setData(null); setSignedOut(true); }
 
   if (loading) return <main className="member-shell member-loading"><div className="dashboard-spinner"/><p>Opening your private dashboard…</p></main>;
@@ -418,7 +465,7 @@ export function MemberDashboard() {
   return <main className="member-shell">
     <header className="member-topbar"><div className="brand-social"><a className="member-brand" href="/"><img src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div><div><a href="/">Discover</a><button onClick={signOut}>Sign out</button></div></header>
     <div className="member-dashboard-grid">
-      <aside className="member-sidebar"><div className="member-identity"><span>{roleLabel}</span><strong>{data.account.displayName || data.creatorProfile?.name || data.identity.email || short(data.identity.walletAddress)}</strong><small>{data.identity.status}</small></div><nav>{(["overview", "messages", "profile", "activity", "safety", "settings"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item === "activity" ? "Payments & activity" : label(item)}{item === "messages" && data.stats.unread > 0 ? <em>{data.stats.unread}</em> : null}</button>)}</nav></aside>
+      <aside className="member-sidebar"><div className="member-identity"><span>{roleLabel}</span><strong>{data.account.displayName || data.creatorProfile?.name || data.identity.email || short(data.identity.walletAddress)}</strong><small>{data.identity.status}</small></div><nav>{(["overview", "messages", "profile", "activity", "safety", "settings"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item === "activity" ? "Payments & activity" : item === "settings" ? "Account & Settings" : label(item)}{item === "messages" && data.stats.unread > 0 ? <em>{data.stats.unread}</em> : null}</button>)}</nav></aside>
       <section className="member-content">
         {data.identity.status === "SUSPENDED" && <div className="dashboard-warning"><strong>Account suspended</strong><p>{data.identity.suspensionReason || "Contact safety support for more information."}</p></div>}
         {error && <div className="dashboard-error">{error}</div>}{notice && <div className="dashboard-notice">{notice}</div>}
@@ -442,8 +489,18 @@ export function MemberDashboard() {
           {tab === "activity" && <section><div className="dashboard-heading"><span className="dashboard-kicker">ON-CHAIN LEDGER</span><h1>Payments & activity</h1><p>Confirmed likes, gifts and boosts with their creator/platform split.</p></div><div className="dashboard-panel activity-table"><div className="table-row table-head"><span>Activity</span><span>Network</span><span>Gross</span><span>{creator ? "Your share" : "Creator share"}</span><span>Date</span></div>{data.activity.map((item) => <div className="table-row" key={item.id}><span><strong>{label(item.kind)}</strong><small>{item.direction === "SENT" ? `To ${item.profileName}` : `From a supporter`}</small></span><span>{item.network}</span><span>{money(item.grossUsdc)}</span><span>{money(item.creatorShareUsdc)}</span><span>{new Date(item.createdAt).toLocaleDateString()}</span>{item.transactionHashes.length ? <small className="transaction-line">{item.transactionHashes.map((hash) => <a href={explorerUrl(item.network, hash)} target="_blank" rel="noreferrer" key={hash}>{short(hash)}</a>)}</small> : null}</div>)}{!data.activity.length && <p className="dashboard-empty">No confirmed payment activity yet.</p>}</div></section>}
           {tab === "safety" && <section><div className="dashboard-heading"><span className="dashboard-kicker">SAFETY CENTER</span><h1>Your safety controls</h1><p>Track reports and use the inbox to block or report a conversation.</p></div><div className="dashboard-panel"><div className="dashboard-panel-title"><h2>Submitted reports</h2><a href="mailto:email@cryptosugarbabes.com?subject=Safety%20report">Contact safety</a></div>{data.reports.map((report) => <div className="safety-report-row" key={report.id}><strong>{label(report.category)}</strong><span className={`review-pill ${report.status.toLowerCase()}`}>{label(report.status)}</span><small>{new Date(report.createdAt).toLocaleString()}</small></div>)}{!data.reports.length && <p className="dashboard-empty">You have not submitted any reports.</p>}</div><div className="dashboard-panel safety-links"><a href="/safety">Safety policy</a><a href="/disputes">Disputes</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div></section>}
           {tab === "settings" && <section>
-            <div className="dashboard-heading"><span className="dashboard-kicker">ACCOUNT & PRIVACY</span><h1>Settings</h1><p>Review the identifiers connected to your account and manage your data request.</p></div>
+            <div className="dashboard-heading"><span className="dashboard-kicker">ACCOUNT & PRIVACY</span><h1>Account & Settings</h1><p>Manage your sign-in details, connected wallet, social links and privacy requests.</p></div>
             <div className="dashboard-panel identity-list"><div><span>Email</span><strong>{data.identity.email || "Not connected"}</strong></div><div><span>Wallet</span><strong>{short(data.identity.walletAddress)}</strong><small>{data.identity.walletChain ? label(data.identity.walletChain) : "Connect only when needed"}</small></div><div><span>Member since</span><strong>{new Date(data.identity.createdAt).toLocaleDateString()}</strong></div><div><span>Account status</span><strong>{label(data.identity.status)}</strong></div></div>
+            <div className="dashboard-panel account-email-panel">
+              <div><span className="dashboard-kicker">VERIFIED EMAIL</span><h2>{data.identity.email ? "Change your email address" : "Add an optional email address"}</h2><p>{data.identity.email ? "We will send a code to the new address before replacing your current email. You will use the new address the next time you sign in." : "A verified email lets you sign in without a wallet and receive private message notifications. You can continue using a wallet without adding one."}</p></div>
+              {accountEmailChallengeId ? <form onSubmit={confirmAccountEmail}>
+                <label>Verification code sent to {pendingAccountEmail}<input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={accountEmailCode} onChange={(event) => setAccountEmailCode(event.target.value.replace(/\D/g, ""))} placeholder="000000"/></label>
+                <div className="account-email-actions"><button disabled={busy || accountEmailCode.length !== 6}>{busy ? "Verifying…" : "Verify & save email"}</button><button className="member-subtle-button" type="button" disabled={busy} onClick={() => { setAccountEmailChallengeId(""); setPendingAccountEmail(""); setAccountEmailCode(""); setAccountEmail(data.identity.email || ""); }}>Cancel</button></div>
+              </form> : <form onSubmit={requestAccountEmailCode}>
+                <label>Email address · optional<input type="email" required value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="you@example.com"/></label>
+                <button disabled={busy || !accountEmail.trim() || accountEmail.trim().toLowerCase() === data.identity.email}>{busy ? "Sending…" : data.identity.email ? "Verify new email" : "Add & verify email"}</button>
+              </form>}
+            </div>
             <div className="dashboard-panel social-follow-panel"><div><span>Social updates</span><h2>Stay connected</h2><p>Follow our official accounts for announcements and community updates. This does not give Crypto Sugar access to your social accounts.</p></div><div className="social-follow-actions"><a href="https://www.instagram.com/cryptosugarbabes/" target="_blank" rel="noopener noreferrer">Instagram <small>@cryptosugarbabes</small></a><a href="https://x.com/cryptosugarking" target="_blank" rel="noopener noreferrer">X <small>@cryptosugarking</small></a></div></div>
             <div className="dashboard-panel deletion-panel"><h2>Account deletion</h2>{data.identity.deletionRequestedAt ? <><p>Your request was submitted on {new Date(data.identity.deletionRequestedAt).toLocaleDateString()}. An administrator will review required safety, dispute and transaction-retention obligations before deletion or anonymisation.</p><button disabled={busy} onClick={() => deletion("CANCEL_DELETION")}>Cancel deletion request</button></> : <><p>This sends a formal deletion request. Confirmed blockchain records cannot be erased from the network, but we can remove or anonymise eligible platform data.</p><label>Type DELETE to confirm<input value={deletionConfirmation} onChange={(event) => setDeletionConfirmation(event.target.value)}/></label><button className="danger-button" disabled={busy || deletionConfirmation !== "DELETE"} onClick={() => deletion("REQUEST_DELETION")}>Request account deletion</button></>}</div>
           </section>}

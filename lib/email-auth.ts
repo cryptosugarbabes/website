@@ -70,6 +70,15 @@ export async function sendSignInCode(email: string, code: string) {
   );
 }
 
+export async function sendEmailChangeCode(email: string, code: string) {
+  await sendEmail(
+    email,
+    "Confirm your Crypto Sugar Babes email",
+    `Your email verification code is ${code}. It expires in 10 minutes. Enter it in Account & Settings to add or change your account email.`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:28px;font-weight:500">Confirm your account email</h1><p style="color:#c8b8c0">Enter this one-time code in <strong>Account &amp; Settings</strong>:</p><p style="margin:20px 0;font-size:34px;letter-spacing:8px;font-weight:700;color:#f29ac2">${code}</p><p style="color:#baa8b0">It expires in 10 minutes. Your account email will not change until this code is confirmed.</p>`
+  );
+}
+
 export async function sendWelcomeEmail(email: string) {
   await sendEmail(
     email,

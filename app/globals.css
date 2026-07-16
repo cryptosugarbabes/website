@@ -564,6 +564,18 @@ footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
 .activity-table { padding: 0; overflow: hidden; }.table-row { display: grid; grid-template-columns: 1.3fr .65fr .8fr .8fr .7fr; gap: 12px; padding: 15px 20px; align-items: center; border-bottom: 1px solid var(--line); font-size: 10px; }.table-row.table-head { color: #786b74; text-transform: uppercase; letter-spacing: .1em; font-size: 7px; }.table-row > span { display: grid; gap: 3px; }.table-row small { color: #7e717a; font-size: 8px; }.table-row .transaction-line { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; font-family: monospace; }
 .safety-report-row { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }.safety-report-row small { color: #7d7079; font-size: 8px; }.safety-links { display: flex; flex-wrap: wrap; gap: 20px; }.safety-links a { color: var(--gold); text-decoration: none; font-size: 10px; }
 .identity-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; padding: 0; overflow: hidden; }.identity-list > div { min-height: 120px; padding: 22px; display: flex; flex-direction: column; background: rgba(255,255,255,.015); }.identity-list span { color: #7f727a; font-size: 8px; text-transform: uppercase; letter-spacing: .1em; }.identity-list strong { margin: auto 0 5px; font-size: 11px; overflow-wrap: anywhere; }.identity-list small { color: #71646d; font-size: 8px; }.deletion-panel { max-width: 760px; }.deletion-panel p { color: #9a8c95; font-size: 11px; line-height: 1.7; }.deletion-panel label { margin: 20px 0 12px; max-width: 350px; }.deletion-panel .danger-button { background: transparent; color: #efa0b1; border: 1px solid rgba(239,160,177,.3); }
+.account-email-panel { display: grid; grid-template-columns: minmax(0, .9fr) minmax(360px, 1.1fr); align-items: center; gap: 42px; max-width: 1100px; background: linear-gradient(125deg, rgba(255,47,146,.08), rgba(255,255,255,.018)); }
+.account-email-panel h2 { margin: 8px 0 10px; font-family: "Playfair Display", serif; font-size: 30px; font-weight: 500; }
+.account-email-panel p { margin: 0; color: #a99aa4; line-height: 1.65; }
+.account-email-panel form { display: grid; gap: 14px; }
+.account-email-panel label { display: grid; gap: 8px; color: #b9aab3; font-size: 9px; text-transform: uppercase; letter-spacing: .13em; }
+.account-email-panel input { width: 100%; min-height: 58px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.035); color: #f5edf1; padding: 14px 16px; outline: none; text-transform: none; letter-spacing: 0; }
+.account-email-panel input:focus { border-color: rgba(255,47,146,.72); box-shadow: 0 0 0 3px rgba(255,47,146,.1); }
+.account-email-panel form > button, .account-email-actions > button:first-child { min-height: 54px; border: 1px solid rgba(255,144,205,.7); border-radius: 12px; background: linear-gradient(135deg, #ff2f92, #dc0785); color: white; font-weight: 800; box-shadow: 0 12px 28px rgba(255,47,146,.25); cursor: pointer; }
+.account-email-panel button:disabled { opacity: .5; cursor: wait; }
+.account-email-actions { display: flex; gap: 12px; }
+.account-email-actions button { flex: 1; }
+.account-email-actions .member-subtle-button { min-height: 54px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: #c8b9c1; cursor: pointer; }
 .onboarding-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 28px; }.onboarding-grid article { display: flex; flex-direction: column; padding: 27px; border: 1px solid var(--line); border-radius: 14px; }.onboarding-grid h2 { font-family: "Playfair Display", serif; font-size: 30px; }.onboarding-grid p { min-height: 48px; color: #948690; font-size: 11px; line-height: 1.6; }.onboarding-grid article > button { margin-top: auto; }.onboarding-grid form { display: grid; gap: 9px; }.onboarding-grid textarea { min-height: 90px; }
 .dashboard-empty { color: #7e717a; font-size: 10px; padding: 20px 0; }
 
@@ -606,6 +618,7 @@ footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
 .social-follow-actions a:hover { transform: translateY(-2px); border-color: rgba(255,47,146,.62); background: rgba(255,47,146,.1); }
 .social-follow-actions small { display: block; margin-top: 4px; color: #a8909d; font-size: 9px; font-weight: 400; }
 @media (max-width: 760px) { .social-follow-panel { align-items: stretch; flex-direction: column; }.social-follow-actions { flex-direction: column; }.social-follow-actions a { min-width: 0; } }
+@media (max-width: 760px) { .account-email-panel { grid-template-columns: 1fr; gap: 24px; }.account-email-actions { flex-direction: column; } }
 
 /* Larger interface copy. Display headings and brand typography intentionally retain their existing scale. */
 :root {
