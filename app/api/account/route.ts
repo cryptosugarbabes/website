@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
   const acceptedAdult = body?.acceptedAdult === true;
   const acceptedTerms = body?.acceptedTerms === true;
   const acceptedPrivacy = body?.acceptedPrivacy === true;
-  if (!type || (type === "CUSTOMER" && !displayName)) {
-    return NextResponse.json({ error: "Choose an account type and add your display name." }, { status: 400 });
+  if (!type) {
+    return NextResponse.json({ error: "Choose an account type." }, { status: 400 });
   }
   if (!acceptedAdult || !acceptedTerms || !acceptedPrivacy) {
     return NextResponse.json({ error: "Confirm that you are 18+ and accept the Terms and Privacy Policy." }, { status: 400 });
@@ -70,13 +70,14 @@ export async function POST(request: NextRequest) {
         WHERE id = $4
       `, [type, CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION, user.id]);
       if (type === "CUSTOMER") {
+        const customerDisplayName = displayName || "Sugar Daddy";
         await client.query(`
           INSERT INTO customer_profiles (id, user_id, display_name, bio)
           VALUES ($1, $2, $3, $4)
           ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, bio = EXCLUDED.bio, updated_at = now()
-        `, [randomUUID(), user.id, displayName, bio]);
+        `, [randomUUID(), user.id, customerDisplayName, bio]);
       }
-      return { type, displayName: type === "CUSTOMER" ? displayName : null, bio: type === "CUSTOMER" ? bio : null };
+      return { type, displayName: type === "CUSTOMER" ? displayName || "Sugar Daddy" : null, bio: type === "CUSTOMER" ? bio : null };
     });
     return NextResponse.json({ account });
   } catch (error) {
