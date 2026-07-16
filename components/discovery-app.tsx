@@ -975,7 +975,7 @@ export function DiscoveryApp() {
       <div className="ambient ambient-one"/><div className="ambient ambient-two"/>
 
       <header className="site-header">
-        <div className="brand-social"><a className="brand" href="#top" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div>
+        <div className="brand-social"><a className="brand" href="/" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div>
         <nav aria-label="Main navigation"><a href="#how-it-works">How it works</a></nav>
         <div className="header-actions">
           {!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
