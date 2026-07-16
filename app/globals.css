@@ -925,3 +925,63 @@ body .dashboard-form .form-grid {
   transform: none;
   box-shadow: 0 7px 18px rgba(255, 47, 146, .2) !important;
 }
+
+/* The public profile is a focused preview, so keep it more compact than the
+   surrounding large-type interface while preserving comfortable readability. */
+body .profile-modal .modal-content {
+  padding: 32px 30px 26px;
+}
+
+body .profile-modal .modal-content h2 {
+  font-size: 2.35rem;
+}
+
+body .profile-modal .modal-content > h3 {
+  font-size: 1.25rem;
+  margin: 20px 0 10px;
+}
+
+body .profile-modal .modal-bio {
+  font-size: .96rem !important;
+  line-height: 1.55;
+}
+
+body .profile-modal .location,
+body .profile-modal .rating-note,
+body .profile-modal .tag-row span,
+body .profile-modal .modal-footnote {
+  font-size: .78rem !important;
+  line-height: 1.45;
+}
+
+body .profile-modal .modal-actions button {
+  font-size: .9rem !important;
+  line-height: 1.25;
+}
+
+body .profile-modal .creator-stats {
+  margin-top: 17px;
+}
+
+body .profile-modal .tag-row.large,
+body .profile-modal .modal-actions {
+  margin-top: 19px;
+}
+
+@media (min-width: 761px) {
+  body .profile-modal {
+    width: min(820px, calc(100vw - 44px));
+    max-height: min(760px, calc(100vh - 44px));
+    grid-template-columns: 42% 58%;
+  }
+
+  body .profile-modal .profile-media-column,
+  body .profile-modal .modal-content {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  body .profile-modal .modal-visual {
+    min-height: 460px;
+  }
+}
