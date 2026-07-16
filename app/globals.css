@@ -968,6 +968,46 @@ body .profile-modal .modal-actions {
   margin-top: 19px;
 }
 
+/* Keep photo-order controls compact and give the active display-photo badge
+   the same visual weight as its neighbouring reorder control. */
+body .dashboard-photo-grid .photo-card-toolbar {
+  min-height: 40px;
+  gap: 9px;
+}
+
+body .dashboard-photo-grid .photo-card-toolbar > button,
+body .dashboard-photo-grid .photo-card-toolbar > span {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 8px 13px;
+  border-radius: 999px;
+  font-size: .82rem !important;
+  font-weight: 750;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+body .dashboard-photo-grid .photo-card-toolbar > span {
+  min-width: 112px;
+  padding-inline: 16px;
+}
+
+@media (max-width: 760px) {
+  body .dashboard-photo-grid .photo-card-toolbar > button,
+  body .dashboard-photo-grid .photo-card-toolbar > span {
+    min-height: 38px;
+    padding: 7px 11px;
+    font-size: .76rem !important;
+  }
+
+  body .dashboard-photo-grid .photo-card-toolbar > span {
+    min-width: 102px;
+  }
+}
+
 @media (min-width: 761px) {
   body .profile-modal {
     width: min(820px, calc(100vw - 44px));
