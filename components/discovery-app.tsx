@@ -182,6 +182,7 @@ export function DiscoveryApp() {
   const [supportGivenUsdc, setSupportGivenUsdc] = useState(0);
   const [notice, setNotice] = useState("");
   const [accountType, setAccountType] = useState<AccountType | null>(null);
+  const [hasCreatorProfile, setHasCreatorProfile] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountDisplayName, setAccountDisplayName] = useState("");
   const [accountBio, setAccountBio] = useState("");
@@ -272,9 +273,10 @@ export function DiscoveryApp() {
   async function loadAccount(openWhenMissing = false) {
     const response = await fetch("/api/account", { cache: "no-store" });
     if (!response.ok) return null;
-    const data = await response.json() as { account?: { type: AccountType | null; displayName?: string | null; bio?: string | null; generosityPoints?: number } | null };
+    const data = await response.json() as { account?: { type: AccountType | null; displayName?: string | null; bio?: string | null; generosityPoints?: number; hasCreatorProfile?: boolean } | null };
     const account = data.account || null;
     setAccountType(account?.type || null);
+    setHasCreatorProfile(Boolean(account?.hasCreatorProfile));
     setAccountDisplayName(account?.displayName || "");
     setAccountBio(account?.bio || "");
     if (account?.generosityPoints) setSupportGivenUsdc(account.generosityPoints);
@@ -528,6 +530,7 @@ export function DiscoveryApp() {
     setWalletChain(null);
     setWalletName("");
     setAccountType(null);
+    setHasCreatorProfile(false);
     profileIntentRef.current = false;
     setFavorites(new Set());
     setConversations([]);
@@ -849,6 +852,7 @@ export function DiscoveryApp() {
 
       await loadPersistedProfiles();
       setAccountType("CREATOR");
+      setHasCreatorProfile(true);
       setProfileForm(emptyProfile);
       setProfilePhotos([]);
       setProfileFiles([]);
@@ -872,7 +876,7 @@ export function DiscoveryApp() {
         <div className="brand-social"><a className="brand" href="#top" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/></div>
         <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
         <div className="header-actions">
-          {accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
+          {!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
           {isAuthenticated && <a className="text-button dashboard-link" href="/dashboard">Dashboard</a>}
           {isAuthenticated && accountType && <button className="text-button inbox-button" onClick={openInbox}>Inbox{unreadCount > 0 && <span className="unread-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}</button>}
           {isAuthenticated && !accountType && <button className="text-button" onClick={() => setAccountOpen(true)}>Choose account</button>}
@@ -887,7 +891,7 @@ export function DiscoveryApp() {
           <div className="eyebrow"><span/> PRIVATE. MAGNETIC. CRYPTO-NATIVE. <span/></div>
           <h1>Crypto is the<br/>ultimate <em>sugar.</em></h1>
           <p className="hero-copy">Meet and connect discretely. Admire and indulge with crypto.</p>
-          <div className="hero-actions"><a className="primary-button" href="#discover">Explore profiles <Icon name="arrow" size={18}/></a><button className="secondary-button" onClick={openProfileCreator}>Create your profile — free</button></div>
+          <div className="hero-actions"><a className="primary-button" href="#discover">Explore profiles <Icon name="arrow" size={18}/></a>{!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="secondary-button" onClick={openProfileCreator}>Create your profile — free</button>}</div>
           <div className="trust-row"><span><Icon name="shield" size={17}/>Adults only</span><span><Icon name="lock" size={17}/>Wallet optional</span><span><Icon name="globe" size={17}/>Global access</span></div>
         </div>
       </section>
@@ -924,7 +928,7 @@ export function DiscoveryApp() {
 
       <section className="crypto-section">
         <div className="crypto-copy"><span className="section-kicker">USDC-READY EARNINGS</span><h2>Your wallet unlocks earnings.<br/>Not membership.</h2><p>Creators can join by email, publish four photos, and message for free. Connect Base or Solana only when you are ready to receive paid likes, gifts, and boosts.</p><ul><li><Icon name="check" size={16}/>MetaMask, Binance, Trust, Rabby, and Coinbase on Base</li><li><Icon name="check" size={16}/>Solflare and Phantom on Solana</li><li><Icon name="check" size={16}/>Profiles and messages work without a wallet</li><li><Icon name="check" size={16}/>A verified wallet is required before receiving USDC</li></ul></div>
-        <div className="access-card"><div className="access-orbit"><Icon name="spark" size={28}/></div><span>FREE MEMBERSHIP</span><h3>Make an entrance.</h3><p>Create a private draft, preview it instantly, and submit it for review when you are ready.</p><div className="access-networks"><button type="button" onClick={() => { setWalletError(""); showWalletPicker("general", "evm"); }}><i className="base-symbol">B</i><span>Connect Base</span><Icon name="arrow" size={15}/></button><button type="button" onClick={() => { setWalletError(""); showWalletPicker("general", "solana"); }}><i className="solana-symbol">S</i><span>Connect Solana</span><Icon name="arrow" size={15}/></button></div><button className="primary-button full" onClick={openProfileCreator}>Create your profile <Icon name="arrow" size={18}/></button><small>No profile fees. No boost charges. No recovery phrase—ever.</small></div>
+        <div className="access-card"><div className="access-orbit"><Icon name="spark" size={28}/></div><span>FREE MEMBERSHIP</span><h3>Make an entrance.</h3><p>Create a private draft, preview it instantly, and submit it for review when you are ready.</p><div className="access-networks"><button type="button" onClick={() => { setWalletError(""); showWalletPicker("general", "evm"); }}><i className="base-symbol">B</i><span>Connect Base</span><Icon name="arrow" size={15}/></button><button type="button" onClick={() => { setWalletError(""); showWalletPicker("general", "solana"); }}><i className="solana-symbol">S</i><span>Connect Solana</span><Icon name="arrow" size={15}/></button></div>{hasCreatorProfile || accountType === "CUSTOMER" ? <a className="primary-button full" href="/dashboard">{hasCreatorProfile ? "Manage your profile" : "Open your dashboard"} <Icon name="arrow" size={18}/></a> : <button className="primary-button full" onClick={openProfileCreator}>Create your profile <Icon name="arrow" size={18}/></button>}<small>No profile fees. No boost charges. No recovery phrase—ever.</small></div>
       </section>
 
       <section className="safety-section" id="safety"><div className="safety-mark"><Icon name="shield" size={31}/></div><div><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Consent always.</h2></div><p>Crypto Sugar is designed for lawful social discovery and companionship. Coercion, trafficking, underage users, non-consensual content, extortion, and unlawful activity are prohibited and subject to removal.</p><a href="mailto:email@cryptosugarbabes.com?subject=Safety%20report">Contact safety <Icon name="arrow" size={16}/></a></section>

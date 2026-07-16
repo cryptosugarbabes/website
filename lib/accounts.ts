@@ -12,11 +12,13 @@ export type AccountRow = QueryResultRow & {
   display_name: string | null;
   bio: string | null;
   generosity_points: string | null;
+  has_creator_profile: boolean;
 };
 
 export async function accountForSession(session: AuthSession) {
   const result = await query<AccountRow>(`
-    SELECT u.id, u.account_type, u.status, cp.display_name, cp.bio, cp.generosity_points::text
+    SELECT u.id, u.account_type, u.status, cp.display_name, cp.bio, cp.generosity_points::text,
+      EXISTS (SELECT 1 FROM profiles p WHERE p.user_id = u.id) AS has_creator_profile
     FROM users u
     LEFT JOIN customer_profiles cp ON cp.user_id = u.id
     WHERE ($1::uuid IS NOT NULL AND u.id = $1)

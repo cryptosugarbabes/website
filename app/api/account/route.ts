@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
         type: account.account_type,
         displayName: account.display_name,
         bio: account.bio,
-        generosityPoints: Number(account.generosity_points || 0)
+        generosityPoints: Number(account.generosity_points || 0),
+        hasCreatorProfile: account.has_creator_profile
       } : null
     });
   } catch (error) {
