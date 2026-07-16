@@ -99,3 +99,14 @@ export async function sendProfileReviewEmail(email: string, input: { approved: b
     `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:30px;font-weight:500">Your profile needs an update.</h1><p style="color:#c8b8c0"><strong>${safeName}</strong> is not yet approved.</p><div style="margin:18px 0;padding:16px;border-left:3px solid #e0ba78;background:#21131c;color:#e9dce3"><strong>Review note</strong><br>${escapeHtml(reason)}</div><p style="color:#c8b8c0">Update your profile and submit it again when you are ready.</p><a href="https://cryptosugarbabes.com/dashboard" style="display:inline-block;margin-top:14px;border-radius:999px;background:#e0ba78;color:#160d13;padding:13px 22px;text-decoration:none;font-weight:700">Update your profile</a>`
   );
 }
+
+export async function sendNewMessageEmail(email: string, senderName?: string | null) {
+  const name = (senderName?.trim() || "A member").replace(/[\r\n]+/g, " ");
+  const safeName = escapeHtml(name);
+  await sendEmail(
+    email,
+    `New private message from ${name}`,
+    `${name} sent you a private message on Crypto Sugar Babes. Sign in to read and reply. For privacy, message contents are not included in email notifications.`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:30px;font-weight:500">You have a new private message.</h1><p style="color:#c8b8c0"><strong>${safeName}</strong> sent you a message on Crypto Sugar Babes.</p><p style="color:#8f7d87;font-size:13px">For privacy, the message itself is only shown inside your secure inbox.</p><a href="https://cryptosugarbabes.com/dashboard#messages" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open your inbox</a>`
+  );
+}

@@ -4,6 +4,7 @@ import { accountForSession } from "@/lib/accounts";
 import { query, transaction } from "@/lib/db";
 import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 import { decryptMessage, encryptMessage, messageHash } from "@/lib/message-crypto";
+import { sendNewMessageEmail } from "@/lib/email-auth";
 
 type ConversationRow = {
   id: string;
@@ -140,6 +141,7 @@ export async function POST(request: NextRequest) {
             SELECT c.creator_profile_id, p.user_id AS creator_user_id
             FROM conversations c JOIN profiles p ON p.id = c.creator_profile_id
             WHERE c.id = $1 AND c.customer_user_id = $2
+            FOR UPDATE OF c
           `, [conversationId, account.id]);
           if (!conversation.rowCount) throw new Error("CONVERSATION_NOT_FOUND");
           creatorProfileId = conversation.rows[0].creator_profile_id;
@@ -178,13 +180,17 @@ export async function POST(request: NextRequest) {
           SELECT c.creator_profile_id, c.customer_user_id
           FROM conversations c JOIN profiles p ON p.id = c.creator_profile_id
           WHERE c.id = $1 AND p.user_id = $2
+          FOR UPDATE OF c
         `, [conversationId, account.id]);
         if (!conversation.rowCount) throw new Error("CONVERSATION_NOT_FOUND");
         creatorProfileId = conversation.rows[0].creator_profile_id;
         counterpartUserId = conversation.rows[0].customer_user_id;
       }
 
-      const counterpart = await client.query<{ status: string }>(`SELECT status FROM users WHERE id = $1`, [counterpartUserId]);
+      const counterpart = await client.query<{ status: string; email: string | null }>(`
+        SELECT status, CASE WHEN email_verified_at IS NOT NULL THEN email ELSE NULL END AS email
+        FROM users WHERE id = $1
+      `, [counterpartUserId]);
       if (!counterpart.rowCount || counterpart.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_UNAVAILABLE");
 
       const blocked = await client.query(`
@@ -206,6 +212,20 @@ export async function POST(request: NextRequest) {
       if (Number(counts.recent_minute) >= 6 || Number(counts.recent_hour) >= 60) throw new Error("MESSAGE_LIMIT");
       if (Number(counts.repeated) >= 2 || (body.match(/https?:\/\//gi) || []).length > 2) throw new Error("SPAM_DETECTED");
 
+      const unread = await client.query<{ should_notify: boolean }>(`
+        SELECT NOT EXISTS (
+          SELECT 1 FROM messages
+          WHERE conversation_id = $1 AND sender_user_id = $2 AND status = 'SENT'
+        ) AS should_notify
+      `, [conversationId, account.id]);
+      const sender = await client.query<{ display_name: string | null }>(`
+        SELECT COALESCE(p.display_name, cp.display_name) AS display_name
+        FROM users u
+        LEFT JOIN profiles p ON p.user_id = u.id
+        LEFT JOIN customer_profiles cp ON cp.user_id = u.id
+        WHERE u.id = $1
+      `, [account.id]);
+
       const id = randomUUID();
       await client.query(`
         INSERT INTO messages (id, conversation_id, sender_user_id, body, body_ciphertext, body_iv, body_tag, body_hash)
@@ -219,9 +239,22 @@ export async function POST(request: NextRequest) {
             updated_at = now()
         WHERE id = $2
       `, [account.id, creatorProfileId]);
-      return { id, conversationId };
+      return {
+        id,
+        conversationId,
+        recipientEmail: counterpart.rows[0].email,
+        senderName: sender.rows[0]?.display_name || "A member",
+        shouldNotify: Boolean(unread.rows[0]?.should_notify)
+      };
     });
-    return NextResponse.json({ ...result, body, createdAt: new Date().toISOString() });
+    if (result.shouldNotify && result.recipientEmail) {
+      try {
+        await sendNewMessageEmail(result.recipientEmail, result.senderName);
+      } catch (error) {
+        console.error("New message email could not be sent", error);
+      }
+    }
+    return NextResponse.json({ id: result.id, conversationId: result.conversationId, body, createdAt: new Date().toISOString() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message === "ACCOUNT_REQUIRED") return NextResponse.json({ error: "Choose whether this is a creator or customer account first." }, { status: 409 });
