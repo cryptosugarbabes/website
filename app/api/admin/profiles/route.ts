@@ -13,8 +13,9 @@ type ReviewRow = {
   interests: string[];
   review_status: string;
   rejection_reason: string | null;
+  moderation_reviewed_at: string | null;
   updated_at: string;
-  media: Array<{ id: string; approved: boolean }>;
+  media: Array<{ id: string; approved: boolean; reviewed: boolean }>;
 };
 
 export async function GET(request: NextRequest) {
@@ -22,9 +23,9 @@ export async function GET(request: NextRequest) {
   try {
     const result = await query<ReviewRow>(`
       SELECT p.id, p.display_name, p.declared_age, p.city, p.country, p.headline, p.bio,
-        p.interests, p.review_status, p.rejection_reason, p.updated_at,
+        p.interests, p.review_status, p.rejection_reason, p.moderation_reviewed_at, p.updated_at,
         COALESCE(
-          json_agg(json_build_object('id', m.id::text, 'approved', m.is_approved) ORDER BY m.sort_order)
+          json_agg(json_build_object('id', m.id::text, 'approved', m.is_approved, 'reviewed', m.moderation_reviewed_at IS NOT NULL) ORDER BY m.sort_order)
             FILTER (WHERE m.id IS NOT NULL),
           '[]'::json
         ) AS media
@@ -32,7 +33,9 @@ export async function GET(request: NextRequest) {
       JOIN users u ON u.id = p.user_id AND u.account_type = 'CREATOR'
       LEFT JOIN profile_media m ON m.profile_id = p.id
       GROUP BY p.id
-      ORDER BY CASE p.review_status WHEN 'PENDING_REVIEW' THEN 0 WHEN 'REJECTED' THEN 1 ELSE 2 END, p.updated_at DESC
+      ORDER BY (p.moderation_reviewed_at IS NULL) DESC,
+        CASE p.review_status WHEN 'PENDING_REVIEW' THEN 0 WHEN 'REJECTED' THEN 1 ELSE 2 END,
+        p.updated_at DESC
     `);
     return NextResponse.json({ profiles: result.rows.map((row) => ({
       id: row.id,
@@ -44,9 +47,10 @@ export async function GET(request: NextRequest) {
       bio: row.bio,
       interests: row.interests,
       status: row.review_status,
+      reviewed: row.moderation_reviewed_at !== null,
       rejectionReason: row.rejection_reason,
       updatedAt: row.updated_at,
-      photos: row.media.map((photo) => ({ id: photo.id, url: `/api/admin/media/${photo.id}`, approved: photo.approved }))
+      photos: row.media.map((photo) => ({ id: photo.id, url: `/api/admin/media/${photo.id}`, approved: photo.approved, reviewed: photo.reviewed }))
     })) });
   } catch (error) {
     console.error("Admin profile list failed", error);

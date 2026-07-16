@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         FROM profiles p JOIN users u ON u.id = p.user_id
         WHERE p.id = $1 FOR UPDATE OF p
       `, [profileId]);
-      await client.query("UPDATE profile_media SET is_approved = $2 WHERE id = $1", [id, approved]);
+      await client.query("UPDATE profile_media SET is_approved = $2, moderation_reviewed_at = now() WHERE id = $1", [id, approved]);
       if (!approved) {
         await client.query("UPDATE profiles SET review_status = 'REJECTED', rejection_reason = $2, reviewed_at = now(), updated_at = now() WHERE id = $1", [profileId, reason]);
       } else {

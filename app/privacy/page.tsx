@@ -19,7 +19,7 @@ export default function PrivacyPage() {
         items: [
           "Wallet addresses, wallet network, and signed authentication messages.",
           "Profile details such as display name, age, location, biography, interests, and uploaded photographs.",
-          "Moderation, approval, support, safety-report, and account-status records.",
+          "Publication, moderation, support, safety-report, and account-status records.",
           "Technical information such as IP address, browser type, device information, timestamps, and basic security logs.",
           "When paid features launch, transaction identifiers, amounts, ledger entries, creator balances, and payout records."
         ]
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
       },
       {
         title: "5. Retention and security",
-        paragraphs: ["We retain information for as long as reasonably needed to provide the service, protect users, resolve disputes, meet accounting or legal obligations, and prevent repeat abuse. We use access controls, encrypted transport, restricted media access before approval, and operational backups, but no internet service can guarantee absolute security."]
+        paragraphs: ["We retain information for as long as reasonably needed to provide the service, protect users, resolve disputes, meet accounting or legal obligations, and prevent repeat abuse. We use access controls, encrypted transport, administrator moderation tools, and operational backups, but no internet service can guarantee absolute security."]
       },
       {
         title: "6. Your choices and rights",

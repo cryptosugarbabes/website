@@ -59,10 +59,19 @@ export async function POST(request: NextRequest) {
         const order = Number(current.rows[0].photo_count);
         if (order >= MAX_PROFILE_PHOTOS) throw new Error("PHOTO_LIMIT");
         await client.query(`
-          INSERT INTO profile_media (id, profile_id, storage_key, mime_type, byte_size, sort_order)
-          VALUES ($1, $2, $3, 'image/webp', $4, $5)
+          INSERT INTO profile_media (id, profile_id, storage_key, mime_type, byte_size, sort_order, is_approved)
+          VALUES ($1, $2, $3, 'image/webp', $4, $5, TRUE)
         `, [mediaId, profileId, storageKey, processed.length, order]);
-        await client.query(`UPDATE profiles SET review_status = 'PENDING_REVIEW', reviewed_at = NULL, updated_at = now() WHERE id = $1`, [profileId]);
+        await client.query(`
+          UPDATE profiles
+          SET moderation_reviewed_at = CASE WHEN review_status = 'REJECTED' THEN moderation_reviewed_at ELSE NULL END,
+              updated_at = now()
+          WHERE id = $1
+        `, [profileId]);
+        await client.query(
+          "INSERT INTO moderation_audit (id, profile_id, action, note, actor_email) VALUES ($1, $2, 'PHOTO_AUTO_PUBLISHED', $3, $4)",
+          [randomUUID(), profileId, `Photo ${mediaId} published automatically and retained for retrospective administrator review.`, "system:auto-publish"]
+        );
       });
     } catch (error) {
       await fs.unlink(outputPath).catch(() => undefined);

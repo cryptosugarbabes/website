@@ -23,7 +23,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     if (!media.rowCount) return NextResponse.json({ error: "That photo was not found." }, { status: 404 });
     await transaction(async (client) => {
       await client.query(`DELETE FROM profile_media WHERE id = $1`, [id]);
-      await client.query(`UPDATE profiles SET review_status = 'PENDING_REVIEW', reviewed_at = NULL, updated_at = now() WHERE id = $1`, [media.rows[0].profile_id]);
+      await client.query(`UPDATE profiles SET updated_at = now() WHERE id = $1`, [media.rows[0].profile_id]);
     });
     await fs.unlink(safeStoragePath(media.rows[0].storage_key)).catch(() => undefined);
     return NextResponse.json({ deleted: true });

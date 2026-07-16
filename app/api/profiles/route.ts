@@ -157,8 +157,8 @@ export async function POST(request: NextRequest) {
       const userId = user.id;
       const profileId = randomUUID();
       const result = await client.query<{ id: string; review_status: string }>(`
-        INSERT INTO profiles (id, user_id, display_name, declared_age, city, country, headline, bio, interests, review_status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING_REVIEW')
+        INSERT INTO profiles (id, user_id, display_name, declared_age, city, country, headline, bio, interests, review_status, reviewed_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'APPROVED', now())
         ON CONFLICT (user_id) DO UPDATE SET
           display_name = EXCLUDED.display_name,
           declared_age = EXCLUDED.declared_age,
@@ -167,12 +167,19 @@ export async function POST(request: NextRequest) {
           headline = EXCLUDED.headline,
           bio = EXCLUDED.bio,
           interests = EXCLUDED.interests,
-          review_status = 'PENDING_REVIEW',
-          rejection_reason = NULL,
-          reviewed_at = NULL,
+          review_status = CASE WHEN profiles.review_status = 'REJECTED' THEN 'REJECTED' ELSE 'APPROVED' END,
+          rejection_reason = CASE WHEN profiles.review_status = 'REJECTED' THEN profiles.rejection_reason ELSE NULL END,
+          reviewed_at = CASE WHEN profiles.review_status = 'REJECTED' THEN profiles.reviewed_at ELSE now() END,
+          moderation_reviewed_at = CASE WHEN profiles.review_status = 'REJECTED' THEN profiles.moderation_reviewed_at ELSE NULL END,
           updated_at = now()
         RETURNING id, review_status
       `, [profileId, userId, displayName, age, city, country, headline, bio, interests]);
+      if (result.rows[0].review_status === "APPROVED") {
+        await client.query(
+          "INSERT INTO moderation_audit (id, profile_id, action, note, actor_email) VALUES ($1, $2, 'AUTO_PUBLISHED', $3, $4)",
+          [randomUUID(), result.rows[0].id, "Profile published automatically and retained for retrospective administrator review.", "system:auto-publish"]
+        );
+      }
       return result.rows[0];
     });
     return NextResponse.json({ profileId: profile.id, reviewStatus: profile.review_status });

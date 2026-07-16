@@ -1,11 +1,11 @@
 # Crypto Sugar Babes
 
-Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes passwordless email access, server-verified Base/EVM and Solana wallet linking, permanent creator profiles, private photo processing, PostgreSQL storage, free messaging, and an administrator approval queue.
+Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes passwordless email access, server-verified Base/EVM and Solana wallet linking, permanent creator profiles, private photo processing, PostgreSQL storage, free messaging, automatic creator publication, and retrospective administrator review.
 
 ## Dashboards
 
-- `/dashboard` is the private role-aware member area. Customers can manage their private profile, favorites, conversations, support history, safety reports, linked identities, and deletion requests. Creators additionally see profile review status, photo management, earnings, paid likes, creator points, 24-hour discovery position, and their confirmed 90% payment share.
-- `/admin` is the protected operations console. Named administrators sign in with an allowlisted email code; an emergency password remains available during the transition. The console includes platform metrics, creator profile approval, account search and suspension, deletion-request review, confirmed payment reconciliation, safety cases, and an administrator action audit trail.
+- `/dashboard` is the private role-aware member area. Customers can manage their private profile, favorites, conversations, support history, safety reports, linked identities, and deletion requests. Creators additionally see publication status, photo management, earnings, paid likes, creator points, 24-hour discovery position, and their confirmed 90% payment share.
+- `/admin` is the protected operations console. Named administrators sign in with an allowlisted email code; a private administrator password remains available. The console includes platform metrics, retrospective creator review and removal, account search and suspension, deletion-request review, confirmed payment reconciliation, safety cases, and an administrator action audit trail.
 - Suspended accounts are removed from public discovery and cannot sign in, message, receive new paid support, or expose public media while suspended.
 
 ## Run locally
@@ -21,19 +21,19 @@ Passwordless email access uses a six-digit, ten-minute code. Configure the `EMAI
 
 - Email sign-in creates a private account without a password or wallet.
 - Email-authenticated customers can save favorites, send and receive messages, block accounts, and submit safety reports for free.
-- Email-authenticated creators can publish a reviewed profile, upload up to eight photos free, and message without a wallet.
+- Email-authenticated creators can publish a profile and up to eight photos free, and message without a wallet. Profiles and photos publish automatically and remain subject to administrator review.
 - Paid photo likes, gifts, and message boosts require the customer to connect and sign the matching wallet.
 - Connecting a wallet while signed in by email links that wallet to the same account; it does not create a second profile.
 
 ## Profile and photo flow
 
 - Each verified email or wallet account can own one creator profile.
-- Saving creates or updates a permanent PostgreSQL record with `PENDING_REVIEW` status.
-- A creator can join by email, publish a reviewed profile, message for free, and upload up to 8 JPG, PNG, or WebP files of 5 MB each at no cost.
+- Saving creates or updates a permanent PostgreSQL record with `APPROVED` status unless an administrator has already rejected the profile.
+- A creator can join by email, publish a profile, message for free, and upload up to 8 JPG, PNG, or WebP files of 5 MB each at no cost.
 - A creator must link a verified Base or Solana wallet before paid likes, gifts, or message boosts can be sent to the profile.
 - Uploads are re-encoded as WebP, resized to a maximum of 2400×2400, and stripped of embedded metadata.
-- Unapproved images are served only to their signed-in owner and administrators.
-- An administrator reviews profiles at `/admin`; approval makes the profile and approved images public.
+- New images publish automatically and remain available for retrospective administrator review.
+- An administrator reviews profiles at `/admin` and can remove or restore profiles and photographs at any time.
 - Production uploads live under `/opt/cryptosugarbabes/shared/uploads`, outside release folders, so deployments do not remove them.
 
 The current storage uses the existing Droplet disk and does not require DigitalOcean Spaces. Database dumps run daily and are retained for 14 days. `BACKUP_S3_URI` can be configured for an additional encrypted offsite copy; local disk alone cannot protect against complete Droplet loss.
@@ -64,8 +64,8 @@ The current storage uses the existing Droplet disk and does not require DigitalO
 
 ## Before accepting real customers
 
-- Replace the starter discovery profiles as reviewed member profiles are approved.
-- Add specialist age and identity verification; administrator approval is content review, not KYC.
+- Replace the starter discovery profiles as member profiles are published.
+- Add specialist age and identity verification; automatic publication and administrator content review are not KYC.
 - Add malware scanning and automated image moderation before publication.
 - Add passkey or documented account-recovery flows. Nonces, rate limits, origin checks, and confirmed payment records are database-backed.
 - Independently review and deploy the Base splitter before enabling Base creator payments.

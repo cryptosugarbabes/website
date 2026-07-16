@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         if (Number(media.rows[0]?.pending || 0) > 0) throw new Error("PROFILE_PHOTOS_PENDING");
       }
       await client.query(`
-        UPDATE profiles SET review_status = $2, rejection_reason = $3, reviewed_at = now(), updated_at = now()
+        UPDATE profiles SET review_status = $2, rejection_reason = $3, reviewed_at = now(), moderation_reviewed_at = now(), updated_at = now()
         WHERE id = $1
       `, [id, action, action === "REJECTED" ? reason : null]);
       await client.query("INSERT INTO moderation_audit (id, profile_id, action, note, actor_email) VALUES ($1, $2, $3, $4, $5)", [randomUUID(), id, action, reason || null, actor]);

@@ -21,10 +21,10 @@ export default function SafetyPage() {
         ]
       },
       {
-        title: "2. Profile review is not identity verification",
+        title: "2. Publication and review are not identity verification",
         paragraphs: [
-          "Public creator profiles are reviewed for completeness, apparent adult status, prohibited content, and obvious safety concerns before discovery. This is a content and risk review—not a guarantee of a person's legal identity, age, character, intentions, location, photographs, or conduct.",
-          "A reviewed profile must not be described or relied on as government-ID verified unless Crypto Sugar Babes has completed and expressly labelled that separate check. Always use your own judgment."
+          "Public creator profiles and photos are published automatically and remain subject to ongoing administrator review, reports, suspension, and removal. Publication is not verification or a guarantee of a person's legal identity, age, character, intentions, location, photographs, or conduct.",
+          "A published or administrator-reviewed profile must not be described or relied on as government-ID verified unless Crypto Sugar Babes has completed and expressly labelled that separate check. Always use your own judgment."
         ]
       },
       {
