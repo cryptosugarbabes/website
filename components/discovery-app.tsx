@@ -154,6 +154,7 @@ function ProfileArtwork({ profile, large = false }: { profile: Profile; large?: 
 export function DiscoveryApp() {
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("Anywhere");
+  const [regionMenuOpen, setRegionMenuOpen] = useState(false);
   const [wallet, setWallet] = useState<string | null>(null);
   const [walletChain, setWalletChain] = useState<WalletChain | null>(null);
   const [walletName, setWalletName] = useState("");
@@ -214,6 +215,7 @@ export function DiscoveryApp() {
   const solanaProviderRef = useRef<SolanaProvider | null>(null);
   const profileIntentRef = useRef(false);
   const lastUnreadRef = useRef(0);
+  const regionMenuRef = useRef<HTMLDivElement | null>(null);
   const isAuthenticated = Boolean(wallet || email);
   const acceptanceReady = acceptedAdult && acceptedTerms && acceptedPrivacy;
 
@@ -245,6 +247,25 @@ export function DiscoveryApp() {
       }
     }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!regionMenuOpen) return;
+
+    function closeRegionMenu(event: PointerEvent) {
+      if (!regionMenuRef.current?.contains(event.target as Node)) setRegionMenuOpen(false);
+    }
+
+    function handleRegionMenuKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setRegionMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", closeRegionMenu);
+    document.addEventListener("keydown", handleRegionMenuKey);
+    return () => {
+      document.removeEventListener("pointerdown", closeRegionMenu);
+      document.removeEventListener("keydown", handleRegionMenuKey);
+    };
+  }, [regionMenuOpen]);
 
   async function requestEmailCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -983,7 +1004,34 @@ export function DiscoveryApp() {
         <div className="section-heading"><div><h2>Connect. Indulge. Grow. Crypto.</h2></div><p>We manage all profiles and disputes with care.</p></div>
         <div className="filter-bar">
           <label className="search-field"><Icon name="search" size={19}/><input aria-label="Search creator interests or destinations" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search interests or destinations"/></label>
-          <label className="select-field"><span>REGION</span><select aria-label="Filter creators by region" value={region} onChange={(event) => setRegion(event.target.value)}>{["Anywhere", ...REGIONS].map((item) => <option key={item}>{item}</option>)}</select></label>
+          <div className={`select-field custom-region-select ${regionMenuOpen ? "open" : ""}`} ref={regionMenuRef}>
+            <span>REGION</span>
+            <button
+              className="region-select-trigger"
+              type="button"
+              aria-label="Filter creators by region"
+              aria-haspopup="listbox"
+              aria-expanded={regionMenuOpen}
+              aria-controls="region-filter-options"
+              onClick={() => setRegionMenuOpen((open) => !open)}
+            >
+              <strong>{region}</strong>
+              <i aria-hidden="true">⌄</i>
+            </button>
+            {regionMenuOpen && <div className="region-select-menu" id="region-filter-options" role="listbox" aria-label="Regions">
+              {["Anywhere", ...REGIONS].map((item) => <button
+                className={item === region ? "selected" : ""}
+                type="button"
+                role="option"
+                aria-selected={item === region}
+                key={item}
+                onClick={() => { setRegion(item); setRegionMenuOpen(false); }}
+              >
+                {item}
+                {item === region && <Icon name="check" size={17}/>}
+              </button>)}
+            </div>}
+          </div>
           <div className="filter-meta"><Icon name="check" size={16}/>Published creators</div>
         </div>
         <div className="profile-grid">
