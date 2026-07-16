@@ -976,7 +976,7 @@ export function DiscoveryApp() {
 
       <header className="site-header">
         <div className="brand-social"><a className="brand" href="#top" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div>
-        <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
+        <nav aria-label="Main navigation"><a href="#how-it-works">How it works</a></nav>
         <div className="header-actions">
           {!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
           {isAuthenticated && <a className="text-button dashboard-link" href="/dashboard">Dashboard</a>}
