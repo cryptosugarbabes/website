@@ -13,9 +13,10 @@ export type Profile = {
   colors: [string, string, string];
   motif: string;
   imageUrl?: string;
+  imagePosition?: { x: number; y: number };
   sample?: boolean;
   photos?: string[];
-  media?: Array<{ id: string; url: string; paidLikes: number }>;
+  media?: Array<{ id: string; url: string; paidLikes: number; focalX?: number; focalY?: number }>;
   messagesSent?: number;
   messagesReceived?: number;
   photoLikes?: number;

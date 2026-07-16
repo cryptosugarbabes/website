@@ -143,7 +143,7 @@ function injectedEvmProvider(kind: EvmWalletKind) {
 function ProfileArtwork({ profile, large = false }: { profile: Profile; large?: boolean }) {
   return (
     <div className={`${large ? "modal-visual" : "profile-visual"} motif-${profile.motif}`} style={{ "--tone-one": profile.colors[0], "--tone-two": profile.colors[1], "--tone-three": profile.colors[2] } as React.CSSProperties}>
-      {profile.imageUrl ? <img src={profile.imageUrl} alt="" /> : <><div className="moon"/><div className="horizon horizon-back"/><div className="horizon horizon-front"/><span className={large ? "modal-monogram" : "profile-monogram"}>{profile.initials}</span></>}
+      {profile.imageUrl ? <img src={profile.imageUrl} alt="" style={{ objectPosition: `${profile.imagePosition?.x ?? 50}% ${profile.imagePosition?.y ?? 50}%` }}/> : <><div className="moon"/><div className="horizon horizon-back"/><div className="horizon horizon-front"/><span className={large ? "modal-monogram" : "profile-monogram"}>{profile.initials}</span></>}
       {profile.sample && <span className="sample-photo-badge">EDITORIAL SAMPLE</span>}
       {!large && profile.online && <span className="profile-online">ONLINE</span>}
     </div>
@@ -1005,13 +1005,13 @@ export function DiscoveryApp() {
       {activeProfile && (() => {
         const stats = engagementFor(activeProfile);
         const selectedMedia = activeProfile.media?.find((item) => item.id === selectedMediaId) || activeProfile.media?.[0];
-        const displayedProfile = selectedMedia ? { ...activeProfile, imageUrl: selectedMedia.url } : activeProfile;
+        const displayedProfile = selectedMedia ? { ...activeProfile, imageUrl: selectedMedia.url, imagePosition: { x: selectedMedia.focalX ?? 50, y: selectedMedia.focalY ?? 50 } } : activeProfile;
         return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveProfile(null); }}>
           <section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
             <button className="modal-close" onClick={() => setActiveProfile(null)} aria-label="Close profile"><Icon name="close" size={20}/></button>
             <div className="profile-media-column">
               <ProfileArtwork profile={displayedProfile} large/>
-              {Boolean(activeProfile.media?.length && activeProfile.media.length > 1) && <div className="profile-photo-thumbnails">{activeProfile.media?.map((item, index) => <button className={item.id === selectedMedia?.id ? "active" : ""} onClick={() => setSelectedMediaId(item.id)} key={item.id}><img src={item.url} alt={`${activeProfile.name} photo ${index + 1}`}/><span>{item.paidLikes} likes</span></button>)}</div>}
+              {Boolean(activeProfile.media?.length && activeProfile.media.length > 1) && <div className="profile-photo-thumbnails">{activeProfile.media?.map((item, index) => <button className={item.id === selectedMedia?.id ? "active" : ""} onClick={() => setSelectedMediaId(item.id)} key={item.id}><img src={item.url} alt={`${activeProfile.name} photo ${index + 1}`} style={{ objectPosition: `${item.focalX ?? 50}% ${item.focalY ?? 50}%` }}/><span>{item.paidLikes} likes</span></button>)}</div>}
               <button className="photo-like-button" disabled={paymentBusy || !selectedMedia || !activeProfile.supportEnabled} onClick={() => likeFeaturedPhoto(activeProfile, selectedMedia?.id)}><Icon name="heart" size={17}/><span>{paymentBusy ? "Confirming…" : activeProfile.supportEnabled ? "Send this photo a paid like" : "Paid likes not enabled yet"}</span><strong>{activeProfile.supportEnabled ? `${formatUsdc(stats.likePrice)} USDC` : "Wallet needed"}</strong></button>
               <small>{activeProfile.supportEnabled ? <>{selectedMedia ? `${selectedMedia.paidLikes.toLocaleString()} on this photo · ` : ""}{stats.likes.toLocaleString()} profile paid likes · Creator receives {formatUsdc(creatorShareUsdc(stats.likePrice))} USDC</> : "This creator can message now and can enable earnings by connecting a payout wallet."}</small>
             </div>

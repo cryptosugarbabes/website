@@ -23,12 +23,18 @@ type ProfileRow = {
   support_enabled: boolean;
   support_network: "evm" | "solana" | null;
   is_own: boolean;
-  media: Array<{ id: string; approved: boolean; paidLikes: number }>;
+  media: Array<{ id: string; approved: boolean; paidLikes: number; focalX: number; focalY: number }>;
 };
 
 function publicProfile(row: ProfileRow) {
   const photos = row.media.map((item) => `/api/media/${item.id}`);
-  const media = row.media.map((item) => ({ id: item.id, url: `/api/media/${item.id}`, paidLikes: Number(item.paidLikes || 0) }));
+  const media = row.media.map((item) => ({
+    id: item.id,
+    url: `/api/media/${item.id}`,
+    paidLikes: Number(item.paidLikes || 0),
+    focalX: Number(item.focalX ?? 50),
+    focalY: Number(item.focalY ?? 50)
+  }));
   const name = row.display_name;
   return {
     id: row.id,
@@ -45,6 +51,7 @@ function publicProfile(row: ProfileRow) {
     colors: ["#d69286", "#6e2949", "#1d1019"],
     motif: "night",
     imageUrl: photos[0],
+    imagePosition: media[0] ? { x: media[0].focalX, y: media[0].focalY } : undefined,
     photos,
     media,
     messagesSent: Number(row.messages_sent),
@@ -89,7 +96,10 @@ export async function GET(request: NextRequest) {
         (u.wallet_chain IS NOT NULL AND u.wallet_address IS NOT NULL) AS support_enabled,
         u.wallet_chain AS support_network,
         ${ownerClause} AS is_own,
-        COALESCE(json_agg(json_build_object('id', m.id, 'approved', m.is_approved, 'paidLikes', m.paid_likes)
+        COALESCE(json_agg(json_build_object(
+          'id', m.id, 'approved', m.is_approved, 'paidLikes', m.paid_likes,
+          'focalX', m.focal_x, 'focalY', m.focal_y
+        )
           ORDER BY m.sort_order, m.created_at) FILTER (WHERE m.id IS NOT NULL), '[]') AS media
       FROM profiles p
       JOIN users u ON u.id = p.user_id

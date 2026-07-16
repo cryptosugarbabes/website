@@ -44,12 +44,15 @@ export async function GET(request: NextRequest) {
         id: string; display_name: string; declared_age: number; city: string; country: string;
         headline: string; bio: string; interests: string[]; review_status: string;
         rejection_reason: string | null; messages_sent: string; messages_received: string;
-        photo_likes: string; media: Array<{ id: string; approved: boolean; paidLikes: number }>;
+        photo_likes: string; media: Array<{ id: string; approved: boolean; paidLikes: number; focalX: number; focalY: number; sortOrder: number }>;
       }>(`
         SELECT p.id, p.display_name, p.declared_age, p.city, p.country, p.headline, p.bio,
           p.interests, p.review_status, p.rejection_reason, p.messages_sent::text,
           p.messages_received::text, p.photo_likes::text,
-          COALESCE(json_agg(json_build_object('id', m.id, 'approved', m.is_approved, 'paidLikes', m.paid_likes)
+          COALESCE(json_agg(json_build_object(
+            'id', m.id, 'approved', m.is_approved, 'paidLikes', m.paid_likes,
+            'focalX', m.focal_x, 'focalY', m.focal_y, 'sortOrder', m.sort_order
+          )
             ORDER BY m.sort_order, m.created_at) FILTER (WHERE m.id IS NOT NULL), '[]') AS media
         FROM profiles p
         LEFT JOIN profile_media m ON m.profile_id = p.id
@@ -166,7 +169,15 @@ export async function GET(request: NextRequest) {
         messagesSent: Number(creator.messages_sent),
         messagesReceived: Number(creator.messages_received),
         photoLikes: Number(creator.photo_likes),
-        photos: creator.media.map((item) => ({ id: item.id, url: `/api/media/${item.id}`, approved: item.approved, paidLikes: Number(item.paidLikes || 0) })),
+        photos: creator.media.map((item) => ({
+          id: item.id,
+          url: `/api/media/${item.id}`,
+          approved: item.approved,
+          paidLikes: Number(item.paidLikes || 0),
+          focalX: Number(item.focalX ?? 50),
+          focalY: Number(item.focalY ?? 50),
+          sortOrder: Number(item.sortOrder || 0)
+        })),
         discoveryRank: position ? Number(position.rank) : null,
         creatorCount: position ? Number(position.creator_count) : null,
         totalPoints: position ? Number(position.total_points) : 0,

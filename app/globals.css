@@ -15,7 +15,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; font-size: 115%; }
 body {
   margin: 0;
   color: var(--ink);
@@ -526,6 +526,33 @@ footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
 .dashboard-form textarea { min-height: 110px; resize: vertical; }.dashboard-form .form-grid { display: grid; grid-template-columns: 1fr 110px 1fr 1fr; gap: 12px; }.dashboard-form > button { justify-self: start; min-width: 210px; }.dashboard-form button:disabled, .deletion-panel button:disabled { opacity: .5; cursor: wait; }
 .dashboard-photo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }.dashboard-photo-grid img { width: 100%; aspect-ratio: .85; object-fit: contain; border-radius: 9px; background: #0d090d; }.dashboard-photo-grid small { display: block; color: #887984; font-size: 7px; margin-top: 5px; }.dashboard-photo-grid button { margin-top: 6px; border: 0; background: none; color: #efa0b1; padding: 0; font-size: 8px; cursor: pointer; }
 .dashboard-photo-preview-block { padding: 16px; border: 1px solid rgba(224,186,120,.25); border-radius: 12px; background: rgba(224,186,120,.035); }.dashboard-photo-preview-block > div:first-child { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 13px; }.dashboard-photo-preview-block > div:first-child strong, .dashboard-current-photos > strong { color: #f5edf1; font-size: 10px; }.dashboard-photo-preview-block > div:first-child span { color: var(--gold); font-size: 8px; }.pending-photo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }.pending-photo-grid > div { min-width: 0; }.pending-photo-grid img { box-shadow: 0 0 0 1px rgba(224,186,120,.28); }.pending-photo-grid small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }.dashboard-current-photos { display: grid; gap: 12px; }
+.photo-upload-field { font-size: 11px !important; }
+.photo-upload-field input[type="file"] { min-height: 72px; padding: 12px; border-color: rgba(255,47,146,.38); background: linear-gradient(110deg, rgba(255,47,146,.1), rgba(255,255,255,.025)); color: #eacbd9; font-size: 13px; cursor: pointer; }
+.photo-upload-field input[type="file"]::file-selector-button { margin-right: 16px; border: 1px solid rgba(255,153,205,.78); border-radius: 13px; padding: 15px 24px; background: linear-gradient(135deg, #ff2f92, #f20a98); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 28px rgba(255,47,146,.3), 0 0 22px rgba(255,47,146,.16); transition: transform .18s ease, box-shadow .18s ease; }
+.photo-upload-field input[type="file"]::file-selector-button:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(255,47,146,.4), 0 0 28px rgba(255,47,146,.24); }
+.photo-editor-help, .current-photo-heading p { margin: 0 0 13px; color: #a5919c; font-size: 11px; line-height: 1.55; text-transform: none; letter-spacing: 0; }
+.current-photo-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.current-photo-heading strong { display: block; margin-bottom: 5px; font-size: 13px; }
+.current-photo-heading p { margin: 0; }
+.current-photo-heading > span { color: #f47fb7; font-size: 10px; white-space: nowrap; }
+.dashboard-current-photos .dashboard-photo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.photo-editor-card { min-width: 0; padding: 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: rgba(255,255,255,.025); transition: opacity .18s ease, border-color .18s ease, transform .18s ease; }
+.photo-editor-card.dragging { opacity: .42; border-color: rgba(255,47,146,.65); transform: scale(.98); }
+.photo-editor-frame { position: relative; overflow: hidden; width: 100%; aspect-ratio: .85; border-radius: 11px; background: #0d090d; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+.dashboard-photo-grid .photo-editor-frame img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; object-fit: contain; object-position: 50% 50%; background: #0d090d; cursor: grab; touch-action: none; user-select: none; box-shadow: none; }
+.dashboard-photo-grid .photo-editor-frame img:active { cursor: grabbing; }
+.reposition-hint { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 1; padding: 6px 8px; border-radius: 999px; background: rgba(10,6,10,.76); color: #f7dbe8; font-size: 9px; text-align: center; pointer-events: none; opacity: .82; backdrop-filter: blur(8px); }
+.photo-card-toolbar { min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-bottom: 8px; }
+.dashboard-photo-grid .photo-card-toolbar button { margin: 0; border: 1px solid rgba(255,47,146,.28); border-radius: 999px; padding: 6px 8px; background: rgba(255,47,146,.08); color: #ff9ac9; font-size: 9px; line-height: 1; }
+.dashboard-photo-grid .photo-card-toolbar .photo-drag-handle { cursor: grab; }
+.dashboard-photo-grid .photo-card-toolbar .photo-drag-handle:active { cursor: grabbing; }
+.photo-card-toolbar > span { padding: 6px 8px; border-radius: 999px; background: linear-gradient(135deg, #ff2f92, #ee0b91); color: #fff; font-size: 9px; font-weight: 800; line-height: 1; box-shadow: 0 5px 16px rgba(255,47,146,.28); }
+.photo-card-actions { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.dashboard-photo-grid .photo-card-actions button { min-width: 28px; min-height: 28px; margin: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 4px 7px; background: rgba(255,255,255,.035); color: #d8c4ce; font-size: 11px; }
+.dashboard-photo-grid .photo-card-actions button:last-child { margin-left: auto; color: #ff94b0; }
+.dashboard-photo-grid button:disabled { opacity: .35; cursor: not-allowed; }
+.dashboard-form > .creator-save-button { min-width: 250px; min-height: 58px; border: 1px solid rgba(255,162,210,.9); border-radius: 16px; padding: 16px 26px; background: linear-gradient(135deg, #ff2f92 0%, #f20a98 55%, #d90082 100%); color: #fff; font-size: 16px; font-weight: 800; letter-spacing: .015em; box-shadow: 0 14px 38px rgba(255,47,146,.38), 0 0 28px rgba(255,47,146,.28), inset 0 1px 0 rgba(255,255,255,.24); transition: transform .18s ease, box-shadow .18s ease; }
+.dashboard-form > .creator-save-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 18px 44px rgba(255,47,146,.48), 0 0 38px rgba(255,47,146,.36), inset 0 1px 0 rgba(255,255,255,.3); }
 .activity-table { padding: 0; overflow: hidden; }.table-row { display: grid; grid-template-columns: 1.3fr .65fr .8fr .8fr .7fr; gap: 12px; padding: 15px 20px; align-items: center; border-bottom: 1px solid var(--line); font-size: 10px; }.table-row.table-head { color: #786b74; text-transform: uppercase; letter-spacing: .1em; font-size: 7px; }.table-row > span { display: grid; gap: 3px; }.table-row small { color: #7e717a; font-size: 8px; }.table-row .transaction-line { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; font-family: monospace; }
 .safety-report-row { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }.safety-report-row small { color: #7d7079; font-size: 8px; }.safety-links { display: flex; flex-wrap: wrap; gap: 20px; }.safety-links a { color: var(--gold); text-decoration: none; font-size: 10px; }
 .identity-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; padding: 0; overflow: hidden; }.identity-list > div { min-height: 120px; padding: 22px; display: flex; flex-direction: column; background: rgba(255,255,255,.015); }.identity-list span { color: #7f727a; font-size: 8px; text-transform: uppercase; letter-spacing: .1em; }.identity-list strong { margin: auto 0 5px; font-size: 11px; overflow-wrap: anywhere; }.identity-list small { color: #71646d; font-size: 8px; }.deletion-panel { max-width: 760px; }.deletion-panel p { color: #9a8c95; font-size: 11px; line-height: 1.7; }.deletion-panel label { margin: 20px 0 12px; max-width: 350px; }.deletion-panel .danger-button { background: transparent; color: #efa0b1; border: 1px solid rgba(239,160,177,.3); }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent as ReactDragEvent, FormEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { InstagramLink } from "@/components/instagram-link";
 import { XLink } from "@/components/x-link";
 
@@ -15,8 +15,9 @@ type CreatorProfile = {
   interests: string[]; reviewStatus: string; rejectionReason?: string | null; messagesSent: number;
   messagesReceived: number; photoLikes: number; discoveryRank: number | null; creatorCount: number | null;
   totalPoints: number; points24h: number;
-  photos: Array<{ id: string; url: string; approved: boolean; paidLikes: number }>;
+  photos: ProfilePhoto[];
 };
+type ProfilePhoto = { id: string; url: string; approved: boolean; paidLikes: number; focalX: number; focalY: number; sortOrder: number };
 type DashboardData = {
   identity: Identity;
   account: { type: "CREATOR" | "CUSTOMER" | null; displayName?: string | null; bio?: string | null; generosityPoints: number };
@@ -34,7 +35,12 @@ type Conversation = {
   messages: Array<{ id: string; body: string; mine: boolean; status: string; boostAmountUsdc: number; createdAt: string }>;
 };
 type MessageGate = { code: "UNANSWERED_WARNING" | "REPLY_REQUIRED"; error: string; hasPaidUnlock?: boolean; canPurchaseUnlock?: boolean; nextUnlockAt?: string | null };
-type PendingPhoto = { id: string; file: File; previewUrl: string };
+type PendingPhoto = { id: string; file: File; previewUrl: string; focalX: number; focalY: number };
+type RepositionState = {
+  kind: "current" | "pending"; id: string; pointerId: number;
+  startX: number; startY: number; startFocalX: number; startFocalY: number;
+  width: number; height: number; moved: boolean;
+};
 
 function money(value: number) { return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} USDC`; }
 function short(value?: string | null) { return value ? `${value.slice(0, 7)}…${value.slice(-5)}` : "Not connected"; }
@@ -59,7 +65,12 @@ export function MemberDashboard() {
   const [customerBio, setCustomerBio] = useState("");
   const [profileForm, setProfileForm] = useState({ name: "", age: "", city: "", country: "", headline: "", bio: "", interests: "" });
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [managedPhotos, setManagedPhotos] = useState<ProfilePhoto[]>([]);
+  const [photoLayoutSaving, setPhotoLayoutSaving] = useState(false);
+  const [draggedPhotoId, setDraggedPhotoId] = useState("");
   const pendingPhotoUrls = useRef<string[]>([]);
+  const managedPhotosRef = useRef<ProfilePhoto[]>([]);
+  const repositionRef = useRef<RepositionState | null>(null);
   const [deletionConfirmation, setDeletionConfirmation] = useState("");
   const [safetyBusy, setSafetyBusy] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ conversationId: string; messageId?: string; label: string } | null>(null);
@@ -81,6 +92,8 @@ export function MemberDashboard() {
     const next = await response.json() as DashboardData & { error?: string };
     if (!response.ok) { setError(next.error || "Dashboard unavailable."); setLoading(false); return; }
     setData(next); setSignedOut(false);
+    managedPhotosRef.current = next.creatorProfile?.photos || [];
+    setManagedPhotos(next.creatorProfile?.photos || []);
     setAcceptedAdult(next.identity.acceptanceComplete);
     setAcceptedTerms(next.identity.acceptanceComplete);
     setAcceptedPrivacy(next.identity.acceptanceComplete);
@@ -114,7 +127,7 @@ export function MemberDashboard() {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
-    const existingPhotos = data?.creatorProfile?.photos.length || 0;
+    const existingPhotos = managedPhotos.length;
     const available = Math.max(0, 8 - existingPhotos - pendingPhotos.length);
     if (files.length > available) {
       setError(available > 0 ? `You can select ${available} more photo${available === 1 ? "" : "s"}.` : "Remove a current or selected photo before adding another.");
@@ -128,7 +141,7 @@ export function MemberDashboard() {
     const selected = files.map((file) => {
       const previewUrl = URL.createObjectURL(file);
       pendingPhotoUrls.current.push(previewUrl);
-      return { id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`, file, previewUrl };
+      return { id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`, file, previewUrl, focalX: 50, focalY: 50 };
     });
     setPendingPhotos((current) => [...current, ...selected]);
     setError("");
@@ -141,6 +154,95 @@ export function MemberDashboard() {
       pendingPhotoUrls.current = pendingPhotoUrls.current.filter((url) => url !== photo.previewUrl);
       return false;
     }));
+  }
+
+  function replaceManagedPhotos(next: ProfilePhoto[]) {
+    managedPhotosRef.current = next;
+    setManagedPhotos(next);
+  }
+
+  async function persistPhotoLayout(photos: ProfilePhoto[], showNotice = true) {
+    if (!photos.length) return true;
+    setPhotoLayoutSaving(true); setError("");
+    const response = await fetch("/api/profile/photos", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ photos: photos.map((photo) => ({ id: photo.id, focalX: photo.focalX, focalY: photo.focalY })) })
+    });
+    const next = await response.json() as { error?: string };
+    if (!response.ok) {
+      setError(next.error || "Your photo arrangement could not be saved.");
+      setPhotoLayoutSaving(false);
+      return false;
+    }
+    if (showNotice) setNotice("Photo order and framing saved.");
+    setPhotoLayoutSaving(false);
+    return true;
+  }
+
+  function beginPhotoDrag(event: ReactDragEvent<HTMLElement>, photoId: string) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", photoId);
+    setDraggedPhotoId(photoId);
+  }
+
+  async function dropPhoto(event: ReactDragEvent<HTMLElement>, targetId: string) {
+    event.preventDefault();
+    const sourceId = event.dataTransfer.getData("text/plain") || draggedPhotoId;
+    setDraggedPhotoId("");
+    if (!sourceId || sourceId === targetId) return;
+    const current = managedPhotosRef.current;
+    const sourceIndex = current.findIndex((photo) => photo.id === sourceId);
+    const targetIndex = current.findIndex((photo) => photo.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const next = [...current];
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    replaceManagedPhotos(next.map((photo, sortOrder) => ({ ...photo, sortOrder })));
+    await persistPhotoLayout(next, true);
+  }
+
+  async function movePhoto(photoId: string, direction: -1 | 1) {
+    const current = managedPhotosRef.current;
+    const sourceIndex = current.findIndex((photo) => photo.id === photoId);
+    const targetIndex = sourceIndex + direction;
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= current.length) return;
+    const next = [...current];
+    [next[sourceIndex], next[targetIndex]] = [next[targetIndex], next[sourceIndex]];
+    const ordered = next.map((photo, sortOrder) => ({ ...photo, sortOrder }));
+    replaceManagedPhotos(ordered);
+    await persistPhotoLayout(ordered, true);
+  }
+
+  function beginReposition(event: ReactPointerEvent<HTMLImageElement>, kind: "current" | "pending", id: string, focalX: number, focalY: number) {
+    event.preventDefault(); event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const bounds = event.currentTarget.getBoundingClientRect();
+    repositionRef.current = {
+      kind, id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+      startFocalX: focalX, startFocalY: focalY, width: bounds.width, height: bounds.height, moved: false
+    };
+  }
+
+  function repositionPhoto(event: ReactPointerEvent<HTMLImageElement>) {
+    const active = repositionRef.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+    const focalX = Math.round(Math.min(100, Math.max(0, active.startFocalX + ((event.clientX - active.startX) / active.width) * 100)));
+    const focalY = Math.round(Math.min(100, Math.max(0, active.startFocalY + ((event.clientY - active.startY) / active.height) * 100)));
+    active.moved = active.moved || Math.abs(event.clientX - active.startX) + Math.abs(event.clientY - active.startY) > 2;
+    if (active.kind === "current") {
+      replaceManagedPhotos(managedPhotosRef.current.map((photo) => photo.id === active.id ? { ...photo, focalX, focalY } : photo));
+    } else {
+      setPendingPhotos((photos) => photos.map((photo) => photo.id === active.id ? { ...photo, focalX, focalY } : photo));
+    }
+  }
+
+  async function finishReposition(event: ReactPointerEvent<HTMLImageElement>) {
+    const active = repositionRef.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    repositionRef.current = null;
+    if (active.kind === "current" && active.moved) await persistPhotoLayout(managedPhotosRef.current, true);
   }
 
   async function requestCode(event: FormEvent) {
@@ -205,8 +307,8 @@ export function MemberDashboard() {
 
   async function saveCreator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError("");
-    const files = pendingPhotos.map((photo) => photo.file);
-    const existingPhotos = data?.creatorProfile?.photos.length || 0;
+    const files = pendingPhotos;
+    const existingPhotos = managedPhotos.length;
     if (existingPhotos + files.length > 8) {
       const excess = existingPhotos + files.length - 8;
       setError(`A creator profile can have up to eight photos. Remove ${excess} photo${excess === 1 ? "" : "s"} before uploading these files.`);
@@ -220,8 +322,11 @@ export function MemberDashboard() {
     if (!response.ok) { setError(next.error || "Could not save your profile."); setBusy(false); return; }
     let uploadFailed = false;
     let uploadedCount = 0;
-    for (const file of files) {
-      const upload = new FormData(); upload.append("photo", file);
+    for (const photo of files) {
+      const upload = new FormData();
+      upload.append("photo", photo.file);
+      upload.append("focalX", String(photo.focalX));
+      upload.append("focalY", String(photo.focalY));
       const uploaded = await fetch("/api/profile/photos", { method: "POST", body: upload });
       if (!uploaded.ok) { const issue = await uploaded.json() as { error?: string }; setError(issue.error || "One photo could not be uploaded."); uploadFailed = true; break; }
       uploadedCount += 1;
@@ -326,10 +431,10 @@ export function MemberDashboard() {
               <form className="dashboard-panel dashboard-form" onSubmit={saveCreator}>
                 <div className="form-grid"><label>Display name<input required maxLength={80} value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}/></label><label>Age<input required type="number" min={18} max={99} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })}/></label><label>City<input required maxLength={100} value={profileForm.city} onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}/></label><label>Country<input required maxLength={100} value={profileForm.country} onChange={(e) => setProfileForm({ ...profileForm, country: e.target.value })}/></label></div>
                 <label>Headline<input required maxLength={90} value={profileForm.headline} onChange={(e) => setProfileForm({ ...profileForm, headline: e.target.value })}/></label><label>About<textarea required maxLength={500} value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}/></label><label>Interests · comma separated<input value={profileForm.interests} onChange={(e) => setProfileForm({ ...profileForm, interests: e.target.value })}/></label>
-                <label>Add photos · free · 8 maximum<input name="photos" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy || (data.creatorProfile?.photos.length || 0) + pendingPhotos.length >= 8} onChange={selectPhotos}/></label>
-                {pendingPhotos.length ? <div className="dashboard-photo-preview-block"><div><strong>Ready to upload</strong><span>{pendingPhotos.length} selected · {(data.creatorProfile?.photos.length || 0) + pendingPhotos.length}/8 total</span></div><div className="dashboard-photo-grid pending-photo-grid">{pendingPhotos.map((photo, index) => <div key={photo.id}><img src={photo.previewUrl} alt={`Selected profile photo ${index + 1}`}/><small title={photo.file.name}>{photo.file.name}</small><button type="button" disabled={busy} onClick={() => discardPendingPhotos(new Set([photo.id]))}>Remove</button></div>)}</div></div> : null}
-                {data.creatorProfile?.photos.length ? <div className="dashboard-current-photos"><strong>Current photos</strong><div className="dashboard-photo-grid">{data.creatorProfile.photos.map((photo, index) => <div key={photo.id}><img src={photo.url} alt={`Current profile photo ${index + 1}`}/><small>{photo.approved ? "Published" : "Hidden"} · {photo.paidLikes} likes</small><button type="button" disabled={busy} onClick={() => removePhoto(photo.id)}>Remove</button></div>)}</div></div> : null}
-                <button disabled={busy}>{busy ? "Saving…" : "Save & publish"}</button>{data.creatorProfile?.rejectionReason && <div className="dashboard-warning"><strong>Administrator review note</strong><p>{data.creatorProfile.rejectionReason}</p></div>}
+                <label className="photo-upload-field">Add photos · free · 8 maximum<input name="photos" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy || managedPhotos.length + pendingPhotos.length >= 8} onChange={selectPhotos}/></label>
+                {pendingPhotos.length ? <div className="dashboard-photo-preview-block"><div><strong>Ready to upload</strong><span>{pendingPhotos.length} selected · {managedPhotos.length + pendingPhotos.length}/8 total</span></div><p className="photo-editor-help">Drag each image inside its frame to choose its position.</p><div className="dashboard-photo-grid pending-photo-grid">{pendingPhotos.map((photo, index) => <div className="photo-editor-card" key={photo.id}><div className="photo-editor-frame"><img draggable={false} src={photo.previewUrl} alt={`Selected profile photo ${index + 1}`} style={{ objectPosition: `${photo.focalX}% ${photo.focalY}%` }} onPointerDown={(event) => beginReposition(event, "pending", photo.id, photo.focalX, photo.focalY)} onPointerMove={repositionPhoto} onPointerUp={finishReposition} onPointerCancel={finishReposition}/><span className="reposition-hint">Drag image to reposition</span></div><small title={photo.file.name}>{photo.file.name}</small><button type="button" disabled={busy} onClick={() => discardPendingPhotos(new Set([photo.id]))}>Remove</button></div>)}</div></div> : null}
+                {managedPhotos.length ? <div className="dashboard-current-photos"><div className="current-photo-heading"><div><strong>Current photos</strong><p>Drag the handles to reorder. The first image is your display photo.</p></div>{photoLayoutSaving ? <span>Saving arrangement…</span> : <span>Changes save automatically</span>}</div><div className="dashboard-photo-grid">{managedPhotos.map((photo, index) => <div className={`photo-editor-card ${draggedPhotoId === photo.id ? "dragging" : ""}`} key={photo.id} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }} onDrop={(event) => dropPhoto(event, photo.id)}><div className="photo-card-toolbar"><button className="photo-drag-handle" type="button" draggable={!busy && !photoLayoutSaving} onDragStart={(event) => beginPhotoDrag(event, photo.id)} onDragEnd={() => setDraggedPhotoId("")} aria-label={`Drag photo ${index + 1} to reorder`}>↕ Drag to reorder</button>{index === 0 ? <span>Display photo</span> : <button type="button" disabled={busy || photoLayoutSaving} onClick={() => movePhoto(photo.id, -1)}>Move earlier</button>}</div><div className="photo-editor-frame"><img draggable={false} src={photo.url} alt={`Current profile photo ${index + 1}`} style={{ objectPosition: `${photo.focalX}% ${photo.focalY}%` }} onPointerDown={(event) => beginReposition(event, "current", photo.id, photo.focalX, photo.focalY)} onPointerMove={repositionPhoto} onPointerUp={finishReposition} onPointerCancel={finishReposition}/><span className="reposition-hint">Drag image to reposition</span></div><small>{photo.approved ? "Published" : "Hidden"} · {photo.paidLikes} likes</small><div className="photo-card-actions"><button type="button" disabled={busy || photoLayoutSaving || index === 0} onClick={() => movePhoto(photo.id, -1)} aria-label="Move photo left">←</button><button type="button" disabled={busy || photoLayoutSaving || index === managedPhotos.length - 1} onClick={() => movePhoto(photo.id, 1)} aria-label="Move photo right">→</button><button type="button" disabled={busy || photoLayoutSaving} onClick={() => removePhoto(photo.id)}>Remove</button></div></div>)}</div></div> : null}
+                <button className="creator-save-button" disabled={busy || photoLayoutSaving}>{busy ? "Saving…" : "Save & submit"}</button>{data.creatorProfile?.rejectionReason && <div className="dashboard-warning"><strong>Administrator review note</strong><p>{data.creatorProfile.rejectionReason}</p></div>}
               </form>
             </> : <><form className="dashboard-panel dashboard-form" onSubmit={saveCustomer}><label>Private display name<input required maxLength={80} value={customerName} onChange={(event) => setCustomerName(event.target.value)}/></label><label>Private introduction<textarea maxLength={300} value={customerBio} onChange={(event) => setCustomerBio(event.target.value)}/></label><button disabled={busy}>Save private profile</button></form><div className="dashboard-panel"><div className="dashboard-panel-title"><h2>Favorites</h2><span>{data.favorites.length}</span></div><div className="favorite-dashboard-grid">{data.favorites.map((item) => <a href={`/?profile=${item.id}`} key={item.id}>{item.imageUrl ? <img src={item.imageUrl} alt=""/> : <span>{item.name[0]}</span>}<strong>{item.name}</strong><small>{item.city}, {item.country}</small></a>)}{!data.favorites.length && <p className="dashboard-empty">No saved creators yet.</p>}</div></div></>}
           </section>}
