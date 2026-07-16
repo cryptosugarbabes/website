@@ -995,6 +995,26 @@ body .dashboard-photo-grid .photo-card-toolbar > span {
   padding-inline: 16px;
 }
 
+body .dashboard-current-photos .photo-editor-card {
+  cursor: grab;
+}
+
+body .dashboard-current-photos .photo-editor-card:active,
+body .dashboard-current-photos .photo-editor-card.dragging {
+  cursor: grabbing;
+}
+
+body .dashboard-current-photos .photo-editor-frame img {
+  pointer-events: none;
+}
+
+body .dashboard-current-photos .reposition-hint {
+  pointer-events: auto;
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+
 @media (max-width: 760px) {
   body .dashboard-photo-grid .photo-card-toolbar > button,
   body .dashboard-photo-grid .photo-card-toolbar > span {
