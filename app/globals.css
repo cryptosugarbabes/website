@@ -737,6 +737,15 @@ body .social-follow-actions a {
   line-height: 1.35;
 }
 
+/* Keep creator profile entries comfortable inside their fields without
+   reducing the surrounding labels, headings, or action buttons. */
+body .create-modal .form-grid input,
+body .create-modal .form-grid select,
+body .create-modal .form-grid textarea {
+  font-size: .972rem !important;
+  line-height: 1.4;
+}
+
 body small,
 body .location,
 body .select-field span,
