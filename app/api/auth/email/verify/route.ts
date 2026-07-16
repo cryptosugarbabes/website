@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
-import { emailCodeHash, normalizeEmail, safeHashEqual } from "@/lib/email-auth";
+import { emailCodeHash, normalizeEmail, safeHashEqual, sendWelcomeEmail } from "@/lib/email-auth";
 import { clientAddress, takeRateLimit } from "@/lib/rate-limit";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 import { createEmailSessionToken } from "@/lib/session";
@@ -37,15 +37,23 @@ export async function POST(request: NextRequest) {
       if (existing.rowCount) {
         if (existing.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_SUSPENDED");
         await client.query(`UPDATE users SET email_verified_at = now(), updated_at = now() WHERE id = $1`, [existing.rows[0].id]);
-        return existing.rows[0];
+        return { ...existing.rows[0], isNew: false };
       }
       const created = await client.query<{ id: string }>(`
         INSERT INTO users (id, email, email_verified_at)
         VALUES ($1, $2, now())
         RETURNING id
       `, [randomUUID(), email]);
-      return created.rows[0];
+      return { ...created.rows[0], isNew: true };
     });
+
+    if (user.isNew) {
+      try {
+        await sendWelcomeEmail(email);
+      } catch (error) {
+        console.error("Welcome email could not be sent", error);
+      }
+    }
 
     const response = NextResponse.json({ authenticated: true, email });
     response.cookies.set("velora_session", createEmailSessionToken(user.id, email), {

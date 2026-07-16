@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { adminIdentity, isAdminRequest } from "@/lib/admin-session";
 import { query, transaction } from "@/lib/db";
+import { sendProfileReviewEmail } from "@/lib/email-auth";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 import { safeStoragePath } from "@/lib/uploads";
 
@@ -35,6 +36,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const media = await client.query<{ profile_id: string }>("SELECT profile_id FROM profile_media WHERE id = $1 FOR UPDATE", [id]);
       if (!media.rowCount) return null;
       const profileId = media.rows[0].profile_id;
+      const profile = await client.query<{ display_name: string; review_status: string; email: string | null }>(`
+        SELECT p.display_name, p.review_status, u.email
+        FROM profiles p JOIN users u ON u.id = p.user_id
+        WHERE p.id = $1 FOR UPDATE OF p
+      `, [profileId]);
       await client.query("UPDATE profile_media SET is_approved = $2 WHERE id = $1", [id, approved]);
       if (!approved) {
         await client.query("UPDATE profiles SET review_status = 'REJECTED', rejection_reason = $2, reviewed_at = now(), updated_at = now() WHERE id = $1", [profileId, reason]);
@@ -45,9 +51,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         "INSERT INTO moderation_audit (id, profile_id, action, note, actor_email) VALUES ($1, $2, $3, $4, $5)",
         [randomUUID(), profileId, approved ? "PHOTO_APPROVED" : "PHOTO_REJECTED", reason || `Photo ${id}`, actor]
       );
-      return profileId;
+      return {
+        profileId,
+        email: profile.rows[0]?.email || null,
+        profileName: profile.rows[0]?.display_name || null,
+        notify: !approved && profile.rows[0]?.review_status !== "REJECTED"
+      };
     });
-    return updated ? NextResponse.json({ ok: true, approved, profileId: updated }) : NextResponse.json({ error: "Photo not found." }, { status: 404 });
+    if (!updated) return NextResponse.json({ error: "Photo not found." }, { status: 404 });
+    if (updated.notify && updated.email) {
+      try {
+        await sendProfileReviewEmail(updated.email, { approved: false, profileName: updated.profileName, reason });
+      } catch (error) {
+        console.error("Photo review email could not be sent", error);
+      }
+    }
+    return NextResponse.json({ ok: true, approved, profileId: updated.profileId });
   } catch (error) {
     console.error("Photo review failed", error);
     return NextResponse.json({ error: "That photo review could not be saved." }, { status: 503 });
