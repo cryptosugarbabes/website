@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { InstagramLink } from "@/components/instagram-link";
+import { XLink } from "@/components/x-link";
 
 type LegalSection = {
   title: string;
@@ -27,6 +28,7 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: {
             <span>Crypto Sugar Babes</span>
           </Link>
           <InstagramLink/>
+          <XLink/>
         </div>
         <Link className="legal-back" href="/">Back to the site</Link>
       </header>
@@ -49,7 +51,7 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: {
         </div>
       </article>
       <footer className="legal-footer">
-        <div className="legal-footer-brand"><span>© 2026 Crypto Sugar Babes. Adults only.</span><InstagramLink/></div>
+        <div className="legal-footer-brand"><span>© 2026 Crypto Sugar Babes. Adults only.</span><InstagramLink/><XLink/></div>
         <nav><Link href="/safety">Safety</Link><Link href="/disputes">Disputes</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
       </footer>
     </main>

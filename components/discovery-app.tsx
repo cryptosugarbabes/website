@@ -5,6 +5,7 @@ import { base } from "viem/chains";
 import { createPublicClient, createWalletClient, custom, erc20Abi, getAddress, http, keccak256, stringToHex } from "viem";
 import { Profile } from "@/lib/profiles";
 import { InstagramLink } from "@/components/instagram-link";
+import { XLink } from "@/components/x-link";
 import {
   creatorShareUsdc,
   creatorSupportPoints,
@@ -927,7 +928,7 @@ export function DiscoveryApp() {
       <div className="ambient ambient-one"/><div className="ambient ambient-two"/>
 
       <header className="site-header">
-        <div className="brand-social"><a className="brand" href="#top" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/></div>
+        <div className="brand-social"><a className="brand" href="#top" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div>
         <nav aria-label="Main navigation"><a href="#discover">Discover</a><a href="#how-it-works">How it works</a><a href="#safety">Safety</a></nav>
         <div className="header-actions">
           {!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
@@ -987,7 +988,7 @@ export function DiscoveryApp() {
 
       <section className="safety-section" id="safety"><div className="safety-mark"><Icon name="shield" size={31}/></div><div><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Consent always.</h2></div><p>Crypto Sugar is designed for lawful social discovery and companionship. Coercion, trafficking, underage users, non-consensual content, extortion, and unlawful activity are prohibited and subject to removal.</p><a href="mailto:email@cryptosugarbabes.com?subject=Safety%20report">Contact safety <Icon name="arrow" size={16}/></a></section>
 
-      <footer><div className="brand-social"><a className="brand" href="#top"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/></div><p>© 2026 Crypto Sugar Babes. Adults only.</p><div className="footer-links"><a href="/safety">Safety</a><a href="/disputes">Disputes</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div></footer>
+      <footer><div className="brand-social"><a className="brand" href="#top"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div><p>© 2026 Crypto Sugar Babes. Adults only.</p><div className="footer-links"><a href="/safety">Safety</a><a href="/disputes">Disputes</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></div></footer>
 
       {activeProfile && (() => {
         const stats = engagementFor(activeProfile);
