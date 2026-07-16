@@ -236,6 +236,12 @@ export function DiscoveryApp() {
       setWalletChain(data.chain);
       if (data.chain) setWalletName(data.chain === "solana" ? "Solana" : "Base");
       if (data.authenticated) await Promise.all([loadAccount(true), loadFavorites()]);
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("connectPayout") === "1" && data.authenticated && !data.address) {
+        const requestedNetwork = params.get("network") === "solana" ? "solana" : params.get("network") === "evm" ? "evm" : null;
+        showWalletPicker("general", requestedNetwork);
+        setNotice("Choose the payout wallet you want to link to this creator account.");
+      }
     }).catch(() => undefined);
   }, []);
 
@@ -461,8 +467,17 @@ export function DiscoveryApp() {
     setWalletChain(data.chain || chain);
     setWalletName(name);
     setWalletPickerOpen(false);
-    setNotice(`${name} connected. Welcome to Crypto Sugar.`);
     const [, account] = await Promise.all([loadPersistedProfiles(), loadAccount(true), loadFavorites()]);
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("connectPayout")) {
+      params.delete("connectPayout");
+      params.delete("network");
+      const cleanUrl = `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`;
+      window.history.replaceState({}, "", cleanUrl);
+    }
+    setNotice(account?.type === "CREATOR"
+      ? `${name} linked. Paid likes, gifts, and boosts are now enabled for your creator profile.`
+      : `${name} connected. Welcome to Crypto Sugar.`);
     if (profileIntentRef.current && account?.type === "CREATOR") {
       profileIntentRef.current = false;
       setProfileOpen(true);
