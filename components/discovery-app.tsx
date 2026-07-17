@@ -459,6 +459,12 @@ export function DiscoveryApp() {
   }, [isAuthenticated, accountType]);
 
   useEffect(() => {
+    if (!inboxOpen || !isAuthenticated || !accountType) return;
+    const timer = window.setInterval(() => loadMessages(false).catch(() => undefined), 5_000);
+    return () => window.clearInterval(timer);
+  }, [inboxOpen, isAuthenticated, accountType]);
+
+  useEffect(() => {
     if (!isAuthenticated || !accountType) return;
     const requestedConversation = new URLSearchParams(window.location.search).get("unlockConversation");
     if (!requestedConversation) return;

@@ -6,6 +6,7 @@ import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-sec
 import { decryptMessage, encryptMessage, messageHash } from "@/lib/message-crypto";
 import { sendAdminMonitoredMessageEmail, sendNewMessageEmail } from "@/lib/email-auth";
 import { FREE_UNANSWERED_MESSAGES, MESSAGE_UNLOCK_DAYS, unansweredMessageState } from "@/lib/message-limits";
+import { sendTelegramMessageAlert, telegramBridgeIsConfigured } from "@/lib/telegram-chat";
 
 type ConversationRow = {
   id: string;
@@ -352,6 +353,7 @@ export async function POST(request: NextRequest) {
         senderName: sender.rows[0]?.display_name || "A member",
         shouldNotify: Boolean(unread.rows[0]?.should_notify),
         notifyAdmin: Boolean(alert.rowCount),
+        notifyTelegram: Boolean(alert.rowCount) && telegramBridgeIsConfigured(),
         messageNotice: consecutiveMessages === FREE_UNANSWERED_MESSAGES - 1
           ? "Your third unanswered message was sent. Please wait for a reply before sending another, or use the weekly paid-message option."
           : paidUnlockId
@@ -376,6 +378,19 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         console.error("Administrator monitored-message alert could not be sent", error);
+      }
+    }
+    if (result.notifyTelegram) {
+      try {
+        await sendTelegramMessageAlert({
+          recipientUserId: result.recipientUserId,
+          conversationId: result.conversationId,
+          sourceMessageId: result.id,
+          senderName: result.senderName,
+          body
+        });
+      } catch (error) {
+        console.error("Telegram website-chat alert could not be sent", error);
       }
     }
     return NextResponse.json({ id: result.id, conversationId: result.conversationId, body, messageNotice: result.messageNotice, createdAt: new Date().toISOString() });

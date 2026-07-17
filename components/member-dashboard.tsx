@@ -135,6 +135,11 @@ export function MemberDashboard() {
   useEffect(() => { loadDashboard().catch(() => setError("Dashboard unavailable.")); }, []);
   useEffect(() => { if (window.location.hash === "#messages") setTab("messages"); }, []);
   useEffect(() => { if (data?.account.type) loadMessages().catch(() => undefined); }, [data?.account.type]);
+  useEffect(() => {
+    if (tab !== "messages" || !data?.account.type) return;
+    const timer = window.setInterval(() => loadMessages().catch(() => undefined), 5_000);
+    return () => window.clearInterval(timer);
+  }, [tab, data?.account.type]);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(""), 4500); return () => window.clearTimeout(timer); }, [notice]);
   useEffect(() => { setMessageGate(null); }, [activeConversationId]);
   useEffect(() => { setNotificationsEnabled(typeof Notification !== "undefined" && Notification.permission === "granted"); }, []);

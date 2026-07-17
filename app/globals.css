@@ -153,7 +153,7 @@ main { min-height: 100vh; overflow: hidden; position: relative; }
 .desire-strip { min-height: 58px; border-bottom: 1px solid rgba(224,186,120,.14); display: flex; align-items: center; justify-content: center; gap: 33px; color: #8f7e87; font-family: "Playfair Display", serif; font-style: italic; font-size: 13px; }
 .desire-strip i { width: 4px; height: 4px; border-radius: 50%; background: var(--gold); opacity: .55; }
 
-.discovery-section { max-width: 1280px; margin: 0 auto; padding: 125px 40px 135px; }
+.discovery-section { max-width: 1280px; margin: 0 auto; padding: 62.5px 40px 67.5px; }
 .section-heading { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 36px; }
 .section-heading h2 { max-width: 720px; font-size: clamp(38px, 4vw, 55px); margin: 10px 0 0; letter-spacing: -.035em; }
 .section-heading > p { color: var(--dim); font-size: 13px; line-height: 1.6; max-width: 330px; text-align: right; }
@@ -272,7 +272,7 @@ body .filter-bar .select-field > span { font-size: .7rem !important; }
 .tag-row span { border: 1px solid rgba(255,255,255,.1); color: #9e929a; font-size: 9px; padding: 6px 9px; border-radius: 999px; }
 .empty-state { padding: 80px 30px; text-align: center; color: var(--dim); border: 1px dashed var(--line); border-radius: 18px; }
 
-.steps-section { background: radial-gradient(circle at 88% 12%, rgba(151,49,86,.2), transparent 34%), radial-gradient(circle at 10% 100%, rgba(224,186,120,.08), transparent 30%), linear-gradient(145deg, #1d0d16, #100c11 64%, #170d14); color: #f5edf2; padding: 115px max(40px, calc((100vw - 1200px) / 2)); border-top: 1px solid rgba(224,186,120,.13); border-bottom: 1px solid rgba(224,186,120,.13); }
+.steps-section { background: radial-gradient(circle at 88% 12%, rgba(151,49,86,.2), transparent 34%), radial-gradient(circle at 10% 100%, rgba(224,186,120,.08), transparent 30%), linear-gradient(145deg, #1d0d16, #100c11 64%, #170d14); color: #f5edf2; padding: 57.5px max(40px, calc((100vw - 1200px) / 2)); border-top: 1px solid rgba(224,186,120,.13); border-bottom: 1px solid rgba(224,186,120,.13); }
 .section-heading.compact { margin-bottom: 45px; }
 .steps-section .section-kicker { color: #d6b276; }
 .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(224,186,120,.14); border: 1px solid rgba(224,186,120,.12); box-shadow: 0 35px 100px rgba(0,0,0,.22); }
@@ -282,7 +282,7 @@ body .filter-bar .select-field > span { font-size: .7rem !important; }
 .step-card h3 { font-family: "Playfair Display", serif; font-size: 25px; font-weight: 500; margin: 0 0 14px; }
 .step-card p { color: #a99aa4; font-size: 13px; line-height: 1.7; max-width: 290px; }
 
-.crypto-section { max-width: 1200px; margin: 0 auto; padding: 130px 40px; display: grid; grid-template-columns: 1fr 410px; gap: 115px; align-items: center; }
+.crypto-section { max-width: 1200px; margin: 0 auto; padding: 65px 40px; display: grid; grid-template-columns: 1fr 410px; gap: 115px; align-items: center; }
 .crypto-copy h2 { font-size: clamp(44px, 5vw, 66px); line-height: 1.05; letter-spacing: -.04em; margin: 13px 0 24px; }
 .crypto-copy > p { color: var(--muted); max-width: 560px; line-height: 1.8; font-size: 14px; }
 .crypto-copy ul { list-style: none; padding: 0; margin: 34px 0 0; display: grid; gap: 14px; color: #c9bec5; font-size: 12px; }
@@ -303,21 +303,21 @@ body .filter-bar .select-field > span { font-size: .7rem !important; }
 .base-symbol { background: #3154f5; color: white; }.solana-symbol { background: linear-gradient(135deg,#9b5cff,#26e5b6); color: #0d0a11; }
 .access-card > small { display: block; text-align: center; color: #756874; font-size: 8px; margin-top: 15px; }
 
-.wallet-setup-section { max-width: 1200px; margin: 0 auto 100px; padding: 66px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); overflow: hidden; }
+.wallet-setup-section { max-width: 1200px; margin: 0 auto; padding: 26px 0 14px; border-top: 1px solid var(--line); overflow: hidden; }
 .wallet-setup-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin-bottom: 30px; }
-.wallet-setup-heading h2 { margin: 0; font-family: "Playfair Display", serif; font-size: clamp(34px, 4vw, 54px); line-height: 1.05; letter-spacing: -.035em; }
+.wallet-setup-heading h2 { margin: 0; font-family: "Playfair Display", serif; font-size: clamp(30px, 3vw, 44px); line-height: 1.05; letter-spacing: -.04em; }
 .wallet-setup-heading p { margin: 0 0 5px; color: var(--muted); font-size: 13px; }
-.wallet-setup-carousel { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
+.wallet-setup-carousel { overflow: hidden; margin: -12px 0 -10px; padding: 12px 0 18px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
 .wallet-setup-track { display: flex; width: max-content; animation: walletSetupScroll 34s linear infinite; }
 .wallet-setup-carousel:hover .wallet-setup-track, .wallet-setup-carousel:focus-within .wallet-setup-track { animation-play-state: paused; }
 .wallet-setup-group { display: flex; gap: 14px; padding-right: 14px; }
-.wallet-setup-card { min-width: 222px; min-height: 82px; display: grid; grid-template-columns: 48px 1fr auto; gap: 13px; align-items: center; padding: 15px 17px; border: 1px solid rgba(224,186,120,.18); border-radius: 16px; background: linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.012)); color: #f6edf2; transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
-.wallet-setup-card:hover { transform: translateY(-2px); border-color: rgba(238,43,135,.65); background: rgba(238,43,135,.08); box-shadow: 0 12px 34px rgba(238,43,135,.12); }
+.wallet-setup-card { position: relative; z-index: 0; width: 208px; min-width: 208px; height: 76px; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 13px 15px; border: 1px solid rgba(224,186,120,.18); border-radius: 16px; background: linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.012)); color: #f6edf2; transition: border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.wallet-setup-card:hover { z-index: 1; border-color: rgba(238,43,135,.65); background: rgba(238,43,135,.08); box-shadow: 0 10px 30px rgba(238,43,135,.12); }
 .wallet-setup-card > svg { color: var(--gold); opacity: .65; }
-.wallet-brand-mark { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 18px; font-weight: 800; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 8px 20px rgba(0,0,0,.18); }
+.wallet-brand-mark { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; font-size: 17px; font-weight: 800; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 8px 20px rgba(0,0,0,.18); }
 .wallet-card-copy { display: flex; flex-direction: column; gap: 4px; }
 .wallet-card-copy strong { font-size: 13px; }
-.wallet-card-copy small { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+.wallet-card-copy small { color: var(--muted); font-size: .65rem !important; line-height: 1.2 !important; text-transform: uppercase; letter-spacing: .1em; }
 .wallet-brand-metamask { background: linear-gradient(135deg,#f6851b,#e2761b); color: #20110a; }
 .wallet-brand-binance { background: #f3ba2f; color: #17130a; }
 .wallet-brand-trust { background: #3375bb; color: white; }
@@ -327,7 +327,7 @@ body .filter-bar .select-field > span { font-size: .7rem !important; }
 .wallet-brand-phantom { background: #ab9ff2; color: #1b1528; }
 @keyframes walletSetupScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-.safety-section { max-width: 1200px; margin: 0 auto 100px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 60px 0; display: grid; grid-template-columns: 70px 1fr 1.2fr; gap: 30px; align-items: center; }
+.safety-section { max-width: 1200px; margin: 0 auto 50px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 21px 0 30px; display: grid; grid-template-columns: 70px 1fr 1.2fr; gap: 30px; align-items: center; }
 .safety-mark { width: 58px; height: 58px; border: 1px solid rgba(214,178,118,.25); color: var(--gold); border-radius: 50%; display: grid; place-items: center; }
 .safety-section h2 { margin: 7px 0 0; font-size: 30px; }
 .safety-section > p { color: var(--muted); font-size: 11px; line-height: 1.7; }
@@ -520,8 +520,8 @@ body .photo-field > label small { font-size: .68rem !important; line-height: 1.3
   .step-card { min-height: 220px; }
   .crypto-section { grid-template-columns: 1fr; gap: 55px; }
   .access-card { max-width: 450px; }
-  .wallet-setup-section { margin: 0 35px 80px; }
-  .safety-section { margin: 0 35px 80px; grid-template-columns: 70px 1fr; }
+  .wallet-setup-section { margin: 0 35px 13px; }
+  .safety-section { margin: 0 35px 40px; grid-template-columns: 70px 1fr; }
   .safety-section > p { grid-column: 1 / -1; }
   footer { margin: 0 35px; }
   .profile-modal { grid-template-columns: 1fr; max-height: 92vh; overflow-y: auto; }
@@ -544,20 +544,20 @@ body .photo-field > label small { font-size: .68rem !important; line-height: 1.3
   .trust-row { gap: 14px; flex-wrap: wrap; justify-content: center; }
   .hero-editorial { min-height: 470px; border-radius: 190px 190px 18px 18px; }.hero-frame { border-radius: 175px 175px 12px 12px; }.hero-caption { left: 28px; bottom: 28px; }.hero-age { right: 27px; bottom: 25px; }
   .desire-strip { gap: 18px; font-size: 11px; }
-  .discovery-section { padding: 85px 18px; }
+  .discovery-section { padding: 42.5px 18px; }
   .section-heading { display: block; }
   .section-heading > p { text-align: left; }
   .filter-bar { grid-template-columns: 1fr; }
   .search-field { min-height: 60px; }
   .select-field { border-left: 0; border-top: 1px solid var(--line); border-radius: 0 0 13px 13px; }
   .profile-grid { grid-template-columns: 1fr; }
-  .steps-section { padding: 85px 22px; }
-  .crypto-section { padding: 85px 22px; }
+  .steps-section { padding: 42.5px 22px; }
+  .crypto-section { padding: 42.5px 22px; }
   .access-card { padding: 28px; }
-  .wallet-setup-section { margin: 0 22px 65px; padding: 48px 0; }
+  .wallet-setup-section { margin: 0 22px 11px; padding: 20px 0 17px; }
   .wallet-setup-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
-  .wallet-setup-card { min-width: 200px; }
-  .safety-section { margin: 0 22px 65px; grid-template-columns: 1fr; }
+  .wallet-setup-card { width: 200px; min-width: 200px; }
+  .safety-section { margin: 0 22px 32.5px; grid-template-columns: 1fr; }
   .safety-mark { margin-bottom: 5px; }
   footer { margin: 0 22px; align-items: flex-start; gap: 25px; flex-direction: column; }
   .legal-header { padding: 0 18px; }.legal-header .brand span { display: none; }.legal-document { padding: 68px 20px 80px; }.legal-title h1 { font-size: 49px; }.legal-footer { margin: 0 20px; padding: 25px 0; flex-direction: column; }
@@ -1842,6 +1842,14 @@ body .email-auth-modal > .wallet-safety {
 .admin-transcript-thread article.creator { margin-left: auto; border-radius: 15px 5px 15px 15px; background: rgba(255,47,146,.12); }
 .admin-transcript-thread article p { margin: 6px 0; font-size: 13px !important; white-space: pre-wrap; }
 .admin-transcript-thread article small { color: #8f7f88; font-size: 10px; }
+.admin-transcript-reply { display: grid; gap: 10px; margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.admin-transcript-reply label { display: grid; gap: 6px; }
+.admin-transcript-reply label span { color: #a897a0; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.admin-transcript-reply select,
+.admin-transcript-reply textarea { width: 100%; border: 1px solid var(--line); border-radius: 11px; padding: 11px 12px; background: #0f0b0f; color: #f5edf1; font: inherit; }
+.admin-transcript-reply textarea { min-height: 96px; resize: vertical; }
+.admin-transcript-reply button { justify-self: end; }
+.admin-transcript-reply-disabled { margin: 16px 0 0; border-top: 1px solid var(--line); padding-top: 14px; color: #9b8993; font-size: 11px !important; line-height: 1.5; }
 
 .admin-alert-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 20px 0; border: 1px solid var(--line); border-radius: 15px; padding: 18px; background: rgba(255,255,255,.025); }
 .admin-alert-toolbar > div { display: grid; gap: 5px; }
