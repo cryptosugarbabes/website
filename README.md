@@ -30,7 +30,7 @@ Passwordless email access uses a six-digit, ten-minute code. Configure the `EMAI
 - Each verified email or wallet account can own one creator profile.
 - Saving creates or updates a permanent PostgreSQL record with `APPROVED` status unless an administrator has already rejected the profile.
 - A creator can join by email, publish a profile, message for free, and upload up to 8 JPG, PNG, or WebP files of 5 MB each at no cost.
-- A creator must link a verified Base or Solana wallet before paid likes, gifts, or message boosts can be sent to the profile.
+- A creator must link a verified Solana wallet, or a verified Base wallet after the atomic splitter is configured, before live paid likes, gifts, or message boosts can be sent to the profile.
 - Uploads are re-encoded as WebP, resized to a maximum of 2400×2400, and stripped of embedded metadata.
 - New images publish automatically and remain available for retrospective administrator review.
 - An administrator reviews profiles at `/admin` and can remove or restore profiles and photographs at any time.

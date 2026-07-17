@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import nodemailer from "nodemailer";
+import { PAYMENT_CONFIG } from "@/lib/payment-config";
 
 export function normalizeEmail(value: unknown) {
   if (typeof value !== "string") return null;
@@ -80,11 +81,14 @@ export async function sendEmailChangeCode(email: string, code: string) {
 }
 
 export async function sendWelcomeEmail(email: string) {
+  const walletMessage = PAYMENT_CONFIG.base.atomicSettlementEnabled
+    ? "Connect a Solana or Base wallet when you want to send or receive paid likes, gifts or boosts."
+    : "Connect Solana when you want to send or receive paid likes, gifts or boosts. Base wallets currently support sign-in and free messaging.";
   await sendEmail(
     email,
     "Welcome to Crypto Sugar Babes",
-    "Your email has been verified and your Crypto Sugar Babes membership is ready. You can create a profile and message for free. Connect a wallet only when you want to send or receive paid likes, gifts or boosts.",
-    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:30px;font-weight:500">Welcome. Your email is verified.</h1><p style="color:#c8b8c0">Your membership is ready. You can create a profile and message for free.</p><p style="color:#c8b8c0">Connect a Base or Solana wallet only when you want to send or receive paid likes, gifts or boosted messages.</p><a href="https://cryptosugarbabes.com/dashboard" style="display:inline-block;margin-top:14px;border-radius:999px;background:#e0ba78;color:#160d13;padding:13px 22px;text-decoration:none;font-weight:700">Open your dashboard</a>`
+    `Your email has been verified and your Crypto Sugar Babes membership is ready. You can create a profile and message for free. ${walletMessage}`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:30px;font-weight:500">Welcome. Your email is verified.</h1><p style="color:#c8b8c0">Your membership is ready. You can create a profile and message for free.</p><p style="color:#c8b8c0">${walletMessage}</p><a href="https://cryptosugarbabes.com/dashboard" style="display:inline-block;margin-top:14px;border-radius:999px;background:#e0ba78;color:#160d13;padding:13px 22px;text-decoration:none;font-weight:700">Open your dashboard</a>`
   );
 }
 

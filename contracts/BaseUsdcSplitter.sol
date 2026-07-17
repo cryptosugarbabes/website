@@ -9,6 +9,8 @@ interface IERC20 {
 /// @notice Atomically collects Base USDC and sends 90% to a creator and 10% to the platform treasury.
 /// @dev Deploy specifically with the canonical Base USDC contract and the Crypto Sugar treasury.
 contract BaseUsdcSplitter {
+    uint256 public constant PLATFORM_SHARE_BPS = 1_000;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
     IERC20 public immutable usdc;
     address public immutable treasury;
     mapping(bytes32 => bool) public settledQuotes;
@@ -24,12 +26,13 @@ contract BaseUsdcSplitter {
 
     function payAndSplit(bytes32 quoteId, address creator, uint256 grossAmount) external {
         require(locked == 1, "reentrant");
+        require(quoteId != bytes32(0), "invalid quote");
         require(!settledQuotes[quoteId], "quote settled");
         require(creator != address(0) && grossAmount > 0, "invalid payment");
         locked = 2;
         settledQuotes[quoteId] = true;
 
-        uint256 platformAmount = (grossAmount + 5) / 10;
+        uint256 platformAmount = (grossAmount * PLATFORM_SHARE_BPS) / BPS_DENOMINATOR;
         uint256 creatorAmount = grossAmount - platformAmount;
         require(usdc.transferFrom(msg.sender, address(this), grossAmount), "collection failed");
         require(usdc.transfer(creator, creatorAmount), "creator transfer failed");
@@ -39,4 +42,3 @@ contract BaseUsdcSplitter {
         emit PaymentSplit(quoteId, msg.sender, creator, grossAmount, creatorAmount, platformAmount);
     }
 }
-

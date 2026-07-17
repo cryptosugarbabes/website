@@ -1,4 +1,6 @@
 export const MICRO_USDC = BigInt(1_000_000);
+export const PLATFORM_SHARE_BPS = BigInt(1_000);
+export const BPS_DENOMINATOR = BigInt(10_000);
 
 export function decimalToMicros(value: unknown) {
   const source = typeof value === "number" || typeof value === "string" ? String(value).trim() : "";
@@ -15,7 +17,7 @@ export function microsToDecimal(value: bigint) {
 
 export function splitPaymentMicros(grossMicros: bigint) {
   if (grossMicros <= 0) throw new Error("Payment amount must be positive.");
-  const platformMicros = (grossMicros + BigInt(5)) / BigInt(10);
+  const platformMicros = (grossMicros * PLATFORM_SHARE_BPS) / BPS_DENOMINATOR;
   return { creatorMicros: grossMicros - platformMicros, platformMicros };
 }
 

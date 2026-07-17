@@ -5,6 +5,7 @@ import { Connection, ParsedInstruction, PartiallyDecodedInstruction, PublicKey }
 import { base } from "viem/chains";
 import { createPublicClient, decodeEventLog, getAddress, http, isHash } from "viem";
 import { accountForSession } from "@/lib/accounts";
+import { baseAtomicReceiptMatches } from "@/lib/base-payment-verification";
 import { query, transaction } from "@/lib/db";
 import { PAYMENT_CONFIG } from "@/lib/payment-config";
 import { transferFallsWithinQuoteWindow } from "@/lib/payment-validation";
@@ -45,22 +46,21 @@ function decimalToMicros(value: string) {
   return BigInt(whole) * MICRO_USDC + BigInt(fraction.padEnd(6, "0").slice(0, 6));
 }
 
-async function verifyBaseAtomicTransfer(hash: `0x${string}`, from: string, creator: string, creatorAmount: bigint, platformAmount: bigint, grossAmount: bigint, splitterAddress: string) {
+async function verifyBaseAtomicTransfer(hash: `0x${string}`, quoteId: string, from: string, creator: string, creatorAmount: bigint, platformAmount: bigint, grossAmount: bigint, splitterAddress: string) {
   const client = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org") });
   const [receipt, sent] = await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
   if (receipt.status !== "success" || getAddress(sent.from) !== getAddress(from) || !sent.to || getAddress(sent.to) !== getAddress(splitterAddress)) return { valid: false, timestampMs: 0 };
-  const transfers = receipt.logs.flatMap((log) => {
-    if (getAddress(log.address) !== PAYMENT_CONFIG.base.usdcContractAddress) return [];
-    try {
-      const decoded = decodeEventLog({ abi: transferEvent, data: log.data, topics: log.topics });
-      return decoded.eventName === "Transfer" ? [{ from: getAddress(decoded.args.from), to: getAddress(decoded.args.to), value: decoded.args.value }] : [];
-    } catch { return []; }
+  const valid = baseAtomicReceiptMatches(receipt.logs, {
+    quoteId,
+    payer: from,
+    creator,
+    treasury: PAYMENT_CONFIG.base.treasuryAddress,
+    usdcAddress: PAYMENT_CONFIG.base.usdcContractAddress,
+    splitterAddress,
+    grossAmount,
+    creatorAmount,
+    platformAmount
   });
-  const splitter = getAddress(splitterAddress);
-  const matches = (source: string, destination: string, amount: bigint) => transfers.some((item) => item.from === getAddress(source) && item.to === getAddress(destination) && item.value === amount);
-  const valid = matches(from, splitter, grossAmount)
-    && matches(splitter, creator, creatorAmount)
-    && matches(splitter, PAYMENT_CONFIG.base.treasuryAddress, platformAmount);
   const block = valid ? await client.getBlock({ blockNumber: receipt.blockNumber }) : null;
   return { valid, timestampMs: block ? Number(block.timestamp) * 1000 : 0 };
 }
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
         if (input.transactionHashes.length !== 1 || !isHash(input.transactionHashes[0])) return NextResponse.json({ error: "One atomic Base payment hash is required." }, { status: 400 });
         const hash = input.transactionHashes[0] as `0x${string}`;
         if (!quote.creator_address) return NextResponse.json({ error: "The creator payout address is unavailable." }, { status: 409 });
-        const transfer = await verifyBaseAtomicTransfer(hash, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount, grossAmount, PAYMENT_CONFIG.base.splitterAddress);
+        const transfer = await verifyBaseAtomicTransfer(hash, quote.id, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount, grossAmount, PAYMENT_CONFIG.base.splitterAddress);
         if (!transfer.valid) return NextResponse.json({ error: "The atomic Base payment could not be verified on-chain." }, { status: 409 });
         if (!transferFallsWithinQuoteWindow({ createdAtMs: quote.created_at.getTime(), expiresAtMs: quote.expires_at.getTime(), transferTimestampMs: transfer.timestampMs, expiryGraceMs })) {
           await query(`UPDATE payment_quotes SET status = 'EXPIRED' WHERE id = $1 AND status = 'QUOTED'`, [quote.id]);

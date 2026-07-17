@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "compile:base": "node scripts/compile-base-splitter.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -27,6 +28,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "solc": "0.8.30",
     "typescript": "5.9.3",
     "vitest": "^4.0.18"
   },

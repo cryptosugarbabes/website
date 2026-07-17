@@ -4,6 +4,7 @@ import { query, transaction } from "@/lib/db";
 import { ensureUser } from "@/lib/accounts";
 import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 import { isRegion } from "@/lib/regions";
+import { PAYMENT_CONFIG } from "@/lib/payment-config";
 
 type ProfileRow = {
   id: string;
@@ -37,6 +38,10 @@ function publicProfile(row: ProfileRow) {
     focalY: Number(item.focalY ?? 50)
   }));
   const name = row.display_name;
+  const supportEnabled = row.support_enabled && (
+    row.support_network === "solana"
+    || (row.support_network === "evm" && PAYMENT_CONFIG.base.atomicSettlementEnabled)
+  );
   return {
     id: row.id,
     name,
@@ -61,7 +66,7 @@ function publicProfile(row: ProfileRow) {
     giftsUsdc: Number(row.support_usdc),
     creatorPoints: Number(row.creator_points),
     points24h: Number(row.points_24h),
-    supportEnabled: row.support_enabled,
+    supportEnabled,
     supportNetwork: row.support_network,
     reviewStatus: row.review_status,
     isOwn: row.is_own

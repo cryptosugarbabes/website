@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { authenticatedSession } from "@/lib/request-security";
 import { acceptanceComplete, type AcceptanceRecord } from "@/lib/legal-acceptance";
 import { sugarBabeMonthlyLevel, sugarDaddyMonthlyLevel } from "@/lib/monthly-levels";
+import { PAYMENT_CONFIG } from "@/lib/payment-config";
 
 type UserRow = AcceptanceRecord & {
   id: string;
@@ -216,6 +217,12 @@ export async function GET(request: NextRequest) {
         creatorEarningsUsdc: monthlyCreatorEarningsUsdc,
         sugarDaddyLevel: sugarDaddyMonthlyLevel(monthlySupportSentUsdc),
         sugarBabeLevel: sugarBabeMonthlyLevel(monthlyCreatorEarningsUsdc)
+      },
+      paymentCapabilities: {
+        creatorSupportEnabled: user.wallet_chain === "solana"
+          || (user.wallet_chain === "evm" && PAYMENT_CONFIG.base.atomicSettlementEnabled),
+        baseCreatorSupportEnabled: PAYMENT_CONFIG.base.atomicSettlementEnabled,
+        solanaCreatorSupportEnabled: true
       },
       favorites: favorites.rows.map((item) => ({ ...item, imageUrl: item.photo_id ? `/api/media/${item.photo_id}` : null })),
       activity: activity.rows.map((item) => ({
