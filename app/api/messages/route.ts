@@ -352,7 +352,7 @@ export async function POST(request: NextRequest) {
         recipientName: counterpart.rows[0].display_name || "A monitored member",
         senderName: sender.rows[0]?.display_name || "A member",
         shouldNotify: Boolean(unread.rows[0]?.should_notify),
-        notifyAdmin: Boolean(alert.rowCount),
+        notifyAdmin: true,
         notifyTelegram: Boolean(alert.rowCount) && telegramBridgeIsConfigured(),
         messageNotice: consecutiveMessages === FREE_UNANSWERED_MESSAGES - 1
           ? "Your third unanswered message was sent. Please wait for a reply before sending another, or use the weekly paid-message option."

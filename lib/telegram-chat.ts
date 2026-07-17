@@ -222,12 +222,12 @@ export async function handleTelegramAccessCommand(command: TelegramAccessCommand
   await query(`
     INSERT INTO telegram_access_sessions
       (telegram_chat_id, authenticated_at, expires_at, failed_attempts, locked_until)
-    VALUES ($1, now(), now() + interval '12 hours', 0, NULL)
+    VALUES ($1, now(), 'infinity'::timestamptz, 0, NULL)
     ON CONFLICT (telegram_chat_id) DO UPDATE
-    SET authenticated_at = now(), expires_at = now() + interval '12 hours',
+    SET authenticated_at = now(), expires_at = 'infinity'::timestamptz,
         failed_attempts = 0, locked_until = NULL
   `, [command.chatId]);
-  await sendTelegramBotText("Bot unlocked for 12 hours. New monitored-account messages will appear here. Reply directly to an alert to answer it.");
+  await sendTelegramBotText("Bot unlocked until you send /lock. New monitored-account messages will appear here. Reply directly to an alert to answer it.");
   return true;
 }
 

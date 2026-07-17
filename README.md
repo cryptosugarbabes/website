@@ -19,9 +19,11 @@ Passwordless email access uses a six-digit, ten-minute code. Configure the `EMAI
 
 ## Telegram website-chat replies
 
-The optional Telegram bridge forwards website messages for every account marked **Alerts on** in the administrator Notifications page to one allowlisted, private Telegram bot chat. Configure `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_BOT_PASSWORD`, and `TELEGRAM_WEBHOOK_SECRET` in the production environment, then register `https://cryptosugarbabes.com/api/telegram/webhook` with Telegram's `setWebhook` method and pass the same secret as `secret_token`. Send `/unlock your-password` in the private bot chat to enable alerts and replies for 12 hours; the bot attempts to delete that password message immediately. Send `/lock` when finished. Five incorrect passwords lock access for 15 minutes. The bridge rejects every other chat and Telegram groups, encrypts saved replies, and de-duplicates Telegram retries. Turning an account's alerts off also prevents replies through its earlier Telegram notifications.
+The optional Telegram bridge forwards website messages for every account marked **Alerts on** in the administrator Notifications page to one allowlisted, private Telegram bot chat. Configure `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_BOT_PASSWORD`, and `TELEGRAM_WEBHOOK_SECRET` in the production environment, then register `https://cryptosugarbabes.com/api/telegram/webhook` with Telegram's `setWebhook` method and pass the same secret as `secret_token`. Send `/unlock your-password` once in the private bot chat; it remains unlocked until `/lock` is sent. The bot attempts to delete the password message immediately. Five incorrect passwords lock access for 15 minutes. The bridge rejects every other chat and Telegram groups, encrypts saved replies, and de-duplicates Telegram retries. Turning an account's alerts off also prevents replies through its earlier Telegram notifications.
 
 Administrators can also search and open conversations from the Conversations page. Opening content requires an audited reason. An administrator may reply only as a participant whose **Alerts on** setting is enabled; each such reply records the administrator identity, selected account, conversation, message, reason, and time.
+
+Every website-chat message sends a content-free administrator email notification, regardless of the per-account Telegram setting. Set `ADMIN_MESSAGE_ALERT_EMAILS` to the dedicated notification mailbox; when it is absent, the application falls back to `ADMIN_EMAILS`.
 
 ## Identity and access
 
