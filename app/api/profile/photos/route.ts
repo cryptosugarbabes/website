@@ -7,6 +7,7 @@ import { accountForSession } from "@/lib/accounts";
 import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 import { normalizeFocalPoint, normalizePhotoLayout } from "@/lib/photo-layout";
 import { ALLOWED_PHOTO_TYPES, MAX_PHOTO_BYTES, MAX_PROFILE_PHOTOS, safeStoragePath, uploadRoot } from "@/lib/uploads";
+import { PhotoValidationError, validateProfilePhoto } from "@/lib/photo-upload-validation";
 
 type OwnerRow = { id: string; photo_count: string };
 
@@ -40,12 +41,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `A profile can contain up to ${MAX_PROFILE_PHOTOS} photos.` }, { status: 409 });
     }
 
+    const source = Buffer.from(await upload.arrayBuffer());
+    await validateProfilePhoto(source, upload.type);
+
     const profileId = owner.rows[0].id;
     const mediaId = randomUUID();
     const storageKey = `${profileId}/${mediaId}.webp`;
     const outputPath = safeStoragePath(storageKey);
     await fs.mkdir(`${uploadRoot().replace(/\/+$/, "")}/${profileId}`, { recursive: true });
-    const processed = await sharp(Buffer.from(await upload.arrayBuffer()), { failOn: "error" })
+    const processed = await sharp(source, { failOn: "error", limitInputPixels: 40_000_000 })
       .rotate()
       .resize(2400, 2400, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 88, effort: 4 })
@@ -82,6 +86,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ id: mediaId, url: `/api/media/${mediaId}` });
   } catch (error) {
+    if (error instanceof PhotoValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (error instanceof Error && error.message === "PHOTO_LIMIT") {
       return NextResponse.json({ error: `A profile can contain up to ${MAX_PROFILE_PHOTOS} photos.` }, { status: 409 });
     }

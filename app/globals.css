@@ -1814,10 +1814,39 @@ body .email-auth-modal > .wallet-safety {
 .admin-alert-list button { min-width: 130px; border: 1px solid rgba(255,113,184,.5); border-radius: 999px; padding: 10px 15px; background: rgba(255,47,146,.1); color: #ff9ac9; cursor: pointer; }
 .admin-alert-list article.enabled button { background: linear-gradient(135deg, #ff2387, #f50aa4); color: #fff; box-shadow: 0 8px 24px rgba(255,35,135,.25); }
 
+/* Forum moderation extends the existing operations console without changing public forum layout. */
+.admin-forum-list { display: grid; gap: 14px; margin-top: 20px; }
+.admin-forum-list > article { border: 1px solid var(--line); border-radius: 15px; padding: 20px; background: #151015; }
+.admin-forum-list > article.hidden { border-color: rgba(239,160,177,.28); opacity: .82; }
+.admin-forum-list > article > header { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.admin-forum-list > article > header > div:first-child { display: grid; gap: 5px; }
+.admin-forum-list > article > header span { color: var(--gold); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+.admin-forum-list h3 { margin: 0; color: #f4edf1; font-family: var(--font-serif); font-size: 23px; font-weight: 500; }
+.admin-forum-list small { color: #887a82; font-size: 10px; }
+.admin-forum-list > article > p { margin: 17px 0; color: #c4b7be; font-size: 13px !important; line-height: 1.55; white-space: pre-wrap; }
+.admin-forum-status, .admin-forum-meta, .admin-forum-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-forum-status { justify-content: flex-end; }
+.admin-forum-status em, .admin-forum-meta span { border-radius: 999px; padding: 6px 9px; background: rgba(255,255,255,.05); color: #bbaeb5; font-size: 9px; font-style: normal; }
+.admin-forum-meta { margin-bottom: 14px; }
+.admin-forum-actions button, .admin-forum-posts button { border: 1px solid rgba(255,113,184,.4); border-radius: 999px; padding: 9px 13px; background: rgba(255,47,146,.08); color: #ff9ac9; cursor: pointer; }
+.admin-forum-actions button.reject, .admin-forum-posts button.reject { border-color: rgba(239,160,177,.3); background: transparent; color: #efa0b1; }
+.admin-forum-actions button:disabled, .admin-forum-posts button:disabled { opacity: .5; cursor: wait; }
+.admin-forum-list details { margin-top: 17px; border-top: 1px solid var(--line); padding-top: 14px; }
+.admin-forum-list summary { color: #d1c4ca; font-size: 11px; cursor: pointer; }
+.admin-forum-posts { display: grid; gap: 9px; margin-top: 12px; }
+.admin-forum-posts > article { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; border-radius: 11px; padding: 13px; background: rgba(255,255,255,.025); }
+.admin-forum-posts > article.hidden { background: rgba(165,74,94,.08); }
+.admin-forum-posts > article > div { display: grid; gap: 3px; min-width: 0; }
+.admin-forum-posts strong { color: #ede3e8; font-size: 11px; }
+.admin-forum-posts p { margin: 7px 0 0; color: #b9abb2; font-size: 12px !important; line-height: 1.45; white-space: pre-wrap; }
+.admin-forum-audit-heading { margin-top: 36px; }
+
 @media (max-width: 900px) {
   .admin-conversation-layout { grid-template-columns: 1fr; }
   .admin-alert-toolbar,
   .admin-alert-list article { align-items: stretch; flex-direction: column; }
+  .admin-forum-list > article > header, .admin-forum-posts > article { flex-direction: column; }
+  .admin-forum-status { justify-content: flex-start; }
 }
 
 /* Keep the shared header deliberately lighter than general interface controls. */
