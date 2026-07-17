@@ -1045,3 +1045,63 @@ body .dashboard-current-photos .reposition-hint {
     min-height: 460px;
   }
 }
+
+/* Keep the email sign-in flow fully visible on laptop-height screens while
+   retaining the larger type used throughout the rest of the interface. */
+body .email-auth-modal {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 30px 36px 24px;
+}
+
+body .email-auth-modal > .section-kicker {
+  font-size: .8rem !important;
+}
+
+body .email-auth-modal > h2 {
+  margin: 8px 0;
+  font-size: 2.25rem;
+}
+
+body .email-auth-modal > .wallet-intro {
+  margin: 0 0 16px;
+  font-size: 1.05rem !important;
+  line-height: 1.5;
+}
+
+body .email-auth-modal .email-auth-form {
+  gap: 10px;
+}
+
+body .email-auth-modal .email-auth-form label {
+  gap: 6px;
+}
+
+body .email-auth-modal .email-auth-form input {
+  min-height: 50px;
+  font-size: 1rem !important;
+}
+
+body .email-auth-modal .email-auth-form .primary-button,
+body .email-auth-modal > .secondary-button {
+  min-height: 50px;
+  font-size: 1rem !important;
+}
+
+body .email-auth-modal .email-wallet-divider {
+  margin: 13px 0;
+}
+
+body .email-auth-modal > .wallet-safety {
+  align-items: flex-start;
+  margin: 12px 0 0;
+  font-size: 1rem !important;
+  line-height: 1.4;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  body .email-auth-modal {
+    padding: 28px 22px 22px;
+  }
+}
