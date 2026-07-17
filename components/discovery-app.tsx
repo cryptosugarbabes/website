@@ -998,7 +998,7 @@ export function DiscoveryApp() {
         </div>
       </section>
 
-      <section className="desire-strip" aria-label="Platform values"><span>Private introductions</span><i/><span>Adult attestation</span><i/><span>Global chemistry</span><i/><span>USDC-ready</span></section>
+      <section className="desire-strip" aria-label="Platform values"><span>Discreet. Safe. Monitored. USDC on all major networks.</span></section>
 
       <section className="discovery-section" id="discover">
         <div className="section-heading"><div><h2>Connect. Indulge. Grow. Crypto.</h2></div><p>We manage all profiles and disputes with care.</p></div>
