@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { authenticatedSession } from "@/lib/request-security";
 import { acceptanceComplete, type AcceptanceRecord } from "@/lib/legal-acceptance";
+import { sugarBabeMonthlyLevel, sugarDaddyMonthlyLevel } from "@/lib/monthly-levels";
 
 type UserRow = AcceptanceRecord & {
   id: string;
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
       query<{
         conversations: string; unread: string; favorites: string; messages: string;
         support_sent: string; creator_earnings: string; platform_fees: string;
+        month_start: Date; month_end: Date; monthly_support_sent: string; monthly_creator_earnings: string;
       }>(`
         SELECT
           (SELECT count(*) FROM conversations c JOIN profiles p ON p.id = c.creator_profile_id
@@ -73,7 +75,20 @@ export async function GET(request: NextRequest) {
           (SELECT count(*) FROM messages WHERE sender_user_id = $1)::text AS messages,
           COALESCE((SELECT sum(q.gross_amount_usdc) FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id WHERE se.supporter_user_id = $1), 0)::text AS support_sent,
           COALESCE((SELECT sum(q.creator_amount_usdc) FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id JOIN profiles p ON p.id = se.creator_profile_id WHERE p.user_id = $1), 0)::text AS creator_earnings,
-          COALESCE((SELECT sum(q.platform_amount_usdc) FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id JOIN profiles p ON p.id = se.creator_profile_id WHERE p.user_id = $1), 0)::text AS platform_fees
+          COALESCE((SELECT sum(q.platform_amount_usdc) FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id JOIN profiles p ON p.id = se.creator_profile_id WHERE p.user_id = $1), 0)::text AS platform_fees,
+          date_trunc('month', now()) AS month_start,
+          date_trunc('month', now()) + interval '1 month' AS month_end,
+          COALESCE((SELECT sum(q.gross_amount_usdc)
+            FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id
+            WHERE se.supporter_user_id = $1 AND q.status = 'CONFIRMED'
+              AND q.confirmed_at >= date_trunc('month', now())
+              AND q.confirmed_at < date_trunc('month', now()) + interval '1 month'), 0)::text AS monthly_support_sent,
+          COALESCE((SELECT sum(q.creator_amount_usdc)
+            FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id
+            JOIN profiles p ON p.id = se.creator_profile_id
+            WHERE p.user_id = $1 AND q.status = 'CONFIRMED'
+              AND q.confirmed_at >= date_trunc('month', now())
+              AND q.confirmed_at < date_trunc('month', now()) + interval '1 month'), 0)::text AS monthly_creator_earnings
       `, [user.id]),
       query<{ id: string; name: string; region: string; country: string; headline: string; photo_id: string | null }>(`
         SELECT p.id, p.display_name AS name, p.region, p.country, p.headline,
@@ -133,6 +148,8 @@ export async function GET(request: NextRequest) {
     const creator = profile.rows[0];
     const stats = totals.rows[0];
     const position = visibility.rows[0];
+    const monthlySupportSentUsdc = Number(stats?.monthly_support_sent || 0);
+    const monthlyCreatorEarningsUsdc = Number(stats?.monthly_creator_earnings || 0);
     return NextResponse.json({
       identity: {
         email: user.email,
@@ -191,6 +208,14 @@ export async function GET(request: NextRequest) {
         supportSentUsdc: Number(stats?.support_sent || 0),
         creatorEarningsUsdc: Number(stats?.creator_earnings || 0),
         platformFeesUsdc: Number(stats?.platform_fees || 0)
+      },
+      monthly: {
+        startsAt: stats.month_start,
+        endsAt: stats.month_end,
+        supportSentUsdc: monthlySupportSentUsdc,
+        creatorEarningsUsdc: monthlyCreatorEarningsUsdc,
+        sugarDaddyLevel: sugarDaddyMonthlyLevel(monthlySupportSentUsdc),
+        sugarBabeLevel: sugarBabeMonthlyLevel(monthlyCreatorEarningsUsdc)
       },
       favorites: favorites.rows.map((item) => ({ ...item, imageUrl: item.photo_id ? `/api/media/${item.photo_id}` : null })),
       activity: activity.rows.map((item) => ({
