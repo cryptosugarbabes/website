@@ -993,7 +993,7 @@ export function DiscoveryApp() {
           <div className="eyebrow"><span/> PRIVATE. MAGNETIC. CRYPTO-NATIVE. <span/></div>
           <h1>Crypto is the<br/>ultimate <em>sugar.</em></h1>
           <p className="hero-copy">Meet and connect discretely. Admire and indulge with crypto.</p>
-          <div className="hero-actions"><a className="primary-button" href="#discover">Explore profiles <Icon name="arrow" size={18}/></a>{!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="secondary-button" onClick={openProfileCreator}>Create your profile — free</button>}</div>
+          <div className="hero-actions"><button className="primary-button" onClick={openProfileCreator}>Be a Sugar Babe <Icon name="arrow" size={18}/></button>{!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="secondary-button" onClick={openProfileCreator}>Be a Sugar Daddy</button>}</div>
           <div className="trust-row"><span><Icon name="shield" size={17}/>Adults only</span><span><Icon name="lock" size={17}/>Wallet optional</span><span><Icon name="globe" size={17}/>Global access</span></div>
         </div>
       </section>
