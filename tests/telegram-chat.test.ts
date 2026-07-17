@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   parseTelegramAccessCommand,
   parseTelegramReply,
+  parseTelegramTextMessage,
   telegramCommandMatchesConfiguredChat,
   telegramReplyMatchesConfiguredChat,
+  telegramTextMatchesConfiguredChat,
   telegramWebhookIsAuthorized
 } from "../lib/telegram-chat";
 
@@ -52,6 +54,25 @@ describe("Telegram website-chat replies", () => {
       message: { message_id: 45, text: "hello", chat: { id: 1234 }, from: { id: 1234 } }
     })).toBeNull();
     expect(parseTelegramReply({ update_id: 91, message: { message_id: 46, chat: { id: 1234 } } })).toBeNull();
+  });
+
+  it("recognizes a standalone private message so the bot can explain how to route it", () => {
+    process.env.TELEGRAM_BOT_TOKEN = "bot-token";
+    process.env.TELEGRAM_CHAT_ID = "1234";
+    process.env.TELEGRAM_BOT_PASSWORD = "private-password";
+    process.env.TELEGRAM_WEBHOOK_SECRET = "webhook-secret";
+    const message = parseTelegramTextMessage({
+      update_id: 93,
+      message: { message_id: 48, text: "Which visitor?", chat: { id: 1234 }, from: { id: 1234 } }
+    });
+    expect(message).toEqual({
+      updateId: "93",
+      chatId: "1234",
+      senderId: "1234",
+      messageId: "48",
+      body: "Which visitor?"
+    });
+    expect(message && telegramTextMatchesConfiguredChat(message)).toBe(true);
   });
 
   it("authenticates the webhook and restricts replies to the configured chat", () => {

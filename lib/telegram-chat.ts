@@ -25,6 +25,16 @@ export type TelegramReply = {
   body: string;
 };
 
+export type TelegramTextMessage = {
+  updateId: string;
+  chatId: string;
+  senderId: string;
+  messageId: string;
+  body: string;
+};
+
+const ADMIN_DASHBOARD_URL = "https://cryptosugarbabes.com/admin";
+
 function telegramConfig() {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
   const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
@@ -79,6 +89,33 @@ export function parseTelegramReply(input: unknown): TelegramReply | null {
   };
 }
 
+export function parseTelegramTextMessage(input: unknown): TelegramTextMessage | null {
+  if (!input || typeof input !== "object") return null;
+  const update = input as {
+    update_id?: number;
+    message?: {
+      message_id?: number;
+      text?: string;
+      chat?: { id?: number };
+      from?: { id?: number };
+    };
+  };
+  const body = typeof update.message?.text === "string" ? update.message.text.trim().slice(0, 800) : "";
+  const updateId = update.update_id;
+  const messageId = update.message?.message_id;
+  const chatId = update.message?.chat?.id;
+  const senderId = update.message?.from?.id;
+  if (!Number.isSafeInteger(updateId) || !Number.isSafeInteger(messageId)
+    || !Number.isSafeInteger(chatId) || !Number.isSafeInteger(senderId) || !body) return null;
+  return {
+    updateId: String(updateId),
+    chatId: String(chatId),
+    senderId: String(senderId),
+    messageId: String(messageId),
+    body
+  };
+}
+
 export function parseTelegramAccessCommand(input: unknown): TelegramAccessCommand | null {
   if (!input || typeof input !== "object") return null;
   const update = input as {
@@ -113,6 +150,11 @@ export function telegramReplyMatchesConfiguredChat(reply: TelegramReply) {
   const chatId = telegramConfig()?.chatId;
   // This bridge intentionally supports a one-to-one bot chat, not a Telegram group.
   return Boolean(chatId && chatId === reply.chatId && chatId === reply.senderId);
+}
+
+export function telegramTextMatchesConfiguredChat(message: TelegramTextMessage) {
+  const chatId = telegramConfig()?.chatId;
+  return Boolean(chatId && chatId === message.chatId && chatId === message.senderId);
 }
 
 export function telegramCommandMatchesConfiguredChat(command: TelegramAccessCommand) {
@@ -171,6 +213,19 @@ export async function telegramSessionIsUnlocked(chatId: string) {
 
 export async function sendTelegramLockedNotice() {
   return sendTelegramBotText("Bot locked. Send /unlock followed by your password. The password message will be deleted after it is checked.");
+}
+
+export async function sendTelegramRoutingHelp() {
+  return sendTelegramBotText([
+    "I could not tell which website chat should receive that message.",
+    "",
+    "In Telegram, use Reply on the exact visitor alert you want to answer. Each alert is linked to one website chat.",
+    `Admin dashboard: ${ADMIN_DASHBOARD_URL}`
+  ].join("\n"));
+}
+
+export async function sendTelegramReplyConfirmation(target: string) {
+  return sendTelegramBotText(`Reply sent to ${target}. It is now visible in the website chat.\nAdmin dashboard: ${ADMIN_DASHBOARD_URL}`);
 }
 
 export async function handleTelegramAccessCommand(command: TelegramAccessCommand) {
@@ -249,12 +304,14 @@ export async function sendTelegramMessageAlert(input: {
     "",
     input.body,
     "",
-    "Reply directly to this Telegram message. Your reply will appear in the website chat."
+    "Use Telegram's Reply action on this alert. Your reply will appear in this website chat.",
+    `Admin dashboard: ${ADMIN_DASHBOARD_URL}`
   ].join("\n");
   const result = await telegramApi("sendMessage", {
     chat_id: config.chatId,
     text,
-    disable_web_page_preview: true
+    disable_web_page_preview: true,
+    reply_markup: { inline_keyboard: [[{ text: "Open admin dashboard", url: ADMIN_DASHBOARD_URL }]] }
   });
   const botMessageId = result?.result?.message_id;
   if (!Number.isSafeInteger(botMessageId)) throw new Error("TELEGRAM_SEND_FAILED:NO_MESSAGE_ID");
@@ -283,18 +340,21 @@ export async function sendTelegramVisitorAlert(input: {
         "",
         input.body,
         "",
-        "Reply directly to answer the visitor on the website."
+        "Use Telegram's Reply action on this alert to answer this visitor.",
+        `Admin dashboard: ${ADMIN_DASHBOARD_URL}`
       ].join("\n")
     : [
         `Visitor on website · ${shortSession}`,
         `Page: ${input.pagePath || "/"}`,
         "",
-        "Reply directly to greet this visitor in the website chat."
+        "Use Telegram's Reply action on this alert to greet this visitor.",
+        `Admin dashboard: ${ADMIN_DASHBOARD_URL}`
       ].join("\n");
   const result = await telegramApi("sendMessage", {
     chat_id: config.chatId,
     text,
-    disable_web_page_preview: true
+    disable_web_page_preview: true,
+    reply_markup: { inline_keyboard: [[{ text: "Open admin dashboard", url: ADMIN_DASHBOARD_URL }]] }
   });
   const botMessageId = result?.result?.message_id;
   if (!Number.isSafeInteger(botMessageId)) throw new Error("TELEGRAM_SEND_FAILED:NO_MESSAGE_ID");

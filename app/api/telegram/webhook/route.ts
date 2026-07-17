@@ -6,10 +6,14 @@ import {
   handleTelegramAccessCommand,
   parseTelegramAccessCommand,
   parseTelegramReply,
+  parseTelegramTextMessage,
   sendTelegramLockedNotice,
+  sendTelegramReplyConfirmation,
+  sendTelegramRoutingHelp,
   telegramCommandMatchesConfiguredChat,
   telegramReplyMatchesConfiguredChat,
   telegramSessionIsUnlocked,
+  telegramTextMatchesConfiguredChat,
   telegramWebhookIsAuthorized
 } from "@/lib/telegram-chat";
 
@@ -34,7 +38,15 @@ export async function POST(request: NextRequest) {
   }
 
   const reply = parseTelegramReply(update);
-  if (!reply || !telegramReplyMatchesConfiguredChat(reply)) {
+  if (!reply) {
+    const message = parseTelegramTextMessage(update);
+    if (message && telegramTextMatchesConfiguredChat(message)) {
+      if (await telegramSessionIsUnlocked(message.chatId)) await sendTelegramRoutingHelp().catch(() => undefined);
+      else await sendTelegramLockedNotice().catch(() => undefined);
+    }
+    return NextResponse.json({ ok: true });
+  }
+  if (!telegramReplyMatchesConfiguredChat(reply)) {
     // Telegram retries non-2xx responses. Unsupported updates are intentionally acknowledged.
     return NextResponse.json({ ok: true });
   }
@@ -45,8 +57,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const visitorLink = await query(`
-      SELECT 1 FROM visitor_chat_telegram_links
+    const visitorLink = await query<{ visitor_session_id: string }>(`
+      SELECT visitor_session_id FROM visitor_chat_telegram_links
       WHERE telegram_chat_id = $1 AND bot_message_id = $2
     `, [reply.chatId, reply.repliedToMessageId]);
     if (visitorLink.rowCount) {
@@ -78,6 +90,11 @@ export async function POST(request: NextRequest) {
         `, [reply.updateId, reply.chatId, reply.messageId, messageId]);
         return true;
       });
+      if (created) {
+        await sendTelegramReplyConfirmation(`visitor ${visitorLink.rows[0].visitor_session_id.slice(0, 8)}`).catch(() => undefined);
+      } else {
+        await sendTelegramRoutingHelp().catch(() => undefined);
+      }
       return NextResponse.json({ ok: true, created, visitorChat: true });
     }
 
@@ -136,6 +153,8 @@ export async function POST(request: NextRequest) {
       `, [reply.updateId, reply.chatId, reply.messageId, messageId]);
       return true;
     });
+    if (created) await sendTelegramReplyConfirmation("the selected member conversation").catch(() => undefined);
+    else await sendTelegramRoutingHelp().catch(() => undefined);
     return NextResponse.json({ ok: true, created });
   } catch (error) {
     console.error("Telegram website-chat reply failed", error);
