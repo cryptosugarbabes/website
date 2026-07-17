@@ -303,11 +303,11 @@ body .filter-bar .select-field > span { font-size: .7rem !important; }
 .base-symbol { background: #3154f5; color: white; }.solana-symbol { background: linear-gradient(135deg,#9b5cff,#26e5b6); color: #0d0a11; }
 .access-card > small { display: block; text-align: center; color: #756874; font-size: 8px; margin-top: 15px; }
 
-.safety-section { max-width: 1200px; margin: 0 auto 100px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 60px 0; display: grid; grid-template-columns: 70px 1fr 1.2fr auto; gap: 30px; align-items: center; }
+.safety-section { max-width: 1200px; margin: 0 auto 100px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 60px 0; display: grid; grid-template-columns: 70px 1fr 1.2fr; gap: 30px; align-items: center; }
 .safety-mark { width: 58px; height: 58px; border: 1px solid rgba(214,178,118,.25); color: var(--gold); border-radius: 50%; display: grid; place-items: center; }
 .safety-section h2 { margin: 7px 0 0; font-size: 30px; }
 .safety-section > p { color: var(--muted); font-size: 11px; line-height: 1.7; }
-.safety-section > a { color: var(--gold); font-size: 11px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.safety-copy > a { color: var(--gold); font-size: 13px; display: inline-flex; align-items: center; gap: 9px; margin-top: 18px; white-space: nowrap; }
 
 footer { max-width: 1200px; margin: 0 auto; padding: 0 0 45px; display: flex; align-items: center; justify-content: space-between; color: #716671; font-size: 10px; }
 footer .footer-copyright { margin: 0; font-size: .95rem !important; line-height: 1.4; }
@@ -498,7 +498,6 @@ body .photo-field > label small { font-size: .68rem !important; line-height: 1.3
   .access-card { max-width: 450px; }
   .safety-section { margin: 0 35px 80px; grid-template-columns: 70px 1fr; }
   .safety-section > p { grid-column: 1 / -1; }
-  .safety-section > a { grid-column: 1 / -1; }
   footer { margin: 0 35px; }
   .profile-modal { grid-template-columns: 1fr; max-height: 92vh; overflow-y: auto; }
   .modal-visual { min-height: 270px; }
