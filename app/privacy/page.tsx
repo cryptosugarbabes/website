@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     eyebrow="YOUR PRIVACY"
     title="Privacy Policy"
     intro="This policy explains what information Crypto Sugar Babes handles, why we use it, and the choices available to you."
-    updated="15 July 2026"
+    updated="17 July 2026"
     sections={[
       {
         title: "1. Information we collect",
@@ -47,23 +47,30 @@ export default function PrivacyPage() {
       },
       {
         title: "5. Retention and security",
-        paragraphs: ["We retain information for as long as reasonably needed to provide the service, protect users, resolve disputes, meet accounting or legal obligations, and prevent repeat abuse. We use access controls, encrypted transport, administrator moderation tools, and operational backups, but no internet service can guarantee absolute security."]
+        paragraphs: [
+          "We retain information for as long as reasonably needed to provide the service, protect users, resolve disputes, meet accounting or legal obligations, and prevent repeat abuse. We use access controls, encrypted transport, administrator moderation tools, and operational backups, but no internet service can guarantee absolute security.",
+          "Platform messages are encrypted in storage but are not end-to-end encrypted. The service must be able to decrypt messages for delivery and may permit specifically authorised administrators to open a conversation for safety, support, dispute handling, moderation, or legal compliance. Administrators must state a reason, and the identity, reason, conversation, and access time are recorded in an audit log."
+        ]
       },
       {
-        title: "6. Your choices and rights",
+        title: "6. Automated assistants",
+        paragraphs: ["Selected creator profiles may use a clearly labelled preset automated assistant. These assistants choose from administrator-configured responses and may send a fallback when no preset matches. An automated reply is not necessarily written or reviewed by the creator at the time it is sent. Unmatched questions may be flagged for later creator or administrator review. We do not use an external generative-AI service for these preset replies."]
+      },
+      {
+        title: "7. Your choices and rights",
         paragraphs: ["Depending on your location, you may have rights to access, correct, delete, restrict, or obtain a copy of personal information, or object to certain uses. Some records may be retained where legally required or necessary for safety and fraud prevention. Public blockchain data is outside our control."],
       },
       {
-        title: "7. Adults only",
+        title: "8. Adults only",
         paragraphs: ["The platform is intended only for adults aged 18 or older who have reached the legal age of majority where they live. We do not knowingly permit minors to use the service. Report suspected underage use immediately."],
         action: { label: "Report suspected underage use", href: "mailto:email@cryptosugarbabes.com?subject=Urgent%20underage%20use%20report" }
       },
       {
-        title: "8. International use and updates",
+        title: "9. International use and updates",
         paragraphs: ["Your information may be processed in countries other than your own. We may update this policy as the platform develops and will post the revised date on this page."],
       },
       {
-        title: "9. Contact",
+        title: "10. Contact",
         paragraphs: ["Contact us with privacy questions, rights requests, or safety concerns."],
         action: { label: "Email Crypto Sugar Babes", href: "mailto:email@cryptosugarbabes.com?subject=Privacy%20request" }
       }

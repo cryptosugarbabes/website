@@ -6,6 +6,7 @@ import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-sec
 import { decryptMessage, encryptMessage, messageHash } from "@/lib/message-crypto";
 import { sendNewMessageEmail } from "@/lib/email-auth";
 import { FREE_UNANSWERED_MESSAGES, MESSAGE_UNLOCK_DAYS, unansweredMessageState } from "@/lib/message-limits";
+import { BotRule, selectBotResponse } from "@/lib/bot-response-library";
 
 type ConversationRow = {
   id: string;
@@ -32,7 +33,24 @@ type MessageRow = {
   status: string;
   boost_amount_usdc: string;
   boosted_at: Date | null;
+  is_automated: boolean;
+  automation_matched: boolean | null;
   created_at: Date;
+};
+
+type BotSettingRow = {
+  creator_user_id: string;
+  disclosure_label: string;
+  fallback_response: string;
+};
+
+type BotRuleRow = {
+  id: string;
+  label: string;
+  match_phrases: string[];
+  response: string;
+  priority: number;
+  enabled: boolean;
 };
 
 type MessageUnlockRow = {
@@ -55,7 +73,7 @@ class MessageGateError extends Error {
 function consecutiveMessagesFromSender(messages: MessageRow[], senderUserId: string) {
   let count = 0;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index].status === "MODERATED") continue;
+    if (messages[index].status === "MODERATED" || messages[index].is_automated) continue;
     if (messages[index].sender_user_id !== senderUserId) break;
     count += 1;
   }
@@ -104,7 +122,7 @@ export async function GET(request: NextRequest) {
     const ids = conversations.rows.map((row) => row.id);
     const messages = ids.length ? await query<MessageRow>(`
       SELECT id, conversation_id, sender_user_id, body, body_ciphertext, body_iv, body_tag, status,
-        boost_amount_usdc::text, boosted_at, created_at
+        boost_amount_usdc::text, boosted_at, is_automated, automation_matched, created_at
       FROM messages
       WHERE conversation_id = ANY($1::uuid[])
       ORDER BY created_at
@@ -156,6 +174,8 @@ export async function GET(request: NextRequest) {
           body: decryptMessage(message),
           mine: message.sender_user_id === account.id,
           status: message.status,
+          automated: message.is_automated,
+          automationMatched: message.automation_matched,
           boostAmountUsdc: Number(message.boost_amount_usdc),
           boostedAt: message.boosted_at,
           createdAt: message.created_at
@@ -263,7 +283,8 @@ export async function POST(request: NextRequest) {
         WHERE m.conversation_id = $1 AND m.sender_user_id = $2 AND m.status <> 'MODERATED'
           AND m.created_at > COALESCE((
             SELECT max(reply.created_at) FROM messages reply
-            WHERE reply.conversation_id = $1 AND reply.sender_user_id = $3 AND reply.status <> 'MODERATED'
+            WHERE reply.conversation_id = $1 AND reply.sender_user_id = $3
+              AND reply.status <> 'MODERATED' AND reply.is_automated = FALSE
           ), to_timestamp(0))
       `, [conversationId, account.id, counterpartUserId]);
       const consecutiveMessages = Number(unanswered.rows[0]?.count || 0);
@@ -333,12 +354,60 @@ export async function POST(request: NextRequest) {
             updated_at = now()
         WHERE id = $2
       `, [account.id, creatorProfileId]);
+
+      let botReply: { id: string; body: string; label: string; matched: boolean; createdAt: Date } | null = null;
+      if (account.account_type === "CUSTOMER") {
+        const settings = await client.query<BotSettingRow>(`
+          SELECT creator_user_id, disclosure_label, fallback_response
+          FROM creator_bot_settings
+          WHERE creator_user_id = $1 AND enabled = TRUE
+        `, [counterpartUserId]);
+        if (settings.rowCount) {
+          const rules = await client.query<BotRuleRow>(`
+            SELECT id, label, match_phrases, response, priority, enabled
+            FROM creator_bot_rules
+            WHERE creator_user_id = $1 AND enabled = TRUE
+            ORDER BY priority, created_at
+          `, [counterpartUserId]);
+          const response = selectBotResponse(body, rules.rows.map((rule): BotRule => ({
+            id: rule.id,
+            label: rule.label,
+            matchPhrases: rule.match_phrases,
+            response: rule.response,
+            priority: rule.priority,
+            enabled: rule.enabled
+          })), settings.rows[0].fallback_response);
+          const automatedId = randomUUID();
+          const automatedEncrypted = encryptMessage(response.response);
+          const automatedCreatedAt = new Date();
+          await client.query(`
+            INSERT INTO messages (
+              id, conversation_id, sender_user_id, body, body_ciphertext, body_iv, body_tag, body_hash,
+              is_automated, automation_source_message_id, automation_rule_label, automation_matched, created_at
+            ) VALUES ($1, $2, $3, '[encrypted]', $4, $5, $6, $7, TRUE, $8, $9, $10, $11)
+          `, [automatedId, conversationId, counterpartUserId, automatedEncrypted.ciphertext, automatedEncrypted.iv,
+            automatedEncrypted.tag, automatedEncrypted.hash, id, response.label, response.matched, automatedCreatedAt]);
+          await client.query(`UPDATE conversations SET updated_at = $2 WHERE id = $1`, [conversationId, automatedCreatedAt]);
+          await client.query(`
+            UPDATE profiles SET messages_sent = messages_sent + 1, updated_at = now()
+            WHERE id = $1
+          `, [creatorProfileId]);
+          botReply = {
+            id: automatedId,
+            body: response.response,
+            label: settings.rows[0].disclosure_label,
+            matched: response.matched,
+            createdAt: automatedCreatedAt
+          };
+        }
+      }
       return {
         id,
         conversationId,
         recipientEmail: counterpart.rows[0].email,
         senderName: sender.rows[0]?.display_name || "A member",
         shouldNotify: Boolean(unread.rows[0]?.should_notify),
+        botReply,
         automatedNotice: consecutiveMessages === FREE_UNANSWERED_MESSAGES - 1
           ? "Your third unanswered message was sent. Please wait for a reply before sending another, or use the weekly paid-message option."
           : paidUnlockId
@@ -353,7 +422,7 @@ export async function POST(request: NextRequest) {
         console.error("New message email could not be sent", error);
       }
     }
-    return NextResponse.json({ id: result.id, conversationId: result.conversationId, body, automatedNotice: result.automatedNotice, createdAt: new Date().toISOString() });
+    return NextResponse.json({ id: result.id, conversationId: result.conversationId, body, automatedNotice: result.automatedNotice, botReply: result.botReply, createdAt: new Date().toISOString() });
   } catch (error) {
     if (error instanceof MessageGateError) {
       const warning = error.code === "UNANSWERED_WARNING";
