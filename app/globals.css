@@ -310,6 +310,7 @@ body .filter-bar .select-field > span { font-size: .7rem !important; }
 .safety-section > a { color: var(--gold); font-size: 11px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 
 footer { max-width: 1200px; margin: 0 auto; padding: 0 0 45px; display: flex; align-items: center; justify-content: space-between; color: #716671; font-size: 10px; }
+footer .footer-copyright { margin: 0; font-size: .95rem !important; line-height: 1.4; }
 footer .brand { color: #b7aab2; }
 footer > .footer-links { display: flex; gap: 24px; }
 footer .instagram-link, footer .x-link { width: 30px; height: 30px; }
