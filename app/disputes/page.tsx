@@ -3,7 +3,8 @@ import { LegalPage } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Disputes & Transaction Reports — Crypto Sugar Babes",
-  description: "How to report a transaction, profile, safety, or conduct dispute to Crypto Sugar Babes."
+  description: "How to report a transaction, profile, safety, or conduct dispute to Crypto Sugar Babes.",
+  alternates: { canonical: "/disputes" },
 };
 
 export default function DisputesPage() {

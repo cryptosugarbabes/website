@@ -3,7 +3,8 @@ import { LegalPage } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Terms of Use — Crypto Sugar Babes",
-  description: "Terms governing access to and use of Crypto Sugar Babes."
+  description: "Terms governing access to and use of Crypto Sugar Babes.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

@@ -150,3 +150,23 @@ export async function sendAdminMonitoredMessageEmail(input: {
     `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:28px;font-weight:500">A monitored account received a message.</h1><p style="color:#c8b8c0"><strong>${safeRecipient}</strong> received a new message from <strong>${safeSender}</strong>.</p><p style="color:#8f7d87;font-size:13px">Recipient ID: ${escapeHtml(input.recipientUserId)}<br>Conversation ID: ${escapeHtml(input.conversationId)}</p><p style="color:#8f7d87;font-size:13px">For privacy, message contents are not included. Opening a transcript in the Operations console requires a reason and is recorded in the audit log.</p><a href="https://cryptosugarbabes.com/admin" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open Operations console</a>`
   );
 }
+
+export async function sendAdminVisitorChatEmail(input: {
+  kind: "PRESENCE" | "MESSAGE";
+  sessionId: string;
+  pagePath: string;
+}) {
+  const recipients = administratorAlertEmails();
+  if (!recipients.length) return;
+  const shortSession = input.sessionId.slice(0, 8);
+  const pagePath = input.pagePath.replace(/[\r\n]+/g, " ").slice(0, 500) || "/";
+  const presence = input.kind === "PRESENCE";
+  await sendEmail(
+    recipients.join(","),
+    presence ? "A visitor is on the Crypto Sugar website" : "New anonymous website-chat message",
+    presence
+      ? `A visitor opened the website chat on ${pagePath}. Visitor chat ${shortSession}. Open the administrator Conversations page or Telegram to respond.`
+      : `A visitor sent a new website-chat message. Visitor chat ${shortSession}. Open the administrator Conversations page or Telegram to read and respond.`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:28px;font-weight:500">${presence ? "A visitor is on the website." : "A visitor sent a chat message."}</h1><p style="color:#c8b8c0">Visitor chat <strong>${escapeHtml(shortSession)}</strong>${presence ? ` opened on <strong>${escapeHtml(pagePath)}</strong>` : " has a new message"}.</p><p style="color:#8f7d87;font-size:13px">Message contents are not included in email. Use the administrator dashboard or private Telegram bot to respond.</p><a href="https://cryptosugarbabes.com/admin" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open visitor chats</a>`
+  );
+}

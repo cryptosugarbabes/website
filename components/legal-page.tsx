@@ -52,7 +52,7 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: {
       </article>
       <footer className="legal-footer">
         <div className="legal-footer-brand"><span>© 2026 Crypto Sugar Babes. Safety First Always.</span><InstagramLink/><XLink/></div>
-        <nav><Link href="/safety">Safety</Link><Link href="/disputes">Disputes</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
+        <nav><Link href="/how-it-works">How it works</Link><Link href="/crypto-safety">Crypto safety</Link><Link href="/forums">Forums</Link><Link href="/safety">Safety</Link><Link href="/disputes">Disputes</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
       </footer>
     </main>
   );

@@ -25,6 +25,8 @@ Administrators can also search and open conversations from the Conversations pag
 
 Every website-chat message sends a content-free administrator email notification, regardless of the per-account Telegram setting. Set `ADMIN_MESSAGE_ALERT_EMAILS` to the dedicated notification mailbox; when it is absent, the application falls back to `ADMIN_EMAILS`.
 
+Logged-out visitors receive a floating support chat across public website pages. A signed, HTTP-only browser cookie identifies the anonymous conversation without creating a member account. After a short on-page delay, the administrator email and unlocked private Telegram bot receive a rate-limited presence alert. Visitor messages are encrypted in storage and can be answered from Telegram or the audited **Visitor Chat** page in the administrator console. Telegram and dashboard replies appear in the visitor's open chat within a few seconds.
+
 ## Identity and access
 
 - Email sign-in creates a private account without a password or wallet.

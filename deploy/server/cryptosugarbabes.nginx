@@ -2,7 +2,22 @@ server {
     listen 80;
     listen [::]:80;
 
-    server_name cryptosugarbabes.com www.cryptosugarbabes.com;
+    server_name www.cryptosugarbabes.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://cryptosugarbabes.com$request_uri;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    server_name cryptosugarbabes.com;
 
     client_max_body_size 12m;
 

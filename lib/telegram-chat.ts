@@ -267,3 +267,42 @@ export async function sendTelegramMessageAlert(input: {
   `, [config.chatId, String(botMessageId), input.conversationId, input.recipientUserId, input.sourceMessageId]);
   return true;
 }
+
+export async function sendTelegramVisitorAlert(input: {
+  sessionId: string;
+  sourceMessageId?: string;
+  pagePath: string;
+  body?: string;
+}) {
+  const config = telegramConfig();
+  if (!config || !await telegramSessionIsUnlocked(config.chatId)) return false;
+  const shortSession = input.sessionId.slice(0, 8);
+  const text = input.body
+    ? [
+        `New visitor chat · ${shortSession}`,
+        "",
+        input.body,
+        "",
+        "Reply directly to answer the visitor on the website."
+      ].join("\n")
+    : [
+        `Visitor on website · ${shortSession}`,
+        `Page: ${input.pagePath || "/"}`,
+        "",
+        "Reply directly to greet this visitor in the website chat."
+      ].join("\n");
+  const result = await telegramApi("sendMessage", {
+    chat_id: config.chatId,
+    text,
+    disable_web_page_preview: true
+  });
+  const botMessageId = result?.result?.message_id;
+  if (!Number.isSafeInteger(botMessageId)) throw new Error("TELEGRAM_SEND_FAILED:NO_MESSAGE_ID");
+  await query(`
+    INSERT INTO visitor_chat_telegram_links
+      (telegram_chat_id, bot_message_id, visitor_session_id, source_message_id)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (telegram_chat_id, bot_message_id) DO NOTHING
+  `, [config.chatId, String(botMessageId), input.sessionId, input.sourceMessageId || null]);
+  return true;
+}

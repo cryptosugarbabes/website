@@ -3,7 +3,8 @@ import { LegalPage } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Crypto Sugar Babes",
-  description: "How Crypto Sugar Babes collects, uses, protects, and retains personal information."
+  description: "How Crypto Sugar Babes collects, uses, protects, and retains personal information.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {
@@ -11,7 +12,7 @@ export default function PrivacyPage() {
     eyebrow="YOUR PRIVACY"
     title="Privacy Policy"
     intro="This policy explains what information Crypto Sugar Babes handles, why we use it, and the choices available to you."
-    updated="17 July 2026"
+    updated="18 July 2026"
     sections={[
       {
         title: "1. Information we collect",
@@ -21,6 +22,7 @@ export default function PrivacyPage() {
           "Profile details such as display name, age, location, biography, interests, and uploaded photographs.",
           "Publication, moderation, support, safety-report, and account-status records.",
           "Technical information such as IP address, browser type, device information, timestamps, and basic security logs.",
+          "Anonymous visitor-chat messages, the page where chat was opened, a hashed network identifier used for rate limiting, and administrator or Telegram replies.",
           "When paid features launch, transaction identifiers, amounts, ledger entries, creator balances, and payout records."
         ]
       },
@@ -30,6 +32,7 @@ export default function PrivacyPage() {
           "Authenticate users and protect accounts without collecting wallet private keys or recovery phrases.",
           "Create, review, publish, and manage profiles and photographs.",
           "Operate conversations, favorites, paid interactions, creator earnings, and platform fees when those features are available.",
+          "Notify administrators that an anonymous visitor is on the website and deliver visitor support conversations through the administrator dashboard, email, and the configured private Telegram bot.",
           "Prevent fraud, abuse, coercion, trafficking, underage access, and other prohibited conduct.",
           "Respond to support requests, enforce our terms, and comply with lawful obligations."
         ]

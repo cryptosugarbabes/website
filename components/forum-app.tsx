@@ -140,8 +140,7 @@ export default function ForumApp() {
       setCreateOpen(false);
       setTitle("");
       setBody("");
-      await loadForum();
-      await openTopic(data.id);
+      window.location.href = `/forums/${encodeURIComponent(data.id)}`;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Your discussion could not be published.");
     } finally {
@@ -174,7 +173,7 @@ export default function ForumApp() {
   return <main className="forum-shell">
     <header className="site-header forum-site-header">
       <div className="brand-social"><a className="brand" href="/" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div>
-      <nav aria-label="Main navigation"><a href="/#how-it-works">How it works</a><a className="forum-nav-current" href="/forums">Forums</a></nav>
+      <nav aria-label="Main navigation"><a href="/how-it-works">How it works</a><a className="forum-nav-current" href="/forums">Forums</a></nav>
       <div className="header-actions">
         {authenticated ? <><a className="text-button dashboard-link" href="/dashboard">Dashboard</a><a className="wallet-button connected" href="/dashboard"><span className="online-dot"/>{account?.displayName || memberLabel(account?.type || null)}</a></> : <a className="wallet-button" href="/?signin=1">Sign in</a>}
       </div>
@@ -195,11 +194,11 @@ export default function ForumApp() {
         <div className="forum-grid">
           <section className="forum-topic-list" aria-live="polite">
             <div className="forum-list-heading"><div><span>COMMUNITY DISCUSSIONS</span><h2>{selectedCategory === "all" ? "Latest conversations" : categories.find((item) => item.id === selectedCategory)?.name}</h2></div><button onClick={requestParticipation}>New topic</button></div>
-            {loading ? <div className="forum-empty">Opening the forum…</div> : filteredTopics.length ? filteredTopics.map((topic) => <button className="forum-topic-row" key={topic.id} onClick={() => openTopic(topic.id).catch((caught) => setError(caught instanceof Error ? caught.message : "Discussion unavailable."))}>
+            {loading ? <div className="forum-empty">Opening the forum…</div> : filteredTopics.length ? filteredTopics.map((topic) => <a className="forum-topic-row" href={`/forums/${topic.id}`} key={topic.id}>
               <span className="forum-avatar">{topic.authorName.slice(0, 1).toUpperCase()}</span>
               <span className="forum-topic-copy"><span className="forum-topic-meta">{topic.pinned && <b>PINNED</b>}{topic.categoryName}</span><strong>{topic.title}</strong><small>{topic.excerpt}</small><span>By {topic.authorName} · {memberLabel(topic.authorType)}</span></span>
               <span className="forum-topic-activity"><strong>{topic.replyCount}</strong><span>{topic.replyCount === 1 ? "reply" : "replies"}</span><small>{dateLabel(topic.lastActivityAt)}</small></span>
-            </button>) : <div className="forum-empty"><strong>No discussions here yet.</strong><span>Be the first member to begin one.</span><button onClick={requestParticipation}>Start a discussion</button></div>}
+            </a>) : <div className="forum-empty"><strong>No discussions here yet.</strong><span>Be the first member to begin one.</span><button onClick={requestParticipation}>Start a discussion</button></div>}
           </section>
 
           <aside className="forum-sidebar">
@@ -227,6 +226,6 @@ export default function ForumApp() {
 
     {createOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateOpen(false); }}><section className="forum-create-modal" role="dialog" aria-modal="true" aria-labelledby="new-topic-title"><button className="modal-close" onClick={() => setCreateOpen(false)} aria-label="Close">×</button><span>NEW DISCUSSION</span><h2 id="new-topic-title">Start a conversation.</h2><form onSubmit={createTopic}><label>Category<select required value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label>Title<input required minLength={5} maxLength={140} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What would you like to discuss?"/></label><label>Your post<textarea required minLength={10} maxLength={4000} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Share the details, invite perspectives and keep it respectful…"/></label><button disabled={busy}>{busy ? "Publishing…" : "Publish discussion"}</button></form></section></div>}
 
-    <footer className="forum-footer"><div className="brand-social"><a className="brand" href="/"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div><span>© 2026 Crypto Sugar Babes. Safety First Always.</span><nav><a href="/safety">Safety</a><a href="/disputes">Disputes</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></nav></footer>
+    <footer className="forum-footer"><div className="brand-social"><a className="brand" href="/"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div><span>© 2026 Crypto Sugar Babes. Safety First Always.</span><nav><a href="/crypto-safety">Crypto safety</a><a href="/safety">Safety</a><a href="/disputes">Disputes</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></nav></footer>
   </main>;
 }

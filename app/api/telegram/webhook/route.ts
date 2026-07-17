@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { transaction } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { encryptMessage } from "@/lib/message-crypto";
 import {
   handleTelegramAccessCommand,
@@ -45,6 +45,42 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const visitorLink = await query(`
+      SELECT 1 FROM visitor_chat_telegram_links
+      WHERE telegram_chat_id = $1 AND bot_message_id = $2
+    `, [reply.chatId, reply.repliedToMessageId]);
+    if (visitorLink.rowCount) {
+      const created = await transaction(async (client) => {
+        const processed = await client.query(`
+          SELECT 1 FROM visitor_telegram_webhook_updates WHERE update_id = $1
+        `, [reply.updateId]);
+        if (processed.rowCount) return false;
+        const link = await client.query<{ visitor_session_id: string }>(`
+          SELECT l.visitor_session_id
+          FROM visitor_chat_telegram_links l
+          JOIN visitor_chat_sessions s ON s.id = l.visitor_session_id AND s.status = 'OPEN'
+          WHERE l.telegram_chat_id = $1 AND l.bot_message_id = $2
+          FOR UPDATE OF s
+        `, [reply.chatId, reply.repliedToMessageId]);
+        if (!link.rowCount) return false;
+        const encrypted = encryptMessage(reply.body);
+        const messageId = randomUUID();
+        await client.query(`
+          INSERT INTO visitor_chat_messages
+            (id, session_id, sender, body, body_ciphertext, body_iv, body_tag, admin_actor)
+          VALUES ($1, $2, 'ADMIN', '[encrypted]', $3, $4, $5, $6)
+        `, [messageId, link.rows[0].visitor_session_id, encrypted.ciphertext, encrypted.iv, encrypted.tag, `telegram:${reply.senderId}`]);
+        await client.query(`UPDATE visitor_chat_sessions SET last_seen_at = now() WHERE id = $1`, [link.rows[0].visitor_session_id]);
+        await client.query(`
+          INSERT INTO visitor_telegram_webhook_updates
+            (update_id, telegram_chat_id, telegram_message_id, visitor_message_id)
+          VALUES ($1, $2, $3, $4)
+        `, [reply.updateId, reply.chatId, reply.messageId, messageId]);
+        return true;
+      });
+      return NextResponse.json({ ok: true, created, visitorChat: true });
+    }
+
     const created = await transaction(async (client) => {
       const processed = await client.query(`
         SELECT 1 FROM telegram_webhook_updates WHERE update_id = $1

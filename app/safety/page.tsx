@@ -3,7 +3,8 @@ import { LegalPage } from "@/components/legal-page";
 
 export const metadata: Metadata = {
   title: "Safety — Crypto Sugar Babes",
-  description: "Safety expectations and reporting information for Crypto Sugar Babes."
+  description: "Safety expectations and reporting information for Crypto Sugar Babes.",
+  alternates: { canonical: "/safety" },
 };
 
 export default function SafetyPage() {
