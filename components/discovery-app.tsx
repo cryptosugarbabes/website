@@ -240,6 +240,8 @@ export function DiscoveryApp() {
       if (data.chain) setWalletName(data.chain === "solana" ? "Solana" : "Base");
       if (data.authenticated) await Promise.all([loadAccount(true), loadFavorites()]);
       const params = new URLSearchParams(window.location.search);
+      if (params.get("signin") === "1" && !data.authenticated) showEmailSignIn();
+      if (params.get("account") === "1" && data.authenticated) setAccountOpen(true);
       if (params.get("connectPayout") === "1" && data.authenticated && !data.address) {
         const requestedNetwork = params.get("network") === "solana" ? "solana" : params.get("network") === "evm" ? "evm" : null;
         showWalletPicker("general", requestedNetwork);
@@ -976,7 +978,7 @@ export function DiscoveryApp() {
 
       <header className="site-header">
         <div className="brand-social"><a className="brand" href="/" aria-label="Crypto Sugar Babes home"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div>
-        <nav aria-label="Main navigation"><a href="#how-it-works">How it works</a></nav>
+        <nav aria-label="Main navigation"><a href="/#how-it-works">How it works</a><a href="/forums">Forums</a></nav>
         <div className="header-actions">
           {!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
           {isAuthenticated && <a className="text-button dashboard-link" href="/dashboard">Dashboard</a>}
