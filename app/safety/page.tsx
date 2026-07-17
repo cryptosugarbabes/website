@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function SafetyPage() {
   return <LegalPage
     eyebrow="SAFETY IS THE PRODUCT"
-    title="Adults only. Consent always."
+    title="Adults only. Respect always."
     intro="Private discovery works only when boundaries, honesty, and personal safety come first."
     updated="15 July 2026"
     sections={[
