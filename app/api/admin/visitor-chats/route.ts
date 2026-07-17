@@ -66,10 +66,10 @@ export async function POST(request: NextRequest) {
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const input = await request.json().catch(() => null) as { action?: string; sessionId?: string; reason?: string; body?: string } | null;
   const sessionId = typeof input?.sessionId === "string" ? input.sessionId : "";
-  const reason = typeof input?.reason === "string" ? input.reason.trim().slice(0, 500) : "";
-  if (!sessionId || reason.length < 5) return NextResponse.json({ error: "Choose a visitor chat and enter an audited reason." }, { status: 400 });
+  if (!sessionId) return NextResponse.json({ error: "Choose a visitor chat." }, { status: 400 });
 
   if (input?.action === "OPEN") {
+    const reason = "Opened from the visitor chat dashboard";
     try {
       const session = await query<{ id: string; status: string; page_path: string; created_at: Date; last_seen_at: Date }>(`
         SELECT id, status, page_path, created_at, last_seen_at
