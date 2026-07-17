@@ -1050,7 +1050,7 @@ export function DiscoveryApp() {
         <div className="steps-grid">
           <div className="step-card"><span className="step-number">01</span><Icon name="user" size={26}/><h3>Join with email</h3><p>Sign in with a private one-time code. No password or wallet is required to create a profile or message.</p></div>
           <div className="step-card"><span className="step-number">02</span><Icon name="user" size={26}/><h3>Create your profile</h3><p>Introduce yourself, add your style and interests, then publish instantly. Creators are never charged to publish.</p></div>
-          <div className="step-card"><span className="step-number">03</span><Icon name="message" size={26}/><h3>Follow the chemistry</h3><p>Discover privately, favorite discreetly, and begin conversations with clear intentions and boundaries.</p></div>
+          <div className="step-card"><span className="step-number">03</span><Icon name="message" size={26}/><h3>Sugar with Crypto</h3><p>Send likes for crypto, send gifts in crypto, raise your profiles as a Sugar Daddy when you give and a Sugar Babe when you receive.</p></div>
         </div>
       </section>
 
