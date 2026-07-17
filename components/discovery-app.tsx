@@ -96,6 +96,7 @@ const iconPaths: Record<string, React.ReactNode> = {
   spark: <><path d="m12 3 1.4 4.1L17.5 8.5l-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4L12 3Z"/><path d="m18 15 .8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8L18 15Z"/></>,
   lock: <><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
   globe: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></>,
+  mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></>,
   user: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>,
   message: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></>,
   camera: <><path d="M4 8h3l1.5-2h7L17 8h3v11H4V8Z"/><circle cx="12" cy="13" r="3.5"/></>,
@@ -1050,7 +1051,7 @@ export function DiscoveryApp() {
       <section className="steps-section" id="how-it-works">
         <div className="section-heading compact"><div><span className="section-kicker">DESIRE, WITH STANDARDS</span><h2>Private by design. Free to join.</h2></div></div>
         <div className="steps-grid">
-          <div className="step-card"><span className="step-number">01</span><Icon name="user" size={26}/><h3>Join with email</h3><p>Sign in with a private one-time code. No password or wallet is required to create a profile or message.</p></div>
+          <div className="step-card"><span className="step-number">01</span><Icon name="mail" size={26}/><h3>Join with email</h3><p>Sign in with a private one-time code. No password or wallet is required to create a profile or message.</p></div>
           <div className="step-card"><span className="step-number">02</span><Icon name="user" size={26}/><h3>Create your profile</h3><p>Introduce yourself, add your style and interests, then publish instantly. Creators are never charged to publish.</p></div>
           <div className="step-card"><span className="step-number">03</span><Icon name="message" size={26}/><h3>Sugar with Crypto</h3><p>Send likes for crypto, send gifts in crypto, raise your profiles as a Sugar Daddy when you give and a Sugar Babe when you receive.</p></div>
         </div>
