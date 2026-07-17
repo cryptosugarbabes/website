@@ -84,6 +84,16 @@ const emptyProfile = {
   interests: ""
 };
 
+const walletSetupLinks = [
+  { name: "MetaMask", network: "Base", mark: "M", tone: "metamask", href: "https://metamask.io/download/" },
+  { name: "Binance", network: "Base", mark: "B", tone: "binance", href: "https://www.binance.com/en/web3wallet" },
+  { name: "Trust", network: "Base", mark: "T", tone: "trust", href: "https://trustwallet.com/download" },
+  { name: "Rabby", network: "Base", mark: "R", tone: "rabby", href: "https://rabby.io/" },
+  { name: "Coinbase", network: "Base", mark: "C", tone: "coinbase", href: "https://wallet.coinbase.com/" },
+  { name: "Solflare", network: "Solana", mark: "S", tone: "solflare", href: "https://www.solflare.com/" },
+  { name: "Phantom", network: "Solana", mark: "P", tone: "phantom", href: "https://phantom.com/download" }
+] as const;
+
 const iconPaths: Record<string, React.ReactNode> = {
   compass: <><circle cx="12" cy="12" r="9"/><path d="m15.2 8.8-2 4.4-4.4 2 2-4.4 4.4-2Z"/></>,
   search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
@@ -1072,6 +1082,28 @@ export function DiscoveryApp() {
       <section className="crypto-section">
         <div className="crypto-copy"><span className="section-kicker">Recognition in USDC</span><h2>Likes. Gifts. Respect.</h2><p>{basePaymentsLive ? "Creators can join by email, publish up to eight photos free, and message for free. Connect Base or Solana to send or receive paid likes, gifts, and boosts." : "Creators can join by email, publish up to eight photos free, and message for free. Connect Solana to send or receive paid likes, gifts, and boosts. Base wallets currently support sign-in and free messaging while atomic Base settlement is activated."}</p><ul><li><Icon name="check" size={16}/>{basePaymentsLive ? "Base wallets: live Base USDC payments" : "Base wallets: sign-in and free messaging"}</li><li><Icon name="check" size={16}/>Solflare and Phantom: live Solana USDC payments</li><li><Icon name="check" size={16}/>Profiles and messages work without a wallet</li><li><Icon name="check" size={16}/>{basePaymentsLive ? "Atomic 90/10 creator and platform settlement" : "Base USDC payments unlock after splitter activation"}</li></ul></div>
         <div className="access-card"><div className="access-orbit"><Icon name="spark" size={28}/></div><span>FREE MEMBERSHIP</span><h3>Make an entrance.</h3><p>Create a private draft, preview it instantly, and submit it for review when you are ready.</p><div className="access-networks"><button type="button" onClick={() => { setWalletError(""); showWalletPicker("general", "evm"); }}><i className="base-symbol">B</i><span>{basePaymentsLive ? "Base payments" : "Base sign-in"}</span><Icon name="arrow" size={15}/></button><button type="button" onClick={() => { setWalletError(""); showWalletPicker("general", "solana"); }}><i className="solana-symbol">S</i><span>Solana payments</span><Icon name="arrow" size={15}/></button></div>{hasCreatorProfile || accountType === "CUSTOMER" ? <a className="primary-button full" href="/dashboard">{hasCreatorProfile ? "Manage your profile" : "Open your dashboard"} <Icon name="arrow" size={18}/></a> : <button className="primary-button full" onClick={openProfileCreator}>Create your profile <Icon name="arrow" size={18}/></button>}<small>No profile fees. No boost charges. No recovery phrase—ever.</small></div>
+      </section>
+
+      <section className="wallet-setup-section" id="wallet-security" aria-labelledby="wallet-setup-title">
+        <div className="wallet-setup-heading">
+          <h2 id="wallet-setup-title">Safe and Secure</h2>
+          <p>Setup a secure wallet.</p>
+        </div>
+        <div className="wallet-setup-carousel" aria-label="Official wallet setup links">
+          <div className="wallet-setup-track">
+            {[false, true].map((duplicate) => (
+              <div className="wallet-setup-group" aria-hidden={duplicate ? true : undefined} key={duplicate ? "wallets-copy" : "wallets-primary"}>
+                {walletSetupLinks.map((wallet) => (
+                  <a className="wallet-setup-card" href={wallet.href} target="_blank" rel="noopener noreferrer" tabIndex={duplicate ? -1 : undefined} key={`${wallet.name}-${duplicate ? "copy" : "primary"}`}>
+                    <span className={`wallet-brand-mark wallet-brand-${wallet.tone}`} aria-hidden="true">{wallet.mark}</span>
+                    <span className="wallet-card-copy"><strong>{wallet.name}</strong><small>{wallet.network}</small></span>
+                    <Icon name="arrow" size={17}/>
+                  </a>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="safety-section" id="safety"><div className="safety-mark"><Icon name="shield" size={31}/></div><div className="safety-copy"><span className="section-kicker">SAFETY IS THE PRODUCT</span><h2>Adults only. Respect always.</h2><a href="mailto:email@cryptosugarbabes.com?subject=Safety%20report">Contact safety <Icon name="arrow" size={17}/></a></div><p>Crypto Sugar is designed for lawful social discovery and companionship. Coercion, trafficking, underage users, non-consensual content, extortion, and unlawful activity are prohibited and subject to removal.</p></section>
