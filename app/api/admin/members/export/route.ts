@@ -9,7 +9,7 @@ type MemberRow = {
   status: string;
   display_name: string | null;
   created_at: Date;
-  email_verified_at: Date;
+  email_verified_at: Date | null;
 };
 
 export async function GET(request: NextRequest) {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       FROM users u
       LEFT JOIN profiles p ON p.user_id = u.id
       LEFT JOIN customer_profiles cp ON cp.user_id = u.id
-      WHERE u.email IS NOT NULL AND u.email_verified_at IS NOT NULL
+      WHERE u.email IS NOT NULL
       ORDER BY u.created_at DESC
     `);
     const lines = [
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         member.status,
         member.display_name || "",
         member.created_at.toISOString(),
-        member.email_verified_at.toISOString()
+        member.email_verified_at?.toISOString() || "Not verified"
       ]))
     ];
     const date = new Date().toISOString().slice(0, 10);

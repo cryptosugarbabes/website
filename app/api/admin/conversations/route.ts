@@ -11,10 +11,7 @@ type ConversationRow = {
   customer_email: string | null;
   customer_wallet: string | null;
   message_count: string;
-  automated_count: string;
-  review_needed_count: string;
   report_count: string;
-  bot_enabled: boolean;
   updated_at: Date;
 };
 
@@ -31,10 +28,7 @@ export async function GET(request: NextRequest) {
         customer.email AS customer_email,
         customer.wallet_address AS customer_wallet,
         count(DISTINCT m.id)::text AS message_count,
-        count(DISTINCT m.id) FILTER (WHERE m.is_automated)::text AS automated_count,
-        count(DISTINCT m.id) FILTER (WHERE m.is_automated AND m.automation_matched = FALSE)::text AS review_needed_count,
         count(DISTINCT r.id)::text AS report_count,
-        COALESCE(bot.enabled, FALSE) AS bot_enabled,
         c.updated_at
       FROM conversations c
       JOIN profiles p ON p.id = c.creator_profile_id
@@ -43,11 +37,10 @@ export async function GET(request: NextRequest) {
       LEFT JOIN customer_profiles cp ON cp.user_id = customer.id
       LEFT JOIN messages m ON m.conversation_id = c.id
       LEFT JOIN safety_reports r ON r.conversation_id = c.id
-      LEFT JOIN creator_bot_settings bot ON bot.creator_user_id = creator.id
       WHERE $1 = '' OR concat_ws(' ', c.id::text, p.display_name, creator.email, creator.wallet_address,
         cp.display_name, customer.email, customer.wallet_address) ILIKE '%' || $1 || '%'
       GROUP BY c.id, p.display_name, creator.email, creator.wallet_address, cp.display_name,
-        customer.email, customer.wallet_address, bot.enabled, c.updated_at
+        customer.email, customer.wallet_address, c.updated_at
       ORDER BY c.updated_at DESC
       LIMIT 250
     `, [search]);
@@ -61,10 +54,7 @@ export async function GET(request: NextRequest) {
         customerEmail: row.customer_email,
         customerWallet: row.customer_wallet,
         messageCount: Number(row.message_count),
-        automatedCount: Number(row.automated_count),
-        reviewNeededCount: Number(row.review_needed_count),
         reportCount: Number(row.report_count),
-        botEnabled: row.bot_enabled,
         updatedAt: row.updated_at
       }))
     });

@@ -53,24 +53,20 @@ export default function PrivacyPage() {
         ]
       },
       {
-        title: "6. Automated assistants",
-        paragraphs: ["Selected creator profiles may use a clearly labelled preset automated assistant. These assistants choose from administrator-configured responses and may send a fallback when no preset matches. An automated reply is not necessarily written or reviewed by the creator at the time it is sent. Unmatched questions may be flagged for later creator or administrator review. We do not use an external generative-AI service for these preset replies."]
-      },
-      {
-        title: "7. Your choices and rights",
+        title: "6. Your choices and rights",
         paragraphs: ["Depending on your location, you may have rights to access, correct, delete, restrict, or obtain a copy of personal information, or object to certain uses. Some records may be retained where legally required or necessary for safety and fraud prevention. Public blockchain data is outside our control."],
       },
       {
-        title: "8. Adults only",
+        title: "7. Adults only",
         paragraphs: ["The platform is intended only for adults aged 18 or older who have reached the legal age of majority where they live. We do not knowingly permit minors to use the service. Report suspected underage use immediately."],
         action: { label: "Report suspected underage use", href: "mailto:email@cryptosugarbabes.com?subject=Urgent%20underage%20use%20report" }
       },
       {
-        title: "9. International use and updates",
+        title: "8. International use and updates",
         paragraphs: ["Your information may be processed in countries other than your own. We may update this policy as the platform develops and will post the revised date on this page."],
       },
       {
-        title: "10. Contact",
+        title: "9. Contact",
         paragraphs: ["Contact us with privacy questions, rights requests, or safety concerns."],
         action: { label: "Email Crypto Sugar Babes", href: "mailto:email@cryptosugarbabes.com?subject=Privacy%20request" }
       }

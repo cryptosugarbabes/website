@@ -78,19 +78,15 @@ export default function TermsPage() {
         ]
       },
       {
-        title: "10. Automated assistants",
-        paragraphs: ["Selected creator profiles may use a visibly labelled preset automated assistant. Automated messages may be sent immediately without the creator reading the incoming message. They use administrator-configured trigger phrases and responses rather than an external generative-AI service. They may misunderstand a message or use a fallback response and must not be treated as confirmation of a meeting, arrangement, payment, identity, availability, or promise by the creator."]
-      },
-      {
-        title: "11. Suspension and termination",
+        title: "10. Suspension and termination",
         paragraphs: ["We may restrict features, withhold processing of suspected unlawful activity where technically and legally possible, suspend access, or terminate accounts to protect users, comply with law, investigate risk, or enforce these terms. You may stop using the service at any time and request deletion of eligible personal information."]
       },
       {
-        title: "12. Disclaimers and responsibility between users",
+        title: "11. Disclaimers and responsibility between users",
         paragraphs: ["To the maximum extent permitted by law, the platform is provided without guarantees of continuous availability or that users, profiles, communications, or outcomes will be accurate, safe, lawful, or suitable. Users remain responsible for their own communications, meetings, payments, decisions, and arrangements. Nothing in these terms excludes rights or liability that cannot lawfully be excluded."]
       },
       {
-        title: "13. Changes and contact",
+        title: "12. Changes and contact",
         paragraphs: ["We may update these terms as the service develops. Material changes will be posted with a revised date. Continued use after an update takes effect means you accept the revised terms, to the extent permitted by law."],
         action: { label: "Email legal and safety", href: "mailto:email@cryptosugarbabes.com?subject=Terms%20or%20safety%20question" }
       }

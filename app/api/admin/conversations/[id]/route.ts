@@ -13,9 +13,6 @@ type MessageRow = {
   body_iv: string | null;
   body_tag: string | null;
   status: string;
-  is_automated: boolean;
-  automation_rule_label: string | null;
-  automation_matched: boolean | null;
   boost_amount_usdc: string;
   created_at: Date;
 };
@@ -45,8 +42,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     `, [id]);
     if (!conversation.rowCount) return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
     const messages = await query<MessageRow>(`
-      SELECT id, sender_user_id, body, body_ciphertext, body_iv, body_tag, status, is_automated,
-        automation_rule_label, automation_matched, boost_amount_usdc::text, created_at
+      SELECT id, sender_user_id, body, body_ciphertext, body_iv, body_tag, status,
+        boost_amount_usdc::text, created_at
       FROM messages WHERE conversation_id = $1 ORDER BY created_at
     `, [id]);
     await query(`
@@ -68,9 +65,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         senderName: message.sender_user_id === details.creator_user_id ? details.creator_name : details.customer_name,
         body: decryptMessage(message),
         status: message.status,
-        automated: message.is_automated,
-        automationRuleLabel: message.automation_rule_label,
-        automationMatched: message.automation_matched,
         boostAmountUsdc: Number(message.boost_amount_usdc),
         createdAt: message.created_at
       }))

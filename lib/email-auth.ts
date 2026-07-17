@@ -119,3 +119,30 @@ export async function sendNewMessageEmail(email: string, senderName?: string | n
     `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:30px;font-weight:500">You have a new private message.</h1><p style="color:#c8b8c0"><strong>${safeName}</strong> sent you a message on Crypto Sugar Babes.</p><p style="color:#8f7d87;font-size:13px">For privacy, the message itself is only shown inside your secure inbox.</p><a href="https://cryptosugarbabes.com/dashboard#messages" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open your inbox</a>`
   );
 }
+
+function administratorAlertEmails() {
+  return [...new Set((process.env.ADMIN_MESSAGE_ALERT_EMAILS || process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => normalizeEmail(email))
+    .filter((email): email is string => Boolean(email)))];
+}
+
+export async function sendAdminMonitoredMessageEmail(input: {
+  recipientName: string;
+  recipientUserId: string;
+  senderName: string;
+  conversationId: string;
+}) {
+  const recipients = administratorAlertEmails();
+  if (!recipients.length) return;
+  const recipientName = input.recipientName.replace(/[\r\n]+/g, " ").trim() || "Monitored member";
+  const senderName = input.senderName.replace(/[\r\n]+/g, " ").trim() || "A member";
+  const safeRecipient = escapeHtml(recipientName);
+  const safeSender = escapeHtml(senderName);
+  await sendEmail(
+    recipients.join(","),
+    `Message received by monitored account: ${recipientName}`,
+    `${recipientName} received a new private message from ${senderName}. Conversation ID: ${input.conversationId}. Message contents are not included in this notification. Open the audited Operations console if review is required.`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:28px;font-weight:500">A monitored account received a message.</h1><p style="color:#c8b8c0"><strong>${safeRecipient}</strong> received a new message from <strong>${safeSender}</strong>.</p><p style="color:#8f7d87;font-size:13px">Recipient ID: ${escapeHtml(input.recipientUserId)}<br>Conversation ID: ${escapeHtml(input.conversationId)}</p><p style="color:#8f7d87;font-size:13px">For privacy, message contents are not included. Opening a transcript in the Operations console requires a reason and is recorded in the audit log.</p><a href="https://cryptosugarbabes.com/admin" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open Operations console</a>`
+  );
+}
