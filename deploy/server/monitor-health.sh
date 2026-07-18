@@ -89,6 +89,16 @@ deliver_alert() {
   fi
 }
 
+if [ "${1:-}" = "--test-alert" ]; then
+  TEST_MESSAGE="Crypto Sugar monitoring test: Telegram and email alert delivery is working."
+  TEST_FAILURES=0
+  send_telegram "$TEST_MESSAGE" || { echo "Telegram test alert failed."; TEST_FAILURES=$((TEST_FAILURES + 1)); }
+  send_email "$TEST_MESSAGE" || { echo "Email test alert failed."; TEST_FAILURES=$((TEST_FAILURES + 1)); }
+  if [ "$TEST_FAILURES" -gt 0 ]; then exit 1; fi
+  echo "Telegram and email monitoring test alerts were delivered."
+  exit 0
+fi
+
 PREVIOUS_STATUS="UNKNOWN"
 PREVIOUS_ALERT=0
 if [ -f "$STATE_FILE" ]; then read -r PREVIOUS_STATUS PREVIOUS_ALERT < "$STATE_FILE" || true; fi

@@ -14,7 +14,7 @@ EXPORT_ROOT="${APP_ROOT}/shared/offsite-export"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y postgresql postgresql-client awscli
+apt-get install -y postgresql postgresql-client
 systemctl enable --now postgresql
 mkdir -p "$UPLOAD_ROOT" "$BACKUP_ROOT" "$EXPORT_ROOT"
 chown -R cryptosugar:cryptosugar "${APP_ROOT}/shared"
