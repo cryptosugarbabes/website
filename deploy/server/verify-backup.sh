@@ -19,5 +19,5 @@ runuser -u postgres -- createdb "$TEST_DATABASE"
 gzip -dc "$DATABASE_BACKUP" | runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d "$TEST_DATABASE" >/dev/null
 runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d "$TEST_DATABASE" -Atqc \
   "SELECT 'users=' || count(*) FROM users; SELECT 'profiles=' || count(*) FROM profiles; SELECT 'messages=' || count(*) FROM messages;"
+touch "$BACKUP_ROOT/.last-restore-success"
 echo "Backup restore verification passed: $(basename "$DATABASE_BACKUP")"
-

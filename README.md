@@ -46,7 +46,9 @@ Logged-out visitors receive a floating support chat across public website pages.
 - An administrator reviews profiles at `/admin` and can remove or restore profiles and photographs at any time.
 - Production uploads live under `/opt/cryptosugarbabes/shared/uploads`, outside release folders, so deployments do not remove them.
 
-The current storage uses the existing Droplet disk and does not require DigitalOcean Spaces. Database dumps run daily and are retained for 14 days. `BACKUP_S3_URI` can be configured for an additional encrypted offsite copy; local disk alone cannot protect against complete Droplet loss.
+The current storage uses the existing Droplet disk. Database dumps run daily and are retained locally for 14 days. Each daily database and uploads archive is also encrypted on the VPS and transferred to a private GitHub Actions artifact with 30-day retention; the recovery key is held separately from the artifact. S3-compatible storage remains available through `BACKUP_S3_URI` and standard AWS credentials. Monitoring sends throttled failures and recovery notices directly to the private Telegram chat and administrator email using the existing bot and SMTP credentials.
+
+Privacy-conscious product analytics store aggregate event names and page paths only—never IP addresses, device fingerprints, message contents, email addresses, or wallet addresses. The administrator overview combines those events with existing account, conversation, message, and payment totals for a 30-day funnel. Unhandled browser and server errors are deduplicated with personal identifiers removed, shown in the administrator overview, and retained for 90 days.
 
 ## Creator economy rules
 

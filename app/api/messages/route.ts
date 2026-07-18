@@ -7,6 +7,7 @@ import { decryptMessage, encryptMessage, messageHash } from "@/lib/message-crypt
 import { sendAdminMonitoredMessageEmail, sendNewMessageEmail } from "@/lib/email-auth";
 import { FREE_UNANSWERED_MESSAGES, MESSAGE_UNLOCK_DAYS, unansweredMessageState } from "@/lib/message-limits";
 import { sendTelegramMessageAlert, telegramBridgeIsConfigured } from "@/lib/telegram-chat";
+import { reportApplicationError } from "@/lib/observability";
 
 type ConversationRow = {
   id: string;
@@ -423,6 +424,7 @@ export async function POST(request: NextRequest) {
     if (message === "CONVERSATION_LIMIT") return NextResponse.json({ error: "You have reached the new-conversation limit for today. Try again later." }, { status: 429 });
     if (message === "MESSAGE_LIMIT") return NextResponse.json({ error: "You are sending messages too quickly. Pause before trying again." }, { status: 429 });
     if (message === "SPAM_DETECTED") return NextResponse.json({ error: "That message looks repetitive or contains too many links." }, { status: 422 });
+    await reportApplicationError("messages:send", error);
     console.error("Message send failed", error);
     return NextResponse.json({ error: "Your message could not be sent." }, { status: 503 });
   }

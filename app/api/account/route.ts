@@ -4,6 +4,7 @@ import { accountForSession, AccountType, ensureUser } from "@/lib/accounts";
 import { transaction } from "@/lib/db";
 import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 import { acceptanceComplete, CURRENT_PRIVACY_VERSION, CURRENT_TERMS_VERSION } from "@/lib/legal-acceptance";
+import { reportApplicationError } from "@/lib/observability";
 
 function text(value: unknown, maximum: number) {
   return typeof value === "string" ? value.trim().slice(0, maximum) : "";
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
       } : null
     });
   } catch (error) {
+    await reportApplicationError("account:load", error);
     console.error("Account load failed", error);
     return NextResponse.json({ error: "Your account could not be loaded." }, { status: 503 });
   }
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === "ACCOUNT_TYPE_LOCKED") {
       return NextResponse.json({ error: "This account already has a different account type." }, { status: 409 });
     }
+    await reportApplicationError("account:save", error);
     console.error("Account save failed", error);
     return NextResponse.json({ error: "Your account could not be saved." }, { status: 503 });
   }

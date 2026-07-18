@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+import { ObservabilityClient } from "@/components/observability-client";
 import { VisitorChatBubble } from "@/components/visitor-chat-bubble";
 import "./globals.css";
 
@@ -32,7 +33,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}<VisitorChatBubble/></body>
+      <body>{children}<ObservabilityClient/><VisitorChatBubble/></body>
     </html>
   );
 }

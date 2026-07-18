@@ -6,6 +6,7 @@ import { query, transaction } from "@/lib/db";
 import { decimalToMicros, microsToDecimal, paidLikePriceMicros, splitPaymentMicros } from "@/lib/payment-math";
 import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
 import { FREE_UNANSWERED_MESSAGES, MESSAGE_UNLOCK_DAYS, MESSAGE_UNLOCK_USDC_MICROS } from "@/lib/message-limits";
+import { reportApplicationError } from "@/lib/observability";
 
 type PaymentKind = "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST" | "MESSAGE_UNLOCK";
 type CreatorRow = {
@@ -169,6 +170,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof Error && error.message === "MESSAGE_UNLOCK_WEEKLY_LIMIT") return NextResponse.json({ error: "The weekly paid-message option has already been used or is ready for this conversation." }, { status: 409 });
     if (error instanceof Error && error.message === "MESSAGE_UNLOCK_PENDING") return NextResponse.json({ error: "A message-unlock payment is already awaiting wallet approval. Wait for it to expire before starting another." }, { status: 409 });
+    await reportApplicationError("payments:quote", error);
     console.error("Payment quote failed", error);
     return NextResponse.json({ error: "A secure payment quote could not be created." }, { status: 503 });
   }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { emailCodeHash, normalizeEmail, safeHashEqual, sendWelcomeEmail } from "@/lib/email-auth";
 import { clientAddress, takeRateLimit } from "@/lib/rate-limit";
+import { reportApplicationError } from "@/lib/observability";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 import { createEmailSessionToken } from "@/lib/session";
 
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
       try {
         await sendWelcomeEmail(email);
       } catch (error) {
+        await reportApplicationError("email:welcome", error);
         console.error("Welcome email could not be sent", error);
       }
     }
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
     }
     if (message === "CODE_EXPIRED") return NextResponse.json({ error: "That code has expired or has already been used." }, { status: 410 });
     if (message === "ACCOUNT_SUSPENDED") return NextResponse.json({ error: "This account is suspended. Contact safety support if you believe this is an error." }, { status: 403 });
+    await reportApplicationError("auth:email-verify", error);
     console.error("Email verification failed", error);
     return NextResponse.json({ error: "Your email could not be verified." }, { status: 503 });
   }

@@ -10,6 +10,7 @@ import { query, transaction } from "@/lib/db";
 import { PAYMENT_CONFIG } from "@/lib/payment-config";
 import { transferFallsWithinQuoteWindow } from "@/lib/payment-validation";
 import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
+import { reportApplicationError } from "@/lib/observability";
 
 type QuoteRow = {
   id: string;
@@ -208,9 +209,10 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ confirmed: true, quoteId: quote.id, kind: quote.kind });
   } catch (error) {
-    console.error("Payment confirmation failed", error);
     if (error instanceof Error && error.message === "QUOTE_NO_LONGER_PAYABLE") return NextResponse.json({ error: "That quote is no longer payable." }, { status: 409 });
     if (typeof error === "object" && error && "code" in error && error.code === "23505") return NextResponse.json({ error: "That blockchain transaction has already been used." }, { status: 409 });
+    await reportApplicationError("payments:confirm", error);
+    console.error("Payment confirmation failed", error);
     return NextResponse.json({ error: "That payment could not be confirmed safely." }, { status: 503 });
   }
 }

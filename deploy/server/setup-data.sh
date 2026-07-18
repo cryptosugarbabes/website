@@ -10,14 +10,21 @@ APP_ROOT="/opt/cryptosugarbabes"
 ENV_FILE="${APP_ROOT}/shared/.env"
 UPLOAD_ROOT="${APP_ROOT}/shared/uploads"
 BACKUP_ROOT="${APP_ROOT}/shared/backups"
+EXPORT_ROOT="${APP_ROOT}/shared/offsite-export"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y postgresql postgresql-client
+apt-get install -y postgresql postgresql-client awscli
 systemctl enable --now postgresql
-mkdir -p "$UPLOAD_ROOT" "$BACKUP_ROOT"
+mkdir -p "$UPLOAD_ROOT" "$BACKUP_ROOT" "$EXPORT_ROOT"
 chown -R cryptosugar:cryptosugar "${APP_ROOT}/shared"
 chmod 700 "$UPLOAD_ROOT" "$BACKUP_ROOT"
+if id -u cryptodeploy >/dev/null 2>&1; then
+  chown root:cryptodeploy "$EXPORT_ROOT"
+  chmod 0770 "$EXPORT_ROOT"
+else
+  chmod 0700 "$EXPORT_ROOT"
+fi
 
 if ! grep -q '^POSTGRES_PASSWORD=' "$ENV_FILE"; then
   DB_PASSWORD="$(openssl rand -hex 24)"
@@ -29,6 +36,13 @@ UPLOAD_ROOT=${UPLOAD_ROOT}
 APP_ORIGIN=https://cryptosugarbabes.com
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 EOF
+fi
+
+if ! grep -q '^BACKUP_ENCRYPTION_KEY=' "$ENV_FILE"; then
+  printf 'BACKUP_ENCRYPTION_KEY=%s\n' "$(openssl rand -hex 32)" >> "$ENV_FILE"
+fi
+if ! grep -q '^BACKUP_EXPORT_ENABLED=' "$ENV_FILE"; then
+  printf 'BACKUP_EXPORT_ENABLED=1\n' >> "$ENV_FILE"
 fi
 
 set -a
@@ -46,6 +60,7 @@ fi
 
 install -m 0750 /tmp/cryptosugarbabes-bootstrap/backup-data.sh /usr/local/sbin/cryptosugar-backup
 install -m 0750 /tmp/cryptosugarbabes-bootstrap/verify-backup.sh /usr/local/sbin/cryptosugar-verify-backup
+install -m 0750 /tmp/cryptosugarbabes-bootstrap/monitor-health.sh /usr/local/sbin/cryptosugar-monitor
 install -m 0644 /tmp/cryptosugarbabes-bootstrap/cryptosugar-backup.cron /etc/cron.d/cryptosugar-backup
 
 echo "Persistent database, uploads, and local backups are ready."

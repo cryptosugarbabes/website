@@ -34,7 +34,7 @@ export default function TermsPage() {
       },
       {
         title: "4. Account roles and visibility",
-        paragraphs: ["Creator accounts may submit a public profile for review. Customer accounts remain private and are not shown in public creator discovery. Account roles do not change these terms or permit unlawful conduct."]
+        paragraphs: ["Creator accounts may submit a public profile. Profiles and photos can appear after submission and are reviewed regularly. Customer accounts remain private and are not shown in public creator discovery. Account roles do not change these terms or permit unlawful conduct."]
       },
       {
         title: "5. Profiles, review, and user content",

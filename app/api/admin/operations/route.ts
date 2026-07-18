@@ -4,11 +4,12 @@ import { adminIdentity, isAdminRequest } from "@/lib/admin-session";
 import { query, transaction } from "@/lib/db";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 import { acceptanceComplete, type AcceptanceRecord } from "@/lib/legal-acceptance";
+import { reportApplicationError } from "@/lib/observability";
 
 export async function GET(request: NextRequest) {
   if (!isAdminRequest(request)) return NextResponse.json({ error: "Administrator access required." }, { status: 401 });
   try {
-    const [metrics, accounts, payments, audit] = await Promise.all([
+    const [metrics, accounts, payments, audit, funnel, errors] = await Promise.all([
       query<{
         accounts: string; creators: string; customers: string; pending_profiles: string;
         open_reports: string; confirmed_payments: string; gross_usdc: string;
@@ -74,9 +75,36 @@ export async function GET(request: NextRequest) {
         LEFT JOIN profiles p ON p.user_id = u.id
         LEFT JOIN customer_profiles cp ON cp.user_id = u.id
         ORDER BY a.created_at DESC LIMIT 200
+      `),
+      query<{
+        page_views: string; sign_in_opens: string; email_code_requests: string;
+        email_verifications: string; roles_chosen: string; profiles_submitted: string;
+        conversations_started: string; messages_sent: string; payments_started: string;
+        payments_confirmed: string;
+      }>(`
+        SELECT
+          (SELECT count(*) FROM product_events WHERE event_name = 'PAGE_VIEW' AND created_at >= now() - interval '30 days')::text AS page_views,
+          (SELECT count(*) FROM product_events WHERE event_name = 'SIGN_IN_OPENED' AND created_at >= now() - interval '30 days')::text AS sign_in_opens,
+          (SELECT count(*) FROM email_auth_challenges WHERE created_at >= now() - interval '30 days')::text AS email_code_requests,
+          (SELECT count(*) FROM users WHERE email_verified_at >= now() - interval '30 days')::text AS email_verifications,
+          (SELECT count(*) FROM users WHERE adult_attested_at >= now() - interval '30 days')::text AS roles_chosen,
+          (SELECT count(*) FROM profiles WHERE created_at >= now() - interval '30 days')::text AS profiles_submitted,
+          (SELECT count(*) FROM conversations WHERE created_at >= now() - interval '30 days')::text AS conversations_started,
+          (SELECT count(*) FROM messages WHERE created_at >= now() - interval '30 days')::text AS messages_sent,
+          (SELECT count(*) FROM payment_quotes WHERE created_at >= now() - interval '30 days')::text AS payments_started,
+          ((SELECT count(*) FROM support_events WHERE created_at >= now() - interval '30 days')
+            + (SELECT count(*) FROM message_unlocks WHERE created_at >= now() - interval '30 days'))::text AS payments_confirmed
+      `),
+      query<{ id: string; scope: string; message: string; occurrences: string; first_seen_at: Date; last_seen_at: Date }>(`
+        SELECT id, scope, message, occurrences::text, first_seen_at, last_seen_at
+        FROM application_errors
+        WHERE last_seen_at >= now() - interval '30 days'
+        ORDER BY last_seen_at DESC
+        LIMIT 20
       `)
     ]);
     const summary = metrics.rows[0];
+    const funnelSummary = funnel.rows[0];
     return NextResponse.json({
       metrics: {
         accounts: Number(summary.accounts), creators: Number(summary.creators), customers: Number(summary.customers),
@@ -106,9 +134,22 @@ export async function GET(request: NextRequest) {
       audit: audit.rows.map((item) => ({
         id: item.id, action: item.action, note: item.note, createdAt: item.created_at,
         displayName: item.display_name, email: item.email, actorEmail: item.actor_email
+      })),
+      funnel: {
+        days: 30,
+        pageViews: Number(funnelSummary.page_views), signInOpens: Number(funnelSummary.sign_in_opens),
+        emailCodeRequests: Number(funnelSummary.email_code_requests), emailVerifications: Number(funnelSummary.email_verifications),
+        rolesChosen: Number(funnelSummary.roles_chosen), profilesSubmitted: Number(funnelSummary.profiles_submitted),
+        conversationsStarted: Number(funnelSummary.conversations_started), messagesSent: Number(funnelSummary.messages_sent),
+        paymentsStarted: Number(funnelSummary.payments_started), paymentsConfirmed: Number(funnelSummary.payments_confirmed)
+      },
+      recentErrors: errors.rows.map((item) => ({
+        id: item.id, scope: item.scope, message: item.message, occurrences: Number(item.occurrences),
+        firstSeenAt: item.first_seen_at, lastSeenAt: item.last_seen_at
       }))
     });
   } catch (error) {
+    await reportApplicationError("admin:operations-load", error);
     console.error("Admin operations load failed", error);
     return NextResponse.json({ error: "Operations data is temporarily unavailable." }, { status: 503 });
   }

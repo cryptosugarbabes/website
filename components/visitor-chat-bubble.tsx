@@ -18,7 +18,7 @@ export function VisitorChatBubble() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [unread, setUnread] = useState(0);
-  const dismissedAutoOpen = useRef(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const knownAdminMessages = useRef(0);
 
   useEffect(() => {
@@ -59,9 +59,6 @@ export function VisitorChatBubble() {
     if (!enabled) { setOpen(false); return; }
     const start = window.setTimeout(() => {
       openSession()
-        .then(() => {
-          if (!dismissedAutoOpen.current) setOpen(true);
-        })
         .catch((caught) => setError(caught instanceof Error ? caught.message : "Chat is unavailable."));
     }, 2500);
     return () => window.clearTimeout(start);
@@ -97,17 +94,18 @@ export function VisitorChatBubble() {
 
   if (!enabled) return null;
   return <div className="visitor-chat-shell">
-    {open && <section className="visitor-chat-panel" role="dialog" aria-label="Website visitor chat">
-      <header><div><strong>Chat with us</strong><span><i/>Private website support</span></div><button type="button" onClick={() => { dismissedAutoOpen.current = true; setOpen(false); }} aria-label="Close visitor chat">×</button></header>
+    {open && <section className="visitor-chat-panel" role="dialog" aria-modal="false" aria-label="Website visitor chat">
+      <header><div><strong>Chat with us</strong><span><i/>Private website support</span></div><button type="button" onClick={() => setOpen(false)} aria-label="Close visitor chat">×</button></header>
       <div className="visitor-chat-thread" aria-live="polite">
         {!messages.length && <div className="visitor-chat-welcome"><strong>Hello 👋</strong><p>Welcome to Crypto Sugar Babes. Ask us anything and an administrator can reply here.</p></div>}
         {messages.map((message) => <article className={message.mine ? "mine" : "admin"} key={message.id}><p>{message.body}</p><small>{new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></article>)}
       </div>
       {error && <p className="visitor-chat-error">{error}</p>}
-      <form onSubmit={send}><textarea required maxLength={800} value={body} onChange={(event) => setBody(event.target.value)} placeholder={ready ? "Type your message…" : "Connecting…"} disabled={!ready || busy}/><button disabled={!ready || busy || !body.trim()} aria-label="Send visitor chat message">{busy ? "…" : "➤"}</button></form>
+      <form onSubmit={send}><textarea aria-label="Message to website support" required maxLength={800} value={body} onChange={(event) => setBody(event.target.value)} placeholder={ready ? "Type your message…" : "Connecting…"} disabled={!ready || busy}/><button disabled={!ready || busy || !body.trim()} aria-label="Send visitor chat message">{busy ? "…" : "➤"}</button></form>
       <footer>Never share passwords, wallet keys, or recovery phrases.</footer>
     </section>}
-    <button className="visitor-chat-launcher" type="button" onClick={() => { setOpen((current) => !current); setUnread(0); }} aria-label={open ? "Close website chat" : "Open website chat"}>
+    {!open && ready && !nudgeDismissed && unread === 0 && <button className="visitor-chat-nudge" type="button" onClick={() => { setNudgeDismissed(true); setOpen(true); }}>Questions? Chat with us</button>}
+    <button className="visitor-chat-launcher" type="button" onClick={() => { setNudgeDismissed(true); setOpen((current) => !current); setUnread(0); }} aria-label={open ? "Close website chat" : "Open website chat"}>
       {open ? "×" : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>}
       {unread > 0 && <span>{unread > 9 ? "9+" : unread}</span>}
     </button>

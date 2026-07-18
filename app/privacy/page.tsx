@@ -22,6 +22,8 @@ export default function PrivacyPage() {
           "Profile details such as display name, age, location, biography, interests, and uploaded photographs.",
           "Publication, moderation, support, safety-report, and account-status records.",
           "Technical information such as IP address, browser type, device information, timestamps, and basic security logs.",
+          "Privacy-conscious product event counts, limited to the page path and actions such as opening sign-in or viewing a profile. These analytics do not store IP addresses, device fingerprints, message contents, email addresses, or wallet addresses.",
+          "Deduplicated application error reports with personal identifiers removed. Error reports contain a limited technical scope, sanitised error description, occurrence count, and timestamps.",
           "Anonymous visitor-chat messages, the page where chat was opened, a hashed network identifier used for rate limiting, and administrator or Telegram replies.",
           "When paid features launch, transaction identifiers, amounts, ledger entries, creator balances, and payout records."
         ]
@@ -52,7 +54,8 @@ export default function PrivacyPage() {
         title: "5. Retention and security",
         paragraphs: [
           "We retain information for as long as reasonably needed to provide the service, protect users, resolve disputes, meet accounting or legal obligations, and prevent repeat abuse. We use access controls, encrypted transport, administrator moderation tools, and operational backups, but no internet service can guarantee absolute security.",
-          "Platform messages are encrypted in storage but are not end-to-end encrypted. The service must be able to decrypt messages for delivery and may permit specifically authorised administrators to open a conversation for safety, support, dispute handling, moderation, or legal compliance. Administrators must state a reason, and the identity, reason, conversation, and access time are recorded in an audit log."
+          "Aggregate product events and deduplicated application errors are retained for 90 days before automatic deletion.",
+          "Platform messages are encrypted in storage but are not end-to-end encrypted. The service must be able to decrypt messages for delivery and may permit specifically authorised administrators to open a conversation for safety, support, dispute handling, moderation, or legal compliance. Access to a private member conversation requires a stated reason and creates an audit record. Anonymous visitor-support access is automatically logged with the administrator identity, conversation, and access time."
         ]
       },
       {

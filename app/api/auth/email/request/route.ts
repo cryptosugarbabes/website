@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { emailCodeHash, normalizeEmail, sendSignInCode } from "@/lib/email-auth";
 import { clientAddress, takeRateLimit } from "@/lib/rate-limit";
+import { reportApplicationError } from "@/lib/observability";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 
 export async function POST(request: NextRequest) {
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
     await sendSignInCode(email, code);
   } catch (error) {
     await query(`DELETE FROM email_auth_challenges WHERE id = $1`, [id]).catch(() => undefined);
+    await reportApplicationError("email:sign-in-code", error);
     console.error("Sign-in email failed", error);
     return NextResponse.json({ error: "Email sign-in is temporarily unavailable." }, { status: 503 });
   }

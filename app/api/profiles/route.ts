@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/accounts";
 import { authenticatedSession, requestHasTrustedOrigin } from "@/lib/request-security";
 import { isRegion } from "@/lib/regions";
 import { PAYMENT_CONFIG } from "@/lib/payment-config";
+import { reportApplicationError } from "@/lib/observability";
 
 type ProfileRow = {
   id: string;
@@ -203,6 +204,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === "CUSTOMER_PROFILE") {
       return NextResponse.json({ error: "Customer accounts stay private and cannot publish creator profiles." }, { status: 409 });
     }
+    await reportApplicationError("profile:save", error);
     console.error("Profile save failed", error);
     return NextResponse.json({ error: "Your profile could not be saved. Please try again." }, { status: 503 });
   }
