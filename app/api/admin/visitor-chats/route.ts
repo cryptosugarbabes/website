@@ -33,17 +33,23 @@ export async function GET(request: NextRequest) {
     const [sessions, counts] = await Promise.all([query<{
       id: string; status: string; page_path: string; created_at: Date; last_seen_at: Date;
       visitor_email: string | null; archived_at: Date | null;
+      member_user_id: string | null; member_email: string | null; member_account_type: string | null; member_display_name: string | null;
       message_count: string; visitor_message_count: string;
     }>(`
       SELECT s.id, s.status, s.page_path, s.created_at, s.last_seen_at,
         s.visitor_email, s.archived_at,
+        s.member_user_id, u.email AS member_email, u.account_type AS member_account_type,
+        COALESCE(p.display_name, cp.display_name) AS member_display_name,
         count(m.id)::text AS message_count,
         count(m.id) FILTER (WHERE m.sender = 'VISITOR')::text AS visitor_message_count
       FROM visitor_chat_sessions s
+      LEFT JOIN users u ON u.id = s.member_user_id
+      LEFT JOIN profiles p ON p.user_id = u.id
+      LEFT JOIN customer_profiles cp ON cp.user_id = u.id
       LEFT JOIN visitor_chat_messages m ON m.session_id = s.id
       WHERE ($1::boolean AND s.archived_at IS NOT NULL)
          OR (NOT ($1::boolean) AND s.archived_at IS NULL)
-      GROUP BY s.id
+      GROUP BY s.id, u.email, u.account_type, p.display_name, cp.display_name
       ORDER BY s.last_seen_at DESC
       LIMIT 250
     `, [archived]), query<{ inbox_count: string; archive_count: string }>(`
@@ -64,6 +70,10 @@ export async function GET(request: NextRequest) {
         pagePath: session.page_path,
         email: session.visitor_email,
         archivedAt: session.archived_at,
+        loggedIn: Boolean(session.member_user_id),
+        memberName: session.member_display_name,
+        memberEmail: session.member_email,
+        memberAccountType: session.member_account_type,
         messageCount: Number(session.message_count),
         visitorMessageCount: Number(session.visitor_message_count),
         createdAt: session.created_at,
@@ -72,7 +82,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Admin visitor chat list failed", error);
-    return NextResponse.json({ error: "Visitor chats could not be loaded." }, { status: 503 });
+    return NextResponse.json({ error: "Pop-up chats could not be loaded." }, { status: 503 });
   }
 }
 
@@ -82,16 +92,23 @@ export async function POST(request: NextRequest) {
   if (!requestHasTrustedOrigin(request)) return NextResponse.json({ error: "Untrusted request origin." }, { status: 403 });
   const input = await request.json().catch(() => null) as { action?: string; sessionId?: string; reason?: string; body?: string } | null;
   const sessionId = typeof input?.sessionId === "string" ? input.sessionId : "";
-  if (!sessionId) return NextResponse.json({ error: "Choose a visitor chat." }, { status: 400 });
+  if (!sessionId) return NextResponse.json({ error: "Choose a pop-up chat." }, { status: 400 });
 
   if (input?.action === "OPEN") {
-    const reason = "Opened from the visitor chat dashboard";
+    const reason = "Opened from the Pop-up Chat dashboard";
     try {
-      const session = await query<{ id: string; status: string; page_path: string; visitor_email: string | null; archived_at: Date | null; created_at: Date; last_seen_at: Date }>(`
-        SELECT id, status, page_path, visitor_email, archived_at, created_at, last_seen_at
-        FROM visitor_chat_sessions WHERE id = $1
+      const session = await query<{ id: string; status: string; page_path: string; visitor_email: string | null; archived_at: Date | null; member_user_id: string | null; member_email: string | null; member_account_type: string | null; member_display_name: string | null; created_at: Date; last_seen_at: Date }>(`
+        SELECT s.id, s.status, s.page_path, s.visitor_email, s.archived_at,
+          s.member_user_id, u.email AS member_email, u.account_type AS member_account_type,
+          COALESCE(p.display_name, cp.display_name) AS member_display_name,
+          s.created_at, s.last_seen_at
+        FROM visitor_chat_sessions s
+        LEFT JOIN users u ON u.id = s.member_user_id
+        LEFT JOIN profiles p ON p.user_id = u.id
+        LEFT JOIN customer_profiles cp ON cp.user_id = u.id
+        WHERE s.id = $1
       `, [sessionId]);
-      if (!session.rowCount) return NextResponse.json({ error: "Visitor chat not found." }, { status: 404 });
+      if (!session.rowCount) return NextResponse.json({ error: "Pop-up chat not found." }, { status: 404 });
       const messages = await query<VisitorAdminMessageRow>(`
         SELECT id, sender, body, body_ciphertext, body_iv, body_tag, admin_actor, created_at
         FROM visitor_chat_messages WHERE session_id = $1 ORDER BY created_at
@@ -107,6 +124,10 @@ export async function POST(request: NextRequest) {
           pagePath: session.rows[0].page_path,
           email: session.rows[0].visitor_email,
           archivedAt: session.rows[0].archived_at,
+          loggedIn: Boolean(session.rows[0].member_user_id),
+          memberName: session.rows[0].member_display_name,
+          memberEmail: session.rows[0].member_email,
+          memberAccountType: session.rows[0].member_account_type,
           createdAt: session.rows[0].created_at,
           lastSeenAt: session.rows[0].last_seen_at,
           shortId: sessionId.slice(0, 8),
@@ -117,7 +138,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error("Admin visitor chat open failed", error);
-      return NextResponse.json({ error: "The visitor chat could not be opened." }, { status: 503 });
+      return NextResponse.json({ error: "The pop-up chat could not be opened." }, { status: 503 });
     }
   }
 
@@ -140,11 +161,11 @@ export async function POST(request: NextRequest) {
         `, [randomUUID(), sessionId, archive ? "ARCHIVE" : "RESTORE", actor]);
         return true;
       });
-      if (!updated) return NextResponse.json({ error: "Visitor chat not found." }, { status: 404 });
+      if (!updated) return NextResponse.json({ error: "Pop-up chat not found." }, { status: 404 });
       return NextResponse.json({ ok: true, archived: archive });
     } catch (error) {
       console.error("Admin visitor chat archive update failed", error);
-      return NextResponse.json({ error: "The visitor chat could not be moved." }, { status: 503 });
+      return NextResponse.json({ error: "The pop-up chat could not be moved." }, { status: 503 });
     }
   }
 
@@ -170,12 +191,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, message });
     } catch (error) {
       if (error instanceof Error && error.message === "VISITOR_CHAT_NOT_FOUND") {
-        return NextResponse.json({ error: "This visitor chat is closed or unavailable." }, { status: 404 });
+        return NextResponse.json({ error: "This pop-up chat is closed or unavailable." }, { status: 404 });
       }
       console.error("Admin visitor chat reply failed", error);
       return NextResponse.json({ error: "The visitor reply could not be sent." }, { status: 503 });
     }
   }
 
-  return NextResponse.json({ error: "Unsupported visitor chat action." }, { status: 400 });
+  return NextResponse.json({ error: "Unsupported pop-up chat action." }, { status: 400 });
 }

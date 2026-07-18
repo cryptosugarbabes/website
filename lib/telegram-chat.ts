@@ -331,14 +331,17 @@ export async function sendTelegramVisitorAlert(input: {
   pagePath: string;
   body?: string;
   visitorEmail?: string | null;
+  loggedIn?: boolean;
 }) {
   const config = telegramConfig();
   if (!config || !await telegramSessionIsUnlocked(config.chatId)) return false;
   const shortSession = input.sessionId.slice(0, 8);
   const emailLine = input.visitorEmail ? [`Email: ${input.visitorEmail}`, ""] : [];
+  const accountLine = `Account status: ${input.loggedIn ? "Logged in" : "Guest"}`;
   const text = input.body
     ? [
-        `New visitor chat · ${shortSession}`,
+        `New pop-up chat · ${shortSession}`,
+        accountLine,
         "",
         ...emailLine,
         input.body,
@@ -347,7 +350,8 @@ export async function sendTelegramVisitorAlert(input: {
         `Admin dashboard: ${ADMIN_DASHBOARD_URL}`
       ].join("\n")
     : [
-        `Visitor on website · ${shortSession}`,
+        `${input.loggedIn ? "Logged-in member" : "Guest"} on website · ${shortSession}`,
+        accountLine,
         `Page: ${input.pagePath || "/"}`,
         "",
         ...emailLine,

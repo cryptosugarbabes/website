@@ -156,6 +156,7 @@ export async function sendAdminVisitorChatEmail(input: {
   sessionId: string;
   pagePath: string;
   visitorEmail?: string | null;
+  loggedIn?: boolean;
 }) {
   const recipients = administratorAlertEmails();
   if (!recipients.length) return;
@@ -163,6 +164,8 @@ export async function sendAdminVisitorChatEmail(input: {
   const pagePath = input.pagePath.replace(/[\r\n]+/g, " ").slice(0, 500) || "/";
   const presence = input.kind === "PRESENCE";
   const contact = input.kind === "CONTACT";
+  const person = input.loggedIn ? "logged-in member" : "visitor";
+  const personTitle = input.loggedIn ? "Logged-in member" : "Visitor";
   const visitorEmail = normalizeEmail(input.visitorEmail);
   const emailText = visitorEmail ? ` Visitor email: ${visitorEmail}.` : "";
   const emailHtml = visitorEmail
@@ -171,15 +174,15 @@ export async function sendAdminVisitorChatEmail(input: {
   await sendEmail(
     recipients.join(","),
     presence
-      ? "A visitor is on the Crypto Sugar website"
+      ? `${personTitle} on the Crypto Sugar website`
       : contact
-        ? "A website visitor shared their email address"
-        : "New website-chat message",
+        ? `${personTitle} shared their email address`
+        : `New pop-up chat message from a ${person}`,
     presence
-      ? `A visitor opened the website chat on ${pagePath}. Visitor chat ${shortSession}.${emailText} Open the administrator Visitor Chat page or Telegram to respond.`
+      ? `A ${person} opened the pop-up chat on ${pagePath}. Pop-up chat ${shortSession}.${emailText} Open the administrator Pop-up Chat page or Telegram to respond.`
       : contact
-        ? `Visitor chat ${shortSession} shared an email address.${emailText} Open the administrator Visitor Chat page to view the conversation.`
-        : `A visitor sent a new website-chat message. Visitor chat ${shortSession}.${emailText} Open the administrator Visitor Chat page or Telegram to read and respond.`,
-    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:28px;font-weight:500">${presence ? "A visitor is on the website." : contact ? "A visitor shared their email." : "A visitor sent a chat message."}</h1><p style="color:#c8b8c0">Visitor chat <strong>${escapeHtml(shortSession)}</strong>${presence ? ` opened on <strong>${escapeHtml(pagePath)}</strong>` : contact ? " added contact details" : " has a new message"}.</p>${emailHtml}<p style="color:#8f7d87;font-size:13px">Message contents are not included in email. Use the administrator dashboard or private Telegram bot to respond.</p><a href="https://cryptosugarbabes.com/admin" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open visitor chats</a>`
+        ? `Pop-up chat ${shortSession} shared an email address.${emailText} Open the administrator Pop-up Chat page to view the conversation.`
+        : `A ${person} sent a new pop-up chat message. Pop-up chat ${shortSession}.${emailText} Open the administrator Pop-up Chat page or Telegram to read and respond.`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:28px;font-weight:500">${presence ? `A ${person} is on the website.` : contact ? `A ${person} shared their email.` : `A ${person} sent a chat message.`}</h1><p style="color:#c8b8c0">Pop-up chat <strong>${escapeHtml(shortSession)}</strong>${presence ? ` opened on <strong>${escapeHtml(pagePath)}</strong>` : contact ? " added contact details" : " has a new message"}.</p><p style="color:#c8b8c0">Account status: <strong>${input.loggedIn ? "Logged in" : "Guest"}</strong></p>${emailHtml}<p style="color:#8f7d87;font-size:13px">Message contents are not included in email. Use the administrator dashboard or private Telegram bot to respond.</p><a href="https://cryptosugarbabes.com/admin" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open pop-up chats</a>`
   );
 }

@@ -1869,6 +1869,8 @@ body .email-auth-modal > .wallet-safety {
 .admin-conversation-list small { color: #958790; font-size: 11px !important; }
 .admin-conversation-list > article > div { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
 .admin-conversation-list > article > div span { border-radius: 999px; padding: 5px 8px; background: rgba(255,255,255,.05); color: #c8b8c1; font-size: 10px; }
+.admin-conversation-list > article > div span.logged-in { background: rgba(112,216,149,.11); color: #9be5b4; }
+.admin-conversation-list > article > div span.guest { background: rgba(224,186,120,.08); color: #d8bc89; }
 .admin-conversation-list .warning { color: #ff9eb2; background: rgba(210,76,106,.12); }
 .admin-conversation-list button,
 .admin-transcript button { border: 1px solid rgba(255,113,184,.45); border-radius: 999px; padding: 9px 13px; background: rgba(255,47,146,.1); color: #ff9ac9; cursor: pointer; }

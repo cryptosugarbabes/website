@@ -10,7 +10,7 @@ type VisitorChatMessage = {
 };
 
 type VisitorChatResponse = {
-  session?: { email?: string | null } | null;
+  session?: { email?: string | null; authenticated?: boolean } | null;
   messages?: VisitorChatMessage[];
   error?: string;
 };
@@ -23,6 +23,7 @@ export function VisitorChatBubble() {
   const [body, setBody] = useState("");
   const [email, setEmail] = useState("");
   const [savedEmail, setSavedEmail] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
   const [busy, setBusy] = useState(false);
   const [emailBusy, setEmailBusy] = useState(false);
   const [error, setError] = useState("");
@@ -31,12 +32,12 @@ export function VisitorChatBubble() {
   const knownAdminMessages = useRef(0);
 
   useEffect(() => {
-    const privateArea = ["/admin", "/dashboard"].some((path) => window.location.pathname.startsWith(path));
-    if (privateArea) return;
+    if (window.location.pathname.startsWith("/admin")) return;
+    setEnabled(true);
     fetch("/api/auth/session", { cache: "no-store" })
       .then((response) => response.json())
-      .then((data: { authenticated?: boolean }) => setEnabled(!data.authenticated))
-      .catch(() => setEnabled(true));
+      .then((data: { authenticated?: boolean }) => setAuthenticated(Boolean(data.authenticated)))
+      .catch(() => setAuthenticated(false));
   }, []);
 
   async function openSession() {
@@ -49,6 +50,7 @@ export function VisitorChatBubble() {
     if (!response.ok) throw new Error(data.error || "Chat is unavailable.");
     const next = data.messages || [];
     const visitorEmail = data.session?.email || "";
+    setAuthenticated(Boolean(data.session?.authenticated));
     setEmail(visitorEmail);
     setSavedEmail(visitorEmail);
     setMessages(next);
@@ -65,6 +67,7 @@ export function VisitorChatBubble() {
       setEmail(data.session.email);
       setSavedEmail(data.session.email);
     }
+    setAuthenticated(Boolean(data.session?.authenticated));
     const adminCount = next.filter((message) => !message.mine).length;
     if (adminCount > knownAdminMessages.current && !open) setUnread((count) => count + adminCount - knownAdminMessages.current);
     knownAdminMessages.current = adminCount;
@@ -128,8 +131,8 @@ export function VisitorChatBubble() {
 
   if (!enabled) return null;
   return <div className="visitor-chat-shell">
-    {open && <section className="visitor-chat-panel" role="dialog" aria-modal="false" aria-label="Website visitor chat">
-      <header><div><strong>Chat with us</strong><span><i/>Private website support</span></div><button type="button" onClick={() => setOpen(false)} aria-label="Close visitor chat">×</button></header>
+    {open && <section className="visitor-chat-panel" role="dialog" aria-modal="false" aria-label="Website pop-up chat">
+      <header><div><strong>Chat with us</strong><span><i/>{authenticated ? "Signed-in member support" : "Private website support"}</span></div><button type="button" onClick={() => setOpen(false)} aria-label="Close pop-up chat">×</button></header>
       <form className="visitor-chat-contact-form" onSubmit={saveEmail}>
         <label htmlFor="visitor-chat-email">Email for follow-up <span>Optional</span></label>
         <div><input id="visitor-chat-email" type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" disabled={!ready || emailBusy}/><button disabled={!ready || emailBusy || !email.trim() || email.trim().toLowerCase() === savedEmail}>{emailBusy ? "Saving…" : email.trim().toLowerCase() === savedEmail && savedEmail ? "Saved" : "Save"}</button></div>
@@ -140,7 +143,7 @@ export function VisitorChatBubble() {
         {messages.map((message) => <article className={message.mine ? "mine" : "admin"} key={message.id}><p>{message.body}</p><small>{new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></article>)}
       </div>
       {error && <p className="visitor-chat-error">{error}</p>}
-      <form className="visitor-chat-message-form" onSubmit={send}><textarea aria-label="Message to website support" required maxLength={800} value={body} onChange={(event) => setBody(event.target.value)} placeholder={ready ? "Type your message…" : "Connecting…"} disabled={!ready || busy}/><button disabled={!ready || busy || !body.trim()} aria-label="Send visitor chat message">{busy ? "…" : "➤"}</button></form>
+      <form className="visitor-chat-message-form" onSubmit={send}><textarea aria-label="Message to website support" required maxLength={800} value={body} onChange={(event) => setBody(event.target.value)} placeholder={ready ? "Type your message…" : "Connecting…"} disabled={!ready || busy}/><button disabled={!ready || busy || !body.trim()} aria-label="Send pop-up chat message">{busy ? "…" : "➤"}</button></form>
       <footer>Never share passwords, wallet keys, or recovery phrases.</footer>
     </section>}
     {!open && ready && !nudgeDismissed && unread === 0 && <button className="visitor-chat-nudge" type="button" onClick={() => { setNudgeDismissed(true); setOpen(true); }}>Chat with us. Not a bot.</button>}
