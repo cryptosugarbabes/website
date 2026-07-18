@@ -28,26 +28,42 @@ function mapMessage(message: VisitorAdminMessageRow) {
 
 export async function GET(request: NextRequest) {
   if (!adminIdentity(request)) return NextResponse.json({ error: "Administrator access required." }, { status: 401 });
+  const archived = request.nextUrl.searchParams.get("view") === "archive";
   try {
-    const sessions = await query<{
+    const [sessions, counts] = await Promise.all([query<{
       id: string; status: string; page_path: string; created_at: Date; last_seen_at: Date;
+      visitor_email: string | null; archived_at: Date | null;
       message_count: string; visitor_message_count: string;
     }>(`
       SELECT s.id, s.status, s.page_path, s.created_at, s.last_seen_at,
+        s.visitor_email, s.archived_at,
         count(m.id)::text AS message_count,
         count(m.id) FILTER (WHERE m.sender = 'VISITOR')::text AS visitor_message_count
       FROM visitor_chat_sessions s
       LEFT JOIN visitor_chat_messages m ON m.session_id = s.id
+      WHERE ($1::boolean AND s.archived_at IS NOT NULL)
+         OR (NOT ($1::boolean) AND s.archived_at IS NULL)
       GROUP BY s.id
       ORDER BY s.last_seen_at DESC
       LIMIT 250
-    `);
+    `, [archived]), query<{ inbox_count: string; archive_count: string }>(`
+      SELECT
+        count(*) FILTER (WHERE archived_at IS NULL)::text AS inbox_count,
+        count(*) FILTER (WHERE archived_at IS NOT NULL)::text AS archive_count
+      FROM visitor_chat_sessions
+    `)]);
     return NextResponse.json({
+      counts: {
+        inbox: Number(counts.rows[0]?.inbox_count || 0),
+        archive: Number(counts.rows[0]?.archive_count || 0)
+      },
       sessions: sessions.rows.map((session) => ({
         id: session.id,
         shortId: session.id.slice(0, 8),
         status: session.status,
         pagePath: session.page_path,
+        email: session.visitor_email,
+        archivedAt: session.archived_at,
         messageCount: Number(session.message_count),
         visitorMessageCount: Number(session.visitor_message_count),
         createdAt: session.created_at,
@@ -71,8 +87,8 @@ export async function POST(request: NextRequest) {
   if (input?.action === "OPEN") {
     const reason = "Opened from the visitor chat dashboard";
     try {
-      const session = await query<{ id: string; status: string; page_path: string; created_at: Date; last_seen_at: Date }>(`
-        SELECT id, status, page_path, created_at, last_seen_at
+      const session = await query<{ id: string; status: string; page_path: string; visitor_email: string | null; archived_at: Date | null; created_at: Date; last_seen_at: Date }>(`
+        SELECT id, status, page_path, visitor_email, archived_at, created_at, last_seen_at
         FROM visitor_chat_sessions WHERE id = $1
       `, [sessionId]);
       if (!session.rowCount) return NextResponse.json({ error: "Visitor chat not found." }, { status: 404 });
@@ -89,6 +105,8 @@ export async function POST(request: NextRequest) {
           id: session.rows[0].id,
           status: session.rows[0].status,
           pagePath: session.rows[0].page_path,
+          email: session.rows[0].visitor_email,
+          archivedAt: session.rows[0].archived_at,
           createdAt: session.rows[0].created_at,
           lastSeenAt: session.rows[0].last_seen_at,
           shortId: sessionId.slice(0, 8),
@@ -100,6 +118,33 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error("Admin visitor chat open failed", error);
       return NextResponse.json({ error: "The visitor chat could not be opened." }, { status: 503 });
+    }
+  }
+
+  if (input?.action === "ARCHIVE" || input?.action === "RESTORE") {
+    const archive = input.action === "ARCHIVE";
+    try {
+      const updated = await transaction(async (client) => {
+        const session = await client.query<{ id: string }>(`
+          UPDATE visitor_chat_sessions
+          SET archived_at = CASE WHEN $2::boolean THEN now() ELSE NULL END,
+              archived_by = CASE WHEN $2::boolean THEN $3 ELSE NULL END
+          WHERE id = $1
+          RETURNING id
+        `, [sessionId, archive, actor]);
+        if (!session.rowCount) return false;
+        await client.query(`
+          INSERT INTO visitor_chat_archive_events
+            (id, visitor_session_id, action, actor_email)
+          VALUES ($1, $2, $3, $4)
+        `, [randomUUID(), sessionId, archive ? "ARCHIVE" : "RESTORE", actor]);
+        return true;
+      });
+      if (!updated) return NextResponse.json({ error: "Visitor chat not found." }, { status: 404 });
+      return NextResponse.json({ ok: true, archived: archive });
+    } catch (error) {
+      console.error("Admin visitor chat archive update failed", error);
+      return NextResponse.json({ error: "The visitor chat could not be moved." }, { status: 503 });
     }
   }
 

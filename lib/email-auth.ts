@@ -152,21 +152,34 @@ export async function sendAdminMonitoredMessageEmail(input: {
 }
 
 export async function sendAdminVisitorChatEmail(input: {
-  kind: "PRESENCE" | "MESSAGE";
+  kind: "PRESENCE" | "MESSAGE" | "CONTACT";
   sessionId: string;
   pagePath: string;
+  visitorEmail?: string | null;
 }) {
   const recipients = administratorAlertEmails();
   if (!recipients.length) return;
   const shortSession = input.sessionId.slice(0, 8);
   const pagePath = input.pagePath.replace(/[\r\n]+/g, " ").slice(0, 500) || "/";
   const presence = input.kind === "PRESENCE";
+  const contact = input.kind === "CONTACT";
+  const visitorEmail = normalizeEmail(input.visitorEmail);
+  const emailText = visitorEmail ? ` Visitor email: ${visitorEmail}.` : "";
+  const emailHtml = visitorEmail
+    ? `<p style="margin:14px 0;padding:13px;border-radius:10px;background:#261521;color:#f6d6e6">Visitor email: <a href="mailto:${escapeHtml(visitorEmail)}" style="color:#ff9ac9">${escapeHtml(visitorEmail)}</a></p>`
+    : "";
   await sendEmail(
     recipients.join(","),
-    presence ? "A visitor is on the Crypto Sugar website" : "New anonymous website-chat message",
     presence
-      ? `A visitor opened the website chat on ${pagePath}. Visitor chat ${shortSession}. Open the administrator Conversations page or Telegram to respond.`
-      : `A visitor sent a new website-chat message. Visitor chat ${shortSession}. Open the administrator Conversations page or Telegram to read and respond.`,
-    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:28px;font-weight:500">${presence ? "A visitor is on the website." : "A visitor sent a chat message."}</h1><p style="color:#c8b8c0">Visitor chat <strong>${escapeHtml(shortSession)}</strong>${presence ? ` opened on <strong>${escapeHtml(pagePath)}</strong>` : " has a new message"}.</p><p style="color:#8f7d87;font-size:13px">Message contents are not included in email. Use the administrator dashboard or private Telegram bot to respond.</p><a href="https://cryptosugarbabes.com/admin" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open visitor chats</a>`
+      ? "A visitor is on the Crypto Sugar website"
+      : contact
+        ? "A website visitor shared their email address"
+        : "New website-chat message",
+    presence
+      ? `A visitor opened the website chat on ${pagePath}. Visitor chat ${shortSession}.${emailText} Open the administrator Visitor Chat page or Telegram to respond.`
+      : contact
+        ? `Visitor chat ${shortSession} shared an email address.${emailText} Open the administrator Visitor Chat page to view the conversation.`
+        : `A visitor sent a new website-chat message. Visitor chat ${shortSession}.${emailText} Open the administrator Visitor Chat page or Telegram to read and respond.`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:28px;font-weight:500">${presence ? "A visitor is on the website." : contact ? "A visitor shared their email." : "A visitor sent a chat message."}</h1><p style="color:#c8b8c0">Visitor chat <strong>${escapeHtml(shortSession)}</strong>${presence ? ` opened on <strong>${escapeHtml(pagePath)}</strong>` : contact ? " added contact details" : " has a new message"}.</p>${emailHtml}<p style="color:#8f7d87;font-size:13px">Message contents are not included in email. Use the administrator dashboard or private Telegram bot to respond.</p><a href="https://cryptosugarbabes.com/admin" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">Open visitor chats</a>`
   );
 }

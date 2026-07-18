@@ -24,7 +24,7 @@ export default function PrivacyPage() {
           "Technical information such as IP address, browser type, device information, timestamps, and basic security logs.",
           "Privacy-conscious product event counts, limited to the page path and actions such as opening sign-in or viewing a profile. These analytics do not store IP addresses, device fingerprints, message contents, email addresses, or wallet addresses.",
           "Deduplicated application error reports with personal identifiers removed. Error reports contain a limited technical scope, sanitised error description, occurrence count, and timestamps.",
-          "Anonymous visitor-chat messages, the page where chat was opened, a hashed network identifier used for rate limiting, and administrator or Telegram replies.",
+          "Visitor-chat messages, the page where chat was opened, a hashed network identifier used for rate limiting, administrator or Telegram replies, and an email address only when the visitor chooses to provide one for support follow-up.",
           "When paid features launch, transaction identifiers, amounts, ledger entries, creator balances, and payout records."
         ]
       },
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
           "Authenticate users and protect accounts without collecting wallet private keys or recovery phrases.",
           "Create, review, publish, and manage profiles and photographs.",
           "Operate conversations, favorites, paid interactions, creator earnings, and platform fees when those features are available.",
-          "Notify administrators that an anonymous visitor is on the website and deliver visitor support conversations through the administrator dashboard, email, and the configured private Telegram bot.",
+          "Notify administrators that a visitor is on the website, associate an optional visitor-provided email address with that support conversation, and deliver support through the administrator dashboard, email, and the configured private Telegram bot.",
           "Prevent fraud, abuse, coercion, trafficking, underage access, and other prohibited conduct.",
           "Respond to support requests, enforce our terms, and comply with lawful obligations."
         ]

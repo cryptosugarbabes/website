@@ -330,14 +330,17 @@ export async function sendTelegramVisitorAlert(input: {
   sourceMessageId?: string;
   pagePath: string;
   body?: string;
+  visitorEmail?: string | null;
 }) {
   const config = telegramConfig();
   if (!config || !await telegramSessionIsUnlocked(config.chatId)) return false;
   const shortSession = input.sessionId.slice(0, 8);
+  const emailLine = input.visitorEmail ? [`Email: ${input.visitorEmail}`, ""] : [];
   const text = input.body
     ? [
         `New visitor chat · ${shortSession}`,
         "",
+        ...emailLine,
         input.body,
         "",
         "Use Telegram's Reply action on this alert to answer this visitor.",
@@ -347,6 +350,7 @@ export async function sendTelegramVisitorAlert(input: {
         `Visitor on website · ${shortSession}`,
         `Page: ${input.pagePath || "/"}`,
         "",
+        ...emailLine,
         "Use Telegram's Reply action on this alert to greet this visitor.",
         `Admin dashboard: ${ADMIN_DASHBOARD_URL}`
       ].join("\n");
