@@ -143,7 +143,7 @@ export function VisitorChatBubble() {
       <form className="visitor-chat-message-form" onSubmit={send}><textarea aria-label="Message to website support" required maxLength={800} value={body} onChange={(event) => setBody(event.target.value)} placeholder={ready ? "Type your message…" : "Connecting…"} disabled={!ready || busy}/><button disabled={!ready || busy || !body.trim()} aria-label="Send visitor chat message">{busy ? "…" : "➤"}</button></form>
       <footer>Never share passwords, wallet keys, or recovery phrases.</footer>
     </section>}
-    {!open && ready && !nudgeDismissed && unread === 0 && <button className="visitor-chat-nudge" type="button" onClick={() => { setNudgeDismissed(true); setOpen(true); }}>Questions? Chat with us</button>}
+    {!open && ready && !nudgeDismissed && unread === 0 && <button className="visitor-chat-nudge" type="button" onClick={() => { setNudgeDismissed(true); setOpen(true); }}>Chat with us. Not a bot.</button>}
     <button className="visitor-chat-launcher" type="button" onClick={() => { setNudgeDismissed(true); setOpen((current) => !current); setUnread(0); }} aria-label={open ? "Close website chat" : "Open website chat"}>
       {open ? "×" : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>}
       {unread > 0 && <span>{unread > 9 ? "9+" : unread}</span>}
