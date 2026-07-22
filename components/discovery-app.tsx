@@ -848,7 +848,7 @@ export function DiscoveryApp() {
     if (!provider?.signAndSendTransaction || !wallet) throw new Error("Reconnect Solflare or Phantom so it can approve the USDC transaction.");
     if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("That payment quote expired. Start again to receive a current price.");
     const [{ Connection, PublicKey, Transaction }, token] = await Promise.all([import("@solana/web3.js"), import("@solana/spl-token")]);
-    const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+    const connection = new Connection(`${window.location.origin}/api/payments/solana-rpc`, "confirmed");
     const owner = new PublicKey(wallet);
     const mint = new PublicKey(quote.tokenAddress);
     const creator = new PublicKey(quote.creatorAddress);
@@ -867,8 +867,22 @@ export function DiscoveryApp() {
     transaction.recentBlockhash = latest.blockhash;
     const sent = await provider.signAndSendTransaction(transaction);
     const signature = typeof sent === "string" ? sent : sent.signature;
-    const confirmation = await connection.confirmTransaction({ signature, ...latest }, "confirmed");
-    if (confirmation.value.err) throw new Error("The Solana USDC transaction failed.");
+    const confirmationDeadline = Date.now() + 60_000;
+    let confirmed = false;
+    while (Date.now() < confirmationDeadline) {
+      const statuses = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+      const status = statuses.value[0];
+      if (status?.err) throw new Error("The Solana USDC transaction failed.");
+      if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") {
+        confirmed = true;
+        break;
+      }
+      if (await connection.getBlockHeight("confirmed") > latest.lastValidBlockHeight) {
+        throw new Error("The Solana transaction expired before confirmation. No payment was recorded.");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1_200));
+    }
+    if (!confirmed) throw new Error("Solana is taking longer than expected to confirm the payment. Check your wallet activity before trying again.");
     await confirmPayment(quote, [signature]);
   }
 
