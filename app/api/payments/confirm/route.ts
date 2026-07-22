@@ -130,6 +130,9 @@ export async function POST(request: NextRequest) {
     const quote = result.rows[0];
     if (quote.status === "CONFIRMED") return NextResponse.json({ confirmed: true, quoteId: quote.id });
     if (quote.status !== "QUOTED") return NextResponse.json({ error: "That quote is no longer payable." }, { status: 409 });
+    if (quote.kind !== "MESSAGE_UNLOCK" && !quote.creator_address) {
+      return NextResponse.json({ error: "This creator has not connected a payout wallet. Gifts and paid likes are unavailable." }, { status: 409 });
+    }
     const creatorAmount = decimalToMicros(quote.creator_amount_usdc);
     const platformAmount = decimalToMicros(quote.platform_amount_usdc);
     const grossAmount = decimalToMicros(quote.gross_amount_usdc);

@@ -898,6 +898,7 @@ export function DiscoveryApp() {
 
   async function settlePayment(profile: Profile, kind: PaymentKind, amountUsdc?: string, link?: { mediaId?: string; messageId?: string }) {
     if (profile.sample) { setNotice("Editorial samples cannot receive real payments."); return; }
+    if (!profile.supportEnabled) { setNotice("This creator has not connected a payout wallet yet. Gifts and paid likes are unavailable."); return; }
     if (!wallet) { setWalletError("Connect a matching wallet before paying."); showWalletPicker(); return; }
     if (!accountType) { setAccountOpen(true); return; }
     if (accountType !== "CUSTOMER") { setNotice("Only private customer accounts can send paid support."); return; }
@@ -945,12 +946,17 @@ export function DiscoveryApp() {
   }
 
   async function likeFeaturedPhoto(profile: Profile, requestedMediaId?: string) {
+    if (!profile.supportEnabled) { setNotice("This creator has not connected a payout wallet yet. Paid likes are unavailable."); return; }
     const mediaId = requestedMediaId || profile.media?.[0]?.id;
     if (!mediaId) { setNotice("This profile does not have a published photograph available for paid likes."); return; }
     await settlePayment(profile, "PAID_LIKE", undefined, { mediaId });
   }
 
   function openGift(profile: Profile) {
+    if (!profile.supportEnabled) {
+      setNotice("This creator has not connected a payout wallet yet. Gifts are unavailable.");
+      return;
+    }
     if (!wallet) {
       setWalletError("Connect a wallet before sending a gift.");
       showWalletPicker();
@@ -1152,7 +1158,7 @@ export function DiscoveryApp() {
             <div className="profile-media-column">
               <ProfileArtwork profile={displayedProfile} large/>
               {Boolean(activeProfile.media?.length && activeProfile.media.length > 1) && <div className="profile-photo-thumbnails">{activeProfile.media?.map((item, index) => <button className={item.id === selectedMedia?.id ? "active" : ""} onClick={() => setSelectedMediaId(item.id)} key={item.id}><img src={item.url} alt={`${activeProfile.name} photo ${index + 1}`} style={{ objectPosition: `${item.focalX ?? 50}% ${item.focalY ?? 50}%` }}/><span>{item.paidLikes} likes</span></button>)}</div>}
-              <button className="photo-like-button" disabled={paymentBusy || !selectedMedia || !activeProfile.supportEnabled} onClick={() => likeFeaturedPhoto(activeProfile, selectedMedia?.id)}><Icon name="heart" size={17}/><span>{paymentBusy ? "Confirming…" : activeProfile.supportEnabled ? "Send this photo a paid like" : "Paid likes not enabled yet"}</span><strong>{activeProfile.supportEnabled ? `${formatUsdc(stats.likePrice)} USDC` : "Solana needed"}</strong></button>
+              <button className="photo-like-button" disabled={paymentBusy || !selectedMedia || !activeProfile.supportEnabled} onClick={() => likeFeaturedPhoto(activeProfile, selectedMedia?.id)}><Icon name="heart" size={17}/><span>{paymentBusy ? "Confirming…" : activeProfile.supportEnabled ? "Send this photo a paid like" : "Paid likes not enabled"}</span><strong>{activeProfile.supportEnabled ? `${formatUsdc(stats.likePrice)} USDC` : "Wallet required"}</strong></button>
             </div>
             <div className="modal-content">
               <span className="verified-line"><Icon name="shield" size={15}/>{activeProfile.sample ? "Editorial sample · Not a real member" : activeProfile.verified ? "Published profile · Adult self-attested" : "Private or hidden profile"}</span>
