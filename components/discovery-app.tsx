@@ -882,7 +882,8 @@ export function DiscoveryApp() {
     if (!await connection.getAccountInfo(sourceAta)) throw new Error("This Solana wallet does not have a USDC token account.");
     const sourceBalance = await connection.getTokenAccountBalance(sourceAta, "confirmed");
     if (BigInt(sourceBalance.value.amount) < BigInt(quote.grossMicros)) {
-      throw new Error(`This wallet has ${sourceBalance.value.uiAmountString || "0"} USDC. This payment requires ${quote.grossAmountUsdc} USDC.`);
+      const requiredUsdc = Number(quote.grossAmountUsdc).toLocaleString(undefined, { maximumFractionDigits: 6 });
+      throw new Error(`This wallet has ${sourceBalance.value.uiAmountString || "0"} USDC. This payment requires ${requiredUsdc} USDC.`);
     }
     const transaction = new Transaction();
     if (BigInt(quote.creatorMicros) > BigInt(0) && !await connection.getAccountInfo(creatorAta)) transaction.add(token.createAssociatedTokenAccountInstruction(owner, creatorAta, creator, mint));
