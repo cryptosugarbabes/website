@@ -88,8 +88,8 @@ async function verifyBasePlatformTransfer(hash: `0x${string}`, from: string, gro
 }
 
 async function verifySolanaTransfer(signature: string, buyer: string, creator: string, creatorAmount: bigint, platformAmount: bigint) {
-  const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com", "finalized");
-  const parsed = await connection.getParsedTransaction(signature, { commitment: "finalized", maxSupportedTransactionVersion: 0 });
+  const connection = new Connection(process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com", "confirmed");
+  const parsed = await connection.getParsedTransaction(signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
   if (!parsed || parsed.meta?.err) return { valid: false, timestampMs: 0 };
   const mint = new PublicKey(PAYMENT_CONFIG.solana.usdcMintAddress);
   const creatorAta = getAssociatedTokenAddressSync(mint, new PublicKey(creator)).toString();
