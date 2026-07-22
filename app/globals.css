@@ -1703,6 +1703,19 @@ body .profile-modal .modal-actions button {
   line-height: 1.25;
 }
 
+body .profile-modal .photo-like-button,
+body .profile-modal .photo-like-button strong,
+body .profile-modal .generosity-badge span,
+body .profile-modal .generosity-badge strong {
+  font-size: .9rem !important;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+body .profile-modal .gift-action {
+  font-weight: 800 !important;
+}
+
 body .profile-modal .creator-stats {
   margin-top: 17px;
 }

@@ -13,6 +13,7 @@ export type AccountRow = QueryResultRow & AcceptanceRecord & {
   display_name: string | null;
   bio: string | null;
   generosity_points: string | null;
+  monthly_support_sent: string;
   has_creator_profile: boolean;
 };
 
@@ -21,6 +22,15 @@ export async function accountForSession(session: AuthSession) {
     SELECT u.id, u.account_type, u.status, u.adult_attested_at, u.terms_accepted_at,
       u.terms_version, u.privacy_accepted_at, u.privacy_version,
       cp.display_name, cp.bio, cp.generosity_points::text,
+      COALESCE((
+        SELECT sum(q.gross_amount_usdc)
+        FROM support_events se
+        JOIN payment_quotes q ON q.id = se.quote_id
+        WHERE se.supporter_user_id = u.id
+          AND q.status = 'CONFIRMED'
+          AND q.confirmed_at >= date_trunc('month', now())
+          AND q.confirmed_at < date_trunc('month', now()) + interval '1 month'
+      ), 0)::text AS monthly_support_sent,
       EXISTS (SELECT 1 FROM profiles p WHERE p.user_id = u.id) AS has_creator_profile
     FROM users u
     LEFT JOIN customer_profiles cp ON cp.user_id = u.id

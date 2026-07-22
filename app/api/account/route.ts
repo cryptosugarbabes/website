@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         displayName: account.display_name,
         bio: account.bio,
         generosityPoints: Number(account.generosity_points || 0),
+        monthlySupportSentUsdc: Number(account.monthly_support_sent || 0),
         hasCreatorProfile: account.has_creator_profile,
         acceptance: {
           complete: acceptanceComplete(account),

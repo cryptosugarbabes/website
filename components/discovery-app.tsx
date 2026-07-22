@@ -12,11 +12,10 @@ import {
   creatorShareUsdc,
   creatorSupportPoints,
   formatUsdc,
-  generosityLevel,
-  generosityPoints,
   photoLikePriceUsdc,
   platformShareUsdc
 } from "@/lib/creator-economy";
+import { sugarDaddyMonthlyLevel } from "@/lib/monthly-levels";
 
 type WalletChain = "evm" | "solana";
 type EthereumProvider = {
@@ -204,7 +203,7 @@ export function DiscoveryApp() {
   const [messageBoostAmount, setMessageBoostAmount] = useState("");
   const [giftTarget, setGiftTarget] = useState<Profile | null>(null);
   const [giftAmount, setGiftAmount] = useState("25");
-  const [supportGivenUsdc, setSupportGivenUsdc] = useState(0);
+  const [monthlySupportGivenUsdc, setMonthlySupportGivenUsdc] = useState(0);
   const [notice, setNotice] = useState("");
   const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [hasCreatorProfile, setHasCreatorProfile] = useState(false);
@@ -335,7 +334,7 @@ export function DiscoveryApp() {
   async function loadAccount(openWhenMissing = false) {
     const response = await fetch("/api/account", { cache: "no-store" });
     if (!response.ok) return null;
-    const data = await response.json() as { account?: { type: AccountType | null; displayName?: string | null; bio?: string | null; generosityPoints?: number; hasCreatorProfile?: boolean; acceptance?: { complete?: boolean } } | null };
+    const data = await response.json() as { account?: { type: AccountType | null; displayName?: string | null; bio?: string | null; monthlySupportSentUsdc?: number; hasCreatorProfile?: boolean; acceptance?: { complete?: boolean } } | null };
     const account = data.account || null;
     setAccountType(account?.type || null);
     setHasCreatorProfile(Boolean(account?.hasCreatorProfile));
@@ -346,7 +345,7 @@ export function DiscoveryApp() {
     setAcceptedAdult(complete);
     setAcceptedTerms(complete);
     setAcceptedPrivacy(complete);
-    if (account?.generosityPoints) setSupportGivenUsdc(account.generosityPoints);
+    setMonthlySupportGivenUsdc(account?.monthlySupportSentUsdc || 0);
     if (openWhenMissing && (!account?.type || !complete)) setAccountOpen(true);
     return account;
   }
@@ -929,7 +928,7 @@ export function DiscoveryApp() {
       if (quote.network === "BASE") await settleBasePayment(quote);
       else await settleSolanaPayment(quote);
       const amount = Number(quote.grossAmountUsdc);
-      setSupportGivenUsdc((current) => current + amount);
+      setMonthlySupportGivenUsdc((current) => current + amount);
       await Promise.all([loadPersistedProfiles(), loadAccount()]);
       setActiveProfile((current) => current?.id === profile.id ? {
         ...current,
@@ -1185,7 +1184,7 @@ export function DiscoveryApp() {
               <div className="creator-stats"><div><span>SUPPORT SCORE</span><strong>{stats.points} pts</strong></div><div><span>PAID LIKES</span><strong>{stats.likes.toLocaleString()}</strong></div><div><span>NEXT LIKE</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></div></div>
               <div className="rating-progress"><span style={{ width: `${stats.progress}%` }}/></div><p className="rating-note">{100 - stats.progress} more paid likes until the next 0.1% like-value increase.</p>
               <div className="tag-row large">{activeProfile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-              {wallet && supportGivenUsdc > 0 && <div className="generosity-badge"><Icon name="spark" size={19}/><span>Your generosity</span><strong>{generosityLevel(generosityPoints(supportGivenUsdc))} · {generosityPoints(supportGivenUsdc)} pts</strong></div>}
+              {accountType === "CUSTOMER" && <div className="generosity-badge"><Icon name="spark" size={19}/><span>Your generosity</span><strong>{sugarDaddyMonthlyLevel(monthlySupportGivenUsdc).name} · {formatUsdc(monthlySupportGivenUsdc)} USDC this month</strong></div>}
               <div className="modal-actions"><button className="primary-button message-send-button" onClick={() => openMessage(activeProfile)}><Icon name="message" size={18}/>Send message</button><span className="profile-action-tooltip gift-tooltip" data-tooltip={activeProfile.supportEnabled ? "Send a USDC gift" : "This user needs a wallet first"} tabIndex={!activeProfile.supportEnabled ? 0 : undefined}><button className="gift-action" disabled={paymentBusy || !activeProfile.supportEnabled} onClick={() => openGift(activeProfile)} aria-label={activeProfile.supportEnabled ? "Send a USDC gift" : "Gift unavailable: this user needs a wallet first"}><Icon name="spark" size={16}/>Gift</button></span><span className="profile-action-tooltip heart-tooltip" data-tooltip={favorites.has(activeProfile.id) ? "Remove from Your Favorites" : "Add to Your Favorites"}><button className={`heart-action ${favorites.has(activeProfile.id) ? "active" : ""}`} onClick={() => toggleFavorite(activeProfile)} aria-label={favorites.has(activeProfile.id) ? "Remove from Your Favorites" : "Add to Your Favorites"}><Icon name="heart" size={19} filled={favorites.has(activeProfile.id)}/></button></span></div>
               {!activeProfile.sample && !activeProfile.isOwn && <button className="report-link" onClick={() => openReport({ profileId: activeProfile.id, label: `${activeProfile.name}'s profile` })}>Report this profile</button>}
               <p className="modal-footnote">Messages are delivered free. {activeProfile.supportEnabled ? "Paid likes, gifts, and boosts use USDC and are split 90% to the creator and 10% to the platform after on-chain confirmation." : "Paid support becomes available after the creator connects Solana, or when atomic Base settlement is enabled."}</p>
@@ -1200,7 +1199,7 @@ export function DiscoveryApp() {
           <section className="message-modal" role="dialog" aria-modal="true" aria-labelledby="message-title">
             <button className="modal-close" onClick={() => setMessageTarget(null)} aria-label="Close message"><Icon name="close" size={20}/></button>
             <span className="section-kicker">PRIVATE INTRODUCTION</span><h2 id="message-title">Message {messageTarget.name}.</h2>
-            <p className="wallet-intro">Every normal message is free. You may optionally attach a boost so your introduction is highlighted and your generosity reputation grows.</p>
+            <p className="wallet-intro">Every normal message is free. You may optionally attach a boost so your introduction is highlighted and your monthly customer rank grows.</p>
             <form onSubmit={sendMessage}><label className="message-field"><span>YOUR MESSAGE</span><textarea required maxLength={800} autoFocus value={messageText} onChange={(event) => setMessageText(event.target.value)} placeholder="Start with something thoughtful…"/><small>{messageText.length}/800</small></label>
               <div className="boost-panel"><div><span>OPTIONAL MESSAGE BOOST</span><small>{messageTarget.supportEnabled ? "Boosted introductions receive priority placement." : "This creator has not enabled USDC earnings yet. Your message remains free."}</small></div><div className="preset-buttons"><button type="button" className={!messageBoostAmount ? "active" : ""} onClick={() => setMessageBoostAmount("")}>Free</button>{messageTarget.supportEnabled && [5, 10, 25].map((amount) => <button type="button" className={messageBoostAmount === String(amount) ? "active" : ""} onClick={() => setMessageBoostAmount(String(amount))} key={amount}>{amount} USDC</button>)}</div>{messageTarget.supportEnabled && <label><span>Custom boost</span><input type="number" min="0" max="100000" step="0.01" value={messageBoostAmount} onChange={(event) => setMessageBoostAmount(event.target.value)} placeholder="0.00"/></label>}</div>
               <div className="message-checkout"><div><span>Normal message</span><strong>Free</strong></div><div><span>Creator support score</span><strong>{stats.points} points</strong></div><div className="message-total"><span>{messageBoostAmount ? "Optional boost" : "Amount due"}</span><strong>{messageBoostAmount ? `${formatUsdc(Number(messageBoostAmount) || 0)} USDC` : "Free"}</strong></div></div>
@@ -1217,9 +1216,9 @@ export function DiscoveryApp() {
           <section className="message-modal gift-modal" role="dialog" aria-modal="true" aria-labelledby="gift-title">
             <button className="modal-close" onClick={() => setGiftTarget(null)} aria-label="Close gift"><Icon name="close" size={20}/></button>
             <span className="section-kicker">A GENEROUS GESTURE</span><h2 id="gift-title">Gift {giftTarget.name}.</h2>
-            <p className="wallet-intro">Choose any amount. Gifts increase {giftTarget.name}&apos;s support score and build your public generosity reputation as a supporter.</p>
+            <p className="wallet-intro">Choose any amount. Gifts increase {giftTarget.name}&apos;s support score and count toward your monthly customer rank.</p>
             <form onSubmit={sendGift}><div className="preset-buttons gift-presets">{[5, 25, 50, 100].map((preset) => <button type="button" className={giftAmount === String(preset) ? "active" : ""} onClick={() => setGiftAmount(String(preset))} key={preset}>{preset} USDC</button>)}</div><label className="gift-amount"><span>CUSTOM GIFT</span><input type="number" min="1" max="100000" step="0.01" required value={giftAmount} onChange={(event) => setGiftAmount(event.target.value)} placeholder="25.00"/></label>
-              <div className="message-checkout"><div><span>Creator receives 90%</span><strong>{formatUsdc(creatorShareUsdc(amount))} USDC</strong></div><div><span>Platform receives 10%</span><strong>{formatUsdc(platformShareUsdc(amount))} USDC</strong></div><div className="message-total"><span>Your generosity after gift</span><strong>{generosityLevel(generosityPoints(supportGivenUsdc + amount))}</strong></div></div>
+              <div className="message-checkout"><div><span>Creator receives 90%</span><strong>{formatUsdc(creatorShareUsdc(amount))} USDC</strong></div><div><span>Platform receives 10%</span><strong>{formatUsdc(platformShareUsdc(amount))} USDC</strong></div><div className="message-total"><span>Your customer rank after gift</span><strong>{sugarDaddyMonthlyLevel(monthlySupportGivenUsdc + amount).name}</strong></div></div>
               <button className="primary-button full" type="submit" disabled={paymentBusy}>{paymentBusy ? "Confirming on-chain…" : `Send gift · ${formatUsdc(amount)} USDC`} <Icon name="arrow" size={18}/></button><p className="checkout-note"><Icon name="lock" size={13}/>Your wallet shows the exact USDC transfer before approval. Settlement is recorded only after on-chain verification.</p>
             </form>
           </section>
