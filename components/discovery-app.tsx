@@ -215,6 +215,7 @@ export function DiscoveryApp() {
   const [messageBusy, setMessageBusy] = useState(false);
   const [messageGate, setMessageGate] = useState<MessageGate | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unseenPaymentCount, setUnseenPaymentCount] = useState(0);
   const [reportTarget, setReportTarget] = useState<{ profileId?: string; conversationId?: string; messageId?: string; label: string } | null>(null);
   const [reportCategory, setReportCategory] = useState("HARASSMENT");
   const [reportDetails, setReportDetails] = useState("");
@@ -373,6 +374,13 @@ export function DiscoveryApp() {
     setUnreadCount(next);
   }
 
+  async function loadPaymentNotifications() {
+    const response = await fetch("/api/payments/notifications", { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json() as { unseenCount?: number };
+    setUnseenPaymentCount(data.unseenCount || 0);
+  }
+
   async function enableNotifications() {
     if (typeof Notification === "undefined") { setNotice("Browser notifications are not supported on this device."); return; }
     const permission = await Notification.requestPermission();
@@ -454,9 +462,9 @@ export function DiscoveryApp() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated || !accountType) { setUnreadCount(0); return; }
-    loadUnread().catch(() => undefined);
-    const timer = window.setInterval(() => loadUnread().catch(() => undefined), 30_000);
+    if (!isAuthenticated || !accountType) { setUnreadCount(0); setUnseenPaymentCount(0); return; }
+    Promise.all([loadUnread(), loadPaymentNotifications()]).catch(() => undefined);
+    const timer = window.setInterval(() => Promise.all([loadUnread(), loadPaymentNotifications()]).catch(() => undefined), 30_000);
     return () => window.clearInterval(timer);
   }, [isAuthenticated, accountType]);
 
@@ -632,6 +640,8 @@ export function DiscoveryApp() {
     setWalletName("");
     setAccountType(null);
     setHasCreatorProfile(false);
+    setUnreadCount(0);
+    setUnseenPaymentCount(0);
     profileIntentRef.current = false;
     setFavorites(new Set());
     setConversations([]);
@@ -1026,7 +1036,7 @@ export function DiscoveryApp() {
         <nav aria-label="Main navigation"><a href="/how-it-works">How it works</a><a href="/crypto-safety">Crypto safety</a><a href="/forums">Forums</a></nav>
         <div className="header-actions">
           {!hasCreatorProfile && accountType !== "CUSTOMER" && <button className="text-button" onClick={openProfileCreator}>Create profile</button>}
-          {isAuthenticated && <a className="text-button dashboard-link" href="/dashboard">Dashboard</a>}
+          {isAuthenticated && <a className={`text-button dashboard-link ${unseenPaymentCount > 0 ? "has-notifications" : ""}`} href={unseenPaymentCount > 0 ? "/dashboard#activity" : "/dashboard"}>Dashboard{unseenPaymentCount > 0 && <span className="unread-badge">{unseenPaymentCount > 99 ? "99+" : unseenPaymentCount}</span>}</a>}
           {isAuthenticated && accountType && <button className="text-button inbox-button" onClick={openInbox}>Inbox{unreadCount > 0 && <span className="unread-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}</button>}
           {isAuthenticated && !accountType && <button className="text-button" onClick={() => setAccountOpen(true)}>Choose account</button>}
           {email && !wallet && <button className="text-button" onClick={() => { setWalletError(""); showWalletPicker(); }}>Connect wallet</button>}

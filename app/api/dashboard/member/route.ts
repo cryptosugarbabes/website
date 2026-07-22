@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         GROUP BY p.id
       `, [user.id]),
       query<{
-        conversations: string; unread: string; favorites: string; messages: string;
+        conversations: string; unread: string; unseen_payments: string; favorites: string; messages: string;
         support_sent: string; creator_earnings: string; platform_fees: string;
         month_start: Date; month_end: Date; monthly_support_sent: string; monthly_creator_earnings: string;
       }>(`
@@ -72,6 +72,8 @@ export async function GET(request: NextRequest) {
           (SELECT count(*) FROM messages m JOIN conversations c ON c.id = m.conversation_id
             JOIN profiles p ON p.id = c.creator_profile_id
             WHERE (c.customer_user_id = $1 OR p.user_id = $1) AND m.sender_user_id <> $1 AND m.status = 'SENT')::text AS unread,
+          (SELECT count(*) FROM support_events se JOIN profiles p ON p.id = se.creator_profile_id
+            WHERE p.user_id = $1 AND se.recipient_seen_at IS NULL)::text AS unseen_payments,
           (SELECT count(*) FROM favorites WHERE user_id = $1)::text AS favorites,
           (SELECT count(*) FROM messages WHERE sender_user_id = $1)::text AS messages,
           COALESCE((SELECT sum(q.gross_amount_usdc) FROM support_events se JOIN payment_quotes q ON q.id = se.quote_id WHERE se.supporter_user_id = $1), 0)::text AS support_sent,
@@ -204,6 +206,7 @@ export async function GET(request: NextRequest) {
       stats: {
         conversations: Number(stats?.conversations || 0),
         unread: Number(stats?.unread || 0),
+        unseenPayments: Number(stats?.unseen_payments || 0),
         favorites: Number(stats?.favorites || 0),
         messagesSent: Number(stats?.messages || 0),
         supportSentUsdc: Number(stats?.support_sent || 0),

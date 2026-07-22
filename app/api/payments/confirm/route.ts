@@ -11,6 +11,7 @@ import { PAYMENT_CONFIG } from "@/lib/payment-config";
 import { transferFallsWithinQuoteWindow } from "@/lib/payment-validation";
 import { requestHasTrustedOrigin, walletSession } from "@/lib/request-security";
 import { reportApplicationError } from "@/lib/observability";
+import { sendPaymentReceivedEmail } from "@/lib/email-auth";
 
 type QuoteRow = {
   id: string;
@@ -29,6 +30,8 @@ type QuoteRow = {
   conversation_id: string | null;
   buyer_address: string;
   creator_address: string | null;
+  creator_email: string | null;
+  creator_name: string;
 };
 
 const transferEvent = [{
@@ -114,7 +117,9 @@ export async function POST(request: NextRequest) {
     const account = await accountForSession(session);
     if (!account) return NextResponse.json({ error: "Choose your account type first." }, { status: 409 });
     const result = await query<QuoteRow>(`
-      SELECT q.*, buyer.wallet_address AS buyer_address, creator.wallet_address AS creator_address
+      SELECT q.*, buyer.wallet_address AS buyer_address, creator.wallet_address AS creator_address,
+        CASE WHEN creator.email_verified_at IS NOT NULL THEN creator.email ELSE NULL END AS creator_email,
+        p.display_name AS creator_name
       FROM payment_quotes q
       JOIN users buyer ON buyer.id = q.buyer_user_id
       JOIN profiles p ON p.id = q.creator_profile_id
@@ -176,9 +181,9 @@ export async function POST(request: NextRequest) {
       purposes = [{ purpose: quote.kind === "MESSAGE_UNLOCK" ? "PLATFORM" : "ATOMIC", hash: signature }];
     }
 
-    await transaction(async (client) => {
+    const newlyConfirmed = await transaction(async (client) => {
       const locked = await client.query<{ status: string }>(`SELECT status FROM payment_quotes WHERE id = $1 FOR UPDATE`, [quote.id]);
-      if (locked.rows[0]?.status === "CONFIRMED") return;
+      if (locked.rows[0]?.status === "CONFIRMED") return false;
       if (locked.rows[0]?.status !== "QUOTED") throw new Error("QUOTE_NO_LONGER_PAYABLE");
       for (const item of purposes) await client.query(`INSERT INTO payment_transactions (quote_id, purpose, transaction_hash) VALUES ($1, $2, $3)`, [quote.id, item.purpose, item.hash]);
       await client.query(`UPDATE payment_quotes SET status = 'CONFIRMED', confirmed_at = now() WHERE id = $1`, [quote.id]);
@@ -206,7 +211,22 @@ export async function POST(request: NextRequest) {
       if (quote.kind !== "MESSAGE_UNLOCK") {
         await client.query(`UPDATE customer_profiles SET generosity_points = generosity_points + floor($1::numeric)::bigint, updated_at = now() WHERE user_id = $2`, [quote.gross_amount_usdc, quote.buyer_user_id]);
       }
+      return true;
     });
+    if (newlyConfirmed && quote.kind !== "MESSAGE_UNLOCK" && quote.creator_email) {
+      try {
+        await sendPaymentReceivedEmail(quote.creator_email, {
+          kind: quote.kind,
+          profileName: quote.creator_name,
+          grossAmountUsdc: quote.gross_amount_usdc,
+          creatorAmountUsdc: quote.creator_amount_usdc,
+          network: quote.network
+        });
+      } catch (error) {
+        await reportApplicationError("payments:recipient-email", error);
+        console.error("Payment recipient email could not be sent", error);
+      }
+    }
     return NextResponse.json({ confirmed: true, quoteId: quote.id, kind: quote.kind });
   } catch (error) {
     if (error instanceof Error && error.message === "QUOTE_NO_LONGER_PAYABLE") return NextResponse.json({ error: "That quote is no longer payable." }, { status: 409 });

@@ -23,7 +23,7 @@ type DashboardData = {
   identity: Identity;
   account: { type: "CREATOR" | "CUSTOMER" | null; displayName?: string | null; bio?: string | null; generosityPoints: number };
   creatorProfile: CreatorProfile | null;
-  stats: { conversations: number; unread: number; favorites: number; messagesSent: number; supportSentUsdc: number; creatorEarningsUsdc: number; platformFeesUsdc: number };
+  stats: { conversations: number; unread: number; unseenPayments: number; favorites: number; messagesSent: number; supportSentUsdc: number; creatorEarningsUsdc: number; platformFeesUsdc: number };
   monthly: {
     startsAt: string; endsAt: string; supportSentUsdc: number; creatorEarningsUsdc: number;
     sugarDaddyLevel: { level: number; name: string; minimumUsdc: number; nextMinimumUsdc: number | null };
@@ -133,7 +133,34 @@ export function MemberDashboard() {
   }
 
   useEffect(() => { loadDashboard().catch(() => setError("Dashboard unavailable.")); }, []);
-  useEffect(() => { if (window.location.hash === "#messages") setTab("messages"); }, []);
+  useEffect(() => {
+    if (window.location.hash === "#messages") setTab("messages");
+    if (window.location.hash === "#activity") setTab("activity");
+  }, []);
+  useEffect(() => {
+    if (tab !== "activity" || !data?.stats.unseenPayments) return;
+    let cancelled = false;
+    fetch("/api/payments/notifications", { method: "POST" })
+      .then((response) => {
+        if (!response.ok) throw new Error("Payment notifications could not be marked as seen.");
+        if (!cancelled) setData((current) => current ? { ...current, stats: { ...current.stats, unseenPayments: 0 } } : current);
+      })
+      .catch((reason: Error) => { if (!cancelled) setError(reason.message); });
+    return () => { cancelled = true; };
+  }, [tab, data?.stats.unseenPayments]);
+  useEffect(() => {
+    if (!data?.account.type || tab === "activity") return;
+    let cancelled = false;
+    const refresh = () => fetch("/api/payments/notifications", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<{ unseenCount?: number }> : null)
+      .then((next) => {
+        if (!cancelled && next) setData((current) => current ? { ...current, stats: { ...current.stats, unseenPayments: next.unseenCount || 0 } } : current);
+      })
+      .catch(() => undefined);
+    refresh();
+    const timer = window.setInterval(refresh, 30_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [data?.account.type, tab]);
   useEffect(() => { if (data?.account.type) loadMessages().catch(() => undefined); }, [data?.account.type]);
   useEffect(() => {
     if (tab !== "messages" || !data?.account.type) return;
@@ -481,7 +508,7 @@ export function MemberDashboard() {
   return <main className="member-shell">
     <header className="member-topbar"><div className="brand-social"><a className="member-brand" href="/"><img src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><InstagramLink/><XLink/></div><div><a href="/forums">Forums</a><a href="/">Home</a><button onClick={signOut}>Sign out</button></div></header>
     <div className="member-dashboard-grid">
-      <aside className="member-sidebar"><div className="member-identity"><span>{roleLabel}</span><strong>{data.account.displayName || data.creatorProfile?.name || data.identity.email || short(data.identity.walletAddress)}</strong><small>{data.identity.status}</small></div><nav>{(["overview", "messages", "profile", "activity", "safety", "settings"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item === "activity" ? "Payments & activity" : item === "settings" ? "Account & Settings" : label(item)}{item === "messages" && data.stats.unread > 0 ? <em>{data.stats.unread}</em> : null}</button>)}</nav></aside>
+      <aside className="member-sidebar"><div className="member-identity"><span>{roleLabel}</span><strong>{data.account.displayName || data.creatorProfile?.name || data.identity.email || short(data.identity.walletAddress)}</strong><small>{data.identity.status}</small></div><nav>{(["overview", "messages", "profile", "activity", "safety", "settings"] as Tab[]).map((item) => <button className={tab === item ? "active" : ""} key={item} onClick={() => setTab(item)}>{item === "activity" ? "Payments & activity" : item === "settings" ? "Account & Settings" : label(item)}{item === "messages" && data.stats.unread > 0 ? <em>{data.stats.unread}</em> : item === "activity" && data.stats.unseenPayments > 0 ? <em>{data.stats.unseenPayments > 99 ? "99+" : data.stats.unseenPayments}</em> : null}</button>)}</nav></aside>
       <section className="member-content">
         {data.identity.status === "SUSPENDED" && <div className="dashboard-warning"><strong>Account suspended</strong><p>{data.identity.suspensionReason || "Contact safety support for more information."}</p></div>}
         {error && <div className="dashboard-error">{error}</div>}{notice && <div className="dashboard-notice">{notice}</div>}

@@ -124,6 +124,26 @@ export async function sendNewMessageEmail(email: string, senderName?: string | n
   );
 }
 
+export async function sendPaymentReceivedEmail(email: string, input: {
+  kind: "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST";
+  profileName: string;
+  grossAmountUsdc: string;
+  creatorAmountUsdc: string;
+  network: "BASE" | "SOLANA";
+}) {
+  const kind = input.kind === "PAID_LIKE" ? "paid like" : input.kind === "GIFT" ? "gift" : "message boost";
+  const safeProfile = escapeHtml(input.profileName.replace(/[\r\n]+/g, " ").trim() || "Your profile");
+  const gross = Number(input.grossAmountUsdc).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  const creator = Number(input.creatorAmountUsdc).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  const network = input.network === "SOLANA" ? "Solana" : "Base";
+  await sendEmail(
+    email,
+    `You received a ${kind} on Crypto Sugar Babes`,
+    `${input.profileName} received a ${kind}. ${gross} USDC total; ${creator} USDC was sent to your payout wallet on ${network}. Open Payments & activity in your dashboard for the confirmed transaction.`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:30px;font-weight:500">You received a ${kind}.</h1><p style="color:#c8b8c0"><strong>${safeProfile}</strong> received new paid support.</p><div style="margin:18px 0;padding:16px;border-radius:12px;background:#261521;color:#f6d6e6"><strong style="font-size:24px">${creator} USDC</strong><br><span style="color:#bfaab5">sent to your payout wallet on ${network} · ${gross} USDC total</span></div><a href="https://cryptosugarbabes.com/dashboard#activity" style="display:inline-block;margin-top:14px;border-radius:999px;background:#ff2f92;color:#fff;padding:13px 22px;text-decoration:none;font-weight:700">View payment activity</a>`
+  );
+}
+
 function administratorAlertEmails() {
   return [...new Set((process.env.ADMIN_MESSAGE_ALERT_EMAILS || process.env.ADMIN_EMAILS || "")
     .split(",")
