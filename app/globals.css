@@ -1710,31 +1710,37 @@ body .profile-modal .modal-actions {
   margin-top: 19px;
 }
 
-/* Keep photo-order controls compact and give the active display-photo badge
-   the same visual weight as its neighbouring reorder control. */
+/* Keep photo editing controls compact so four cards fit cleanly on desktop. */
 body .dashboard-photo-grid .photo-card-toolbar {
-  min-height: 40px;
-  gap: 9px;
+  min-height: 30px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 body .dashboard-photo-grid .photo-card-toolbar > button,
 body .dashboard-photo-grid .photo-card-toolbar > span {
-  min-height: 40px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin: 0;
-  padding: 8px 13px;
+  padding: 5px 9px;
   border-radius: 999px;
-  font-size: .82rem !important;
+  font-size: .7rem !important;
   font-weight: 750;
   line-height: 1.1;
   white-space: nowrap;
 }
 
 body .dashboard-photo-grid .photo-card-toolbar > span {
-  min-width: 112px;
-  padding-inline: 16px;
+  min-width: 0;
+  padding-inline: 10px;
+}
+
+body .dashboard-photo-grid .photo-drag-handle span {
+  margin-right: 4px;
+  letter-spacing: -3px;
+  opacity: .72;
 }
 
 body .dashboard-current-photos .photo-editor-card {
@@ -1760,13 +1766,13 @@ body .dashboard-current-photos .reposition-hint {
 @media (max-width: 760px) {
   body .dashboard-photo-grid .photo-card-toolbar > button,
   body .dashboard-photo-grid .photo-card-toolbar > span {
-    min-height: 38px;
-    padding: 7px 11px;
-    font-size: .76rem !important;
+    min-height: 30px;
+    padding: 5px 9px;
+    font-size: .7rem !important;
   }
 
   body .dashboard-photo-grid .photo-card-toolbar > span {
-    min-width: 102px;
+    min-width: 0;
   }
 }
 
