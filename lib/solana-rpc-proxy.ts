@@ -2,7 +2,8 @@ const ALLOWED_SOLANA_RPC_METHODS = new Set([
   "getAccountInfo",
   "getBlockHeight",
   "getLatestBlockhash",
-  "getSignatureStatuses"
+  "getSignatureStatuses",
+  "getTokenAccountBalance"
 ]);
 
 export function isAllowedSolanaRpcRequest(input: unknown) {

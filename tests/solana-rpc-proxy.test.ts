@@ -3,7 +3,7 @@ import { isAllowedSolanaRpcRequest } from "../lib/solana-rpc-proxy";
 
 describe("Solana payment RPC proxy", () => {
   it("allows only the read methods required to assemble and confirm a payment", () => {
-    for (const method of ["getAccountInfo", "getBlockHeight", "getLatestBlockhash", "getSignatureStatuses"]) {
+    for (const method of ["getAccountInfo", "getBlockHeight", "getLatestBlockhash", "getSignatureStatuses", "getTokenAccountBalance"]) {
       expect(isAllowedSolanaRpcRequest({ jsonrpc: "2.0", id: 1, method, params: [] })).toBe(true);
     }
   });

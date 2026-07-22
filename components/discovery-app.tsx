@@ -128,6 +128,14 @@ function bytesToBase64(bytes: Uint8Array) {
   return window.btoa(binary);
 }
 
+function paymentErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "The payment was not completed.";
+  if (/internal error/i.test(message)) {
+    return "Your Solana wallet could not submit the payment. Reopen Solflare or Phantom, confirm the same account is connected, and try again. No payment was recorded.";
+  }
+  return message;
+}
+
 async function switchToBase(provider: EthereumProvider) {
   try {
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_CHAIN_ID }] });
@@ -856,6 +864,11 @@ export function DiscoveryApp() {
   async function settleSolanaPayment(quote: PaymentQuote) {
     const provider = solanaProviderRef.current || window.solflare || window.phantom?.solana || window.solana;
     if (!provider?.signAndSendTransaction || !wallet) throw new Error("Reconnect Solflare or Phantom so it can approve the USDC transaction.");
+    const connected = await provider.connect();
+    const activeAddress = (connected.publicKey || provider.publicKey)?.toString();
+    if (!activeAddress) throw new Error("Your Solana wallet did not return an active account. Reconnect it and try again.");
+    if (activeAddress !== wallet) throw new Error("The active Solana wallet does not match your signed-in account. Reconnect the correct wallet and try again.");
+    solanaProviderRef.current = provider;
     if (Date.now() >= new Date(quote.expiresAt).getTime()) throw new Error("That payment quote expired. Start again to receive a current price.");
     const [{ Connection, PublicKey, Transaction }, token] = await Promise.all([import("@solana/web3.js"), import("@solana/spl-token")]);
     const connection = new Connection(`${window.location.origin}/api/payments/solana-rpc`, "confirmed");
@@ -867,6 +880,10 @@ export function DiscoveryApp() {
     const creatorAta = token.getAssociatedTokenAddressSync(mint, creator);
     const treasuryAta = token.getAssociatedTokenAddressSync(mint, treasury);
     if (!await connection.getAccountInfo(sourceAta)) throw new Error("This Solana wallet does not have a USDC token account.");
+    const sourceBalance = await connection.getTokenAccountBalance(sourceAta, "confirmed");
+    if (BigInt(sourceBalance.value.amount) < BigInt(quote.grossMicros)) {
+      throw new Error(`This wallet has ${sourceBalance.value.uiAmountString || "0"} USDC. This payment requires ${quote.grossAmountUsdc} USDC.`);
+    }
     const transaction = new Transaction();
     if (BigInt(quote.creatorMicros) > BigInt(0) && !await connection.getAccountInfo(creatorAta)) transaction.add(token.createAssociatedTokenAccountInstruction(owner, creatorAta, creator, mint));
     if (!await connection.getAccountInfo(treasuryAta)) transaction.add(token.createAssociatedTokenAccountInstruction(owner, treasuryAta, treasury, mint));
@@ -921,7 +938,7 @@ export function DiscoveryApp() {
       } : current);
       setNotice(`${kind === "PAID_LIKE" ? "Paid like" : kind === "GIFT" ? "Gift" : "Message boost"} confirmed on-chain: ${formatUsdc(amount)} USDC split 90/10.`);
     } catch (error) {
-      setWalletError(error instanceof Error ? error.message : "The payment was not completed.");
+      setWalletError(paymentErrorMessage(error));
     } finally { setPaymentBusy(false); setPaymentExpiresAt(null); }
   }
 
