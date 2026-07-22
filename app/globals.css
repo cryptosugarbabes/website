@@ -1762,8 +1762,8 @@ body .dashboard-current-photos .reposition-hint {
 
 @media (min-width: 761px) {
   body .profile-modal {
-    width: min(820px, calc(100vw - 44px));
-    max-height: min(760px, calc(100vh - 44px));
+    width: min(860px, calc(100vw - 28px));
+    height: min(760px, calc(100dvh - 24px));
     grid-template-columns: 42% 58%;
   }
 
@@ -1775,6 +1775,50 @@ body .dashboard-current-photos .reposition-hint {
 
   body .profile-modal .modal-visual {
     min-height: 460px;
+  }
+
+  body .profile-modal .modal-content {
+    padding: 24px 26px 18px;
+  }
+
+  body .profile-modal .modal-content h2 {
+    margin-top: 8px;
+    font-size: 2.15rem;
+  }
+
+  body .profile-modal .modal-content > h3 {
+    margin: 13px 0 7px;
+    font-size: 1.15rem;
+  }
+
+  body .profile-modal .modal-bio {
+    font-size: .9rem !important;
+    line-height: 1.42;
+  }
+
+  body .profile-modal .creator-stats {
+    margin-top: 12px;
+  }
+
+  body .profile-modal .creator-stats > div {
+    min-height: 54px;
+  }
+
+  body .profile-modal .rating-progress {
+    margin: 10px 0 6px;
+  }
+
+  body .profile-modal .tag-row.large,
+  body .profile-modal .modal-actions {
+    margin-top: 13px;
+  }
+
+  body .profile-modal .tag-row.large span {
+    padding: 6px 10px;
+  }
+
+  body .profile-modal .modal-actions button {
+    min-height: 50px;
   }
 }
 
