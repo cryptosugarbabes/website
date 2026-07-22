@@ -6,7 +6,7 @@ export type MonthlyLevel = {
 };
 
 const THRESHOLDS = [0, 500, 1_000, 5_000, 10_000] as const;
-const SUGAR_DADDY_LEVELS = ["New to Sugaring", "Sugar Boy", "Sugar Bro", "Sugar Meister", "Sugar Daddy"] as const;
+const SUGAR_DADDY_LEVELS = ["Sugar Starter", "Sugar Boy", "Sugar Bro", "Sugar Meister", "Sugar Daddy"] as const;
 const SUGAR_BABE_LEVELS = ["Sugar Babe", "Sugar Honey", "Sugar Princess", "Sugar Angel", "Sugar Queen"] as const;
 
 function monthlyLevel(totalUsdc: number, names: readonly string[]): MonthlyLevel {
@@ -28,6 +28,15 @@ function monthlyLevel(totalUsdc: number, names: readonly string[]): MonthlyLevel
 
 export function sugarDaddyMonthlyLevel(totalSpentUsdc: number) {
   return monthlyLevel(totalSpentUsdc, SUGAR_DADDY_LEVELS);
+}
+
+export function monthlySugarRating(totalSpentUsdc: number) {
+  const total = Number.isFinite(totalSpentUsdc) ? Math.max(0, totalSpentUsdc) : 0;
+  return Math.round(total * 100) / 100;
+}
+
+export function formatMonthlySugarRating(totalSpentUsdc: number) {
+  return monthlySugarRating(totalSpentUsdc).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
 }
 
 export function sugarBabeMonthlyLevel(totalEarnedUsdc: number) {
