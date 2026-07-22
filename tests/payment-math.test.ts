@@ -18,8 +18,8 @@ describe("payment math", () => {
   });
 
   it("uses the same scaled paid-like price as the public economy", () => {
-    expect(paidLikePriceMicros(0)).toBe(BigInt(5_000_000));
-    expect(paidLikePriceMicros(100)).toBe(BigInt(5_005_000));
-    expect(paidLikePriceMicros(1_000)).toBe(BigInt(5_050_000));
+    expect(paidLikePriceMicros(0)).toBe(BigInt(2_000_000));
+    expect(paidLikePriceMicros(100)).toBe(BigInt(2_002_000));
+    expect(paidLikePriceMicros(1_000)).toBe(BigInt(2_020_000));
   });
 });

@@ -54,8 +54,8 @@ Privacy-conscious product analytics store aggregate event names and page paths o
 
 - Normal messages are free for every member.
 - A sender can optionally attach a USDC boost to a message for priority placement. The boost also contributes to creator support and sender generosity reputation.
-- A paid photo-like begins at `5.00 USDC`.
-- Every completed 100 paid likes increases that creator's next paid-like amount by 0.1%, using `5.00 × (1 + floor(likes / 100) × 0.001)`.
+- A paid photo-like begins at `2.00 USDC`.
+- Every completed 100 paid likes increases that creator's next paid-like amount by 0.1%, using `2.00 × (1 + floor(likes / 100) × 0.001)`.
 - Every completed 100 paid likes adds 5 creator support points; each whole USDC given as a custom gift adds one more support point.
 - Paid likes, message boosts, and gifts use a 90% creator / 10% platform split.
 - Custom gifts also add one sender generosity point per whole USDC, with visible supporter levels planned for Sugar Daddy profiles.

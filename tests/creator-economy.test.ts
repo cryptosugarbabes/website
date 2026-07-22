@@ -8,11 +8,11 @@ import {
 } from "../lib/creator-economy";
 
 describe("creator economy", () => {
-  it("starts paid likes at 5 USDC and increases by 0.1% per completed 100", () => {
-    expect(photoLikePriceUsdc(0)).toBe(5);
-    expect(photoLikePriceUsdc(99)).toBe(5);
-    expect(photoLikePriceUsdc(100)).toBe(5.005);
-    expect(photoLikePriceUsdc(1_000)).toBe(5.05);
+  it("starts paid likes at 2 USDC and increases by 0.1% per completed 100", () => {
+    expect(photoLikePriceUsdc(0)).toBe(2);
+    expect(photoLikePriceUsdc(99)).toBe(2);
+    expect(photoLikePriceUsdc(100)).toBe(2.002);
+    expect(photoLikePriceUsdc(1_000)).toBe(2.02);
   });
 
   it("allocates 90% to the creator and 10% to the platform", () => {

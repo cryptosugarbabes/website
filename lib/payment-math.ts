@@ -24,5 +24,5 @@ export function splitPaymentMicros(grossMicros: bigint) {
 export function paidLikePriceMicros(paidLikes: number | bigint) {
   const normalized = typeof paidLikes === "bigint" ? paidLikes : BigInt(Math.max(0, Math.floor(paidLikes)));
   const completedHundreds = normalized / BigInt(100);
-  return BigInt(5_000_000) + completedHundreds * BigInt(5_000);
+  return BigInt(2_000_000) + completedHundreds * BigInt(2_000);
 }

@@ -1,4 +1,4 @@
-export const BASE_PHOTO_LIKE_PRICE_USDC = 5;
+export const BASE_PHOTO_LIKE_PRICE_USDC = 2;
 export const LIKE_PRICE_INCREASE_PER_100 = 0.001;
 export const CREATOR_SHARE_BPS = 9_000;
 export const PLATFORM_SHARE_BPS = 1_000;
