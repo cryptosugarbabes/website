@@ -1851,6 +1851,11 @@ body .dashboard-current-photos .reposition-hint {
   body .profile-modal .modal-actions button {
     min-height: 50px;
   }
+
+  body .profile-modal .profile-media-column > .photo-like-button {
+    min-height: 50px;
+    margin: 21px 12px 8px;
+  }
 }
 
 /* Keep the email sign-in flow fully visible on laptop-height screens while
