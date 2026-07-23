@@ -40,3 +40,8 @@ export function generosityLevel(points: number) {
 export function formatUsdc(value: number) {
   return value.toFixed(value === Math.round(value * 100) / 100 ? 2 : 4);
 }
+
+export function sugarCountLabel(value: number) {
+  const count = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  return `${count.toLocaleString("en-US")} ${count <= 1 ? "Sugar" : "Sugars"}`;
+}

@@ -4,7 +4,8 @@ import {
   creatorSupportPoints,
   generosityLevel,
   photoLikePriceUsdc,
-  platformShareUsdc
+  platformShareUsdc,
+  sugarCountLabel
 } from "../lib/creator-economy";
 
 describe("creator economy", () => {
@@ -25,5 +26,11 @@ describe("creator economy", () => {
     expect(creatorSupportPoints(199, 24.99)).toBe(29);
     expect(generosityLevel(5)).toBe("Thoughtful Supporter");
     expect(generosityLevel(500)).toBe("Legendary Patron");
+  });
+
+  it("labels photo Sugars with correct singular and plural forms", () => {
+    expect(sugarCountLabel(0)).toBe("0 Sugar");
+    expect(sugarCountLabel(1)).toBe("1 Sugar");
+    expect(sugarCountLabel(2)).toBe("2 Sugars");
   });
 });

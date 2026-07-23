@@ -13,7 +13,8 @@ import {
   creatorSupportPoints,
   formatUsdc,
   photoLikePriceUsdc,
-  platformShareUsdc
+  platformShareUsdc,
+  sugarCountLabel
 } from "@/lib/creator-economy";
 import { formatMonthlySugarRating, sugarDaddyMonthlyLevel } from "@/lib/monthly-levels";
 
@@ -1174,14 +1175,14 @@ export function DiscoveryApp() {
             <button className="modal-close" onClick={() => setActiveProfile(null)} aria-label="Close profile"><Icon name="close" size={20}/></button>
             <div className="profile-media-column">
               <ProfileArtwork profile={displayedProfile} large/>
-              {Boolean(activeProfile.media?.length && activeProfile.media.length > 1) && <div className="profile-photo-thumbnails">{activeProfile.media?.map((item, index) => <button className={item.id === selectedMedia?.id ? "active" : ""} onClick={() => setSelectedMediaId(item.id)} key={item.id}><img src={item.url} alt={`${activeProfile.name} photo ${index + 1}`} style={{ objectPosition: `${item.focalX ?? 50}% ${item.focalY ?? 50}%` }}/><span>{item.paidLikes} likes</span></button>)}</div>}
+              {Boolean(activeProfile.media?.length && activeProfile.media.length > 1) && <div className="profile-photo-thumbnails">{activeProfile.media?.map((item, index) => <button className={item.id === selectedMedia?.id ? "active" : ""} onClick={() => setSelectedMediaId(item.id)} key={item.id}><img src={item.url} alt={`${activeProfile.name} photo ${index + 1}`} style={{ objectPosition: `${item.focalX ?? 50}% ${item.focalY ?? 50}%` }}/><span>{sugarCountLabel(item.paidLikes)}</span></button>)}</div>}
               <button className="photo-like-button" disabled={paymentBusy || !selectedMedia || !activeProfile.supportEnabled} onClick={() => likeFeaturedPhoto(activeProfile, selectedMedia?.id)}><Icon name="heart" size={19}/><span>{paymentBusy ? "Confirming…" : activeProfile.supportEnabled ? "Sugar this Photo" : "This user needs a wallet first"}</span>{activeProfile.supportEnabled && <strong>{formatUsdc(stats.likePrice)} USDC</strong>}</button>
             </div>
             <div className="modal-content">
               <span className="verified-line"><Icon name="shield" size={15}/>{activeProfile.sample ? "Editorial sample · Not a real member" : activeProfile.verified ? "Published profile · Adult self-attested" : "Private or hidden profile"}</span>
               <h2 id="profile-modal-title">{activeProfile.name}, {activeProfile.age}</h2><p className="location">{activeProfile.country} · {activeProfile.region}</p>
               <h3>{activeProfile.headline}</h3><p className="modal-bio">{activeProfile.bio}</p>
-              <div className="creator-stats"><div><span>SUPPORT SCORE</span><strong>{stats.points} pts</strong></div><div><span>PAID LIKES</span><strong>{stats.likes.toLocaleString()}</strong></div><div><span>NEXT LIKE</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></div></div>
+              <div className="creator-stats"><div><span>SUPPORT SCORE</span><strong>{stats.points} pts</strong></div><div><span>SUGARS</span><strong>{stats.likes.toLocaleString()}</strong></div><div><span>NEXT SUGAR</span><strong>{formatUsdc(stats.likePrice)} USDC</strong></div></div>
               <div className="rating-progress"><span style={{ width: `${stats.progress}%` }}/></div><p className="rating-note">{100 - stats.progress} more paid likes until the next 0.1% like-value increase.</p>
               <div className="tag-row large">{activeProfile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
               {accountType === "CUSTOMER" && <div className="generosity-badge sugar-rating-tooltip" data-tooltip="Rating is monthly" tabIndex={0}><Icon name="spark" size={19}/><span>Your Sugar Rating: {formatMonthlySugarRating(monthlySupportGivenUsdc)}</span><strong>{sugarDaddyMonthlyLevel(monthlySupportGivenUsdc).name}</strong></div>}
