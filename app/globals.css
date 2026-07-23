@@ -233,6 +233,38 @@ body .filter-bar .region-select-menu button { font-size: .95rem !important; }
 body .filter-bar .select-field > span { font-size: .7rem !important; }
 
 .profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.profile-carousel-shell { position: relative; }
+.profile-carousel-track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 5px 1px 12px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.profile-carousel-track::-webkit-scrollbar { display: none; }
+.profile-carousel-track .profile-card { flex: 0 0 calc((100% - 60px) / 4); scroll-snap-align: start; }
+.profile-carousel-controls { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 24px; }
+.profile-carousel-controls > button {
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(255,126,192,.32);
+  border-radius: 50%;
+  background: rgba(255,255,255,.035);
+  color: white;
+  cursor: pointer;
+  font-size: 20px;
+}
+.profile-carousel-controls > button:hover { border-color: var(--pink); color: var(--pink); }
+.profile-carousel-controls .primary-button { min-height: 46px; padding: 0 25px; }
+.directory-mode .hero,
+.directory-mode .desire-strip,
+.directory-mode .steps-section,
+.directory-mode .crypto-section,
+.directory-mode .wallet-setup-section,
+.directory-mode .safety-section { display: none; }
+.directory-mode .discovery-section { min-height: calc(100vh - 210px); padding-top: 86px; }
 .profile-card { position: relative; border: 1px solid var(--line); background: #161218; border-radius: 18px; overflow: hidden; transition: transform .3s ease, border-color .3s ease; }
 .profile-card:hover { transform: translateY(-5px); border-color: rgba(214,178,118,.25); }
 .profile-open { display: block; padding: 0; border: 0; background: transparent; width: 100%; text-align: left; cursor: pointer; }
@@ -593,6 +625,11 @@ body .photo-field > label small { font-size: .68rem !important; line-height: 1.3
   .search-field { min-height: 60px; }
   .select-field { border-left: 0; border-top: 1px solid var(--line); border-radius: 0 0 13px 13px; }
   .profile-grid { grid-template-columns: 1fr; }
+  .profile-carousel-track .profile-card { flex-basis: 100%; }
+  .profile-carousel-controls { gap: 9px; }
+  .profile-carousel-controls > button { width: 42px; height: 42px; }
+  .profile-carousel-controls .primary-button { padding: 0 17px; font-size: 11px; }
+  .directory-mode .discovery-section { padding-top: 55px; }
   .steps-section { padding: 42.5px 22px; }
   .crypto-section { padding: 42.5px 22px; }
   .access-card { padding: 28px; }

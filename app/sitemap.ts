@@ -15,6 +15,7 @@ const publicPages: Array<{
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
 }> = [
   { path: "/", priority: 1, changeFrequency: "daily" },
+  { path: "/sugar-babes", priority: 0.9, changeFrequency: "daily" },
   { path: "/how-it-works", priority: 0.9, changeFrequency: "monthly" },
   { path: "/crypto-safety", priority: 0.8, changeFrequency: "monthly" },
   { path: "/crypto-payments", priority: 0.8, changeFrequency: "monthly" },
