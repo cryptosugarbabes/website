@@ -532,8 +532,8 @@ export function MemberDashboard() {
               </div>
               {data.identity.wallets.length ? <div className="profile-wallet-list">{data.identity.wallets.map((wallet) => <div key={`${wallet.chain}:${wallet.address}`}><span>{wallet.chain === "solana" ? "Solana" : "Base / EVM"}</span><strong>{short(wallet.address)}</strong><small>{wallet.primary ? "Primary wallet" : "Verified wallet"}</small></div>)}</div> : null}
               <div className="payout-wallet-actions profile-wallet-actions">
-                {!hasEvmWallet && <a href="/?connectPayout=1&network=evm"><span>{hasSolanaWallet ? "Add another wallet" : "Add Base / EVM wallet"}</span><small>MetaMask and other EVM wallets</small></a>}
-                {!hasSolanaWallet && <a href="/?connectPayout=1&network=solana"><span>{hasEvmWallet ? "Add another wallet" : "Add Solana wallet"}</span><small>Solflare or Phantom</small></a>}
+                {!hasEvmWallet && <a href="/?connectPayout=1&network=evm&returnTo=dashboard"><span>{hasSolanaWallet ? "Add another wallet" : "Add Base / EVM wallet"}</span><small>MetaMask and other EVM wallets</small></a>}
+                {!hasSolanaWallet && <a href="/?connectPayout=1&network=solana&returnTo=dashboard"><span>{hasEvmWallet ? "Add another wallet" : "Add Solana wallet"}</span><small>Solflare or Phantom</small></a>}
                 {hasEvmWallet && hasSolanaWallet && <span className="wallet-networks-complete">✓ Base/EVM and Solana are connected</span>}
               </div>
             </div>
@@ -555,7 +555,7 @@ export function MemberDashboard() {
           {tab === "settings" && <section>
             <div className="dashboard-heading"><span className="dashboard-kicker">ACCOUNT & PRIVACY</span><h1>Account & Settings</h1><p>Manage your sign-in details, connected wallet, social links and privacy requests.</p></div>
             <div className="dashboard-panel identity-list"><div><span>Verified email</span><strong>{data.identity.email || "Required before linking a wallet"}</strong></div>{data.identity.wallets.length ? data.identity.wallets.map((wallet) => <div key={`${wallet.chain}:${wallet.address}`}><span>{wallet.chain === "solana" ? "Solana wallet" : "Base / EVM wallet"}</span><strong>{short(wallet.address)}</strong><small>{wallet.primary ? "Primary payout wallet" : "Verified wallet"}</small></div>) : <div><span>Wallets</span><strong>None connected</strong><small>Verify email, then link Base and/or Solana</small></div>}<div><span>Member since</span><strong>{new Date(data.identity.createdAt).toLocaleDateString()}</strong></div><div><span>Account status</span><strong>{label(data.identity.status)}</strong></div></div>
-            <div className="payout-wallet-actions"><a href="/?connectPayout=1&network=evm">Link Base / EVM wallet</a><a href="/?connectPayout=1&network=solana">Link Solana wallet</a></div>
+            <div className="payout-wallet-actions"><a href="/?connectPayout=1&network=evm&returnTo=dashboard">Link Base / EVM wallet</a><a href="/?connectPayout=1&network=solana&returnTo=dashboard">Link Solana wallet</a></div>
             <div className="dashboard-panel account-email-panel">
               <div><span className="dashboard-kicker">VERIFIED EMAIL</span><h2>{data.identity.email ? "Change your email address" : "Verify your required email address"}</h2><p>{data.identity.email ? "We will send a code to the new address before replacing your current email. You will use the new address the next time you sign in." : "Verify an email before linking a new Base or Solana wallet. It also enables password-free sign-in and private message notifications."}</p></div>
               {accountEmailChallengeId ? <form onSubmit={confirmAccountEmail}>
