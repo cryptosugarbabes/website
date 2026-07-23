@@ -117,7 +117,9 @@ export async function POST(request: NextRequest) {
     const account = await accountForSession(session);
     if (!account) return NextResponse.json({ error: "Choose your account type first." }, { status: 409 });
     const result = await query<QuoteRow>(`
-      SELECT q.*, buyer.wallet_address AS buyer_address, creator.wallet_address AS creator_address,
+      SELECT q.*,
+        COALESCE(q.buyer_wallet_address, buyer.wallet_address) AS buyer_address,
+        COALESCE(q.creator_wallet_address, creator.wallet_address) AS creator_address,
         CASE WHEN creator.email_verified_at IS NOT NULL THEN creator.email ELSE NULL END AS creator_email,
         p.display_name AS creator_name
       FROM payment_quotes q

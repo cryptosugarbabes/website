@@ -72,38 +72,70 @@ export async function POST(request: NextRequest) {
       `, [nonce]);
       if (!consumed.rowCount) throw new Error("CHALLENGE_USED");
 
+      const walletOwner = await client.query<{ id: string; email: string | null; status: string }>(`
+        SELECT u.id, u.email, u.status
+        FROM user_wallets uw
+        JOIN users u ON u.id = uw.user_id
+        WHERE uw.wallet_chain = $1 AND uw.wallet_address = $2
+        FOR UPDATE OF u
+      `, [chain, walletAddress]);
+      const legacyOwner = walletOwner.rowCount ? walletOwner : await client.query<{ id: string; email: string | null; status: string }>(`
+        SELECT id, email, status FROM users
+        WHERE wallet_chain = $1 AND wallet_address = $2
+        FOR UPDATE
+      `, [chain, walletAddress]);
+
       if (existingSession?.userId) {
-        const current = await client.query<{ id: string; email: string | null; wallet_chain: WalletChain | null; wallet_address: string | null; status: string }>(`
-          SELECT id, email, wallet_chain, wallet_address, status FROM users WHERE id = $1 FOR UPDATE
+        const current = await client.query<{ id: string; email: string | null; email_verified_at: Date | null; wallet_chain: WalletChain | null; wallet_address: string | null; status: string }>(`
+          SELECT id, email, email_verified_at, wallet_chain, wallet_address, status FROM users WHERE id = $1 FOR UPDATE
         `, [existingSession.userId]);
         if (!current.rowCount) throw new Error("SESSION_USER_NOT_FOUND");
         if (current.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_SUSPENDED");
-        const owner = await client.query<{ id: string }>(`
-          SELECT id FROM users WHERE wallet_chain = $1 AND wallet_address = $2 FOR UPDATE
-        `, [chain, walletAddress]);
-        if (owner.rowCount && owner.rows[0].id !== current.rows[0].id) throw new Error("WALLET_ALREADY_LINKED");
-        if (current.rows[0].wallet_address && (current.rows[0].wallet_chain !== chain || current.rows[0].wallet_address !== walletAddress)) {
-          throw new Error("ACCOUNT_ALREADY_HAS_WALLET");
+        if (legacyOwner.rowCount && legacyOwner.rows[0].id !== current.rows[0].id) throw new Error("WALLET_ALREADY_LINKED");
+        const alreadyOwned = legacyOwner.rows[0]?.id === current.rows[0].id;
+        if (!current.rows[0].email_verified_at && !alreadyOwned) throw new Error("EMAIL_REQUIRED");
+
+        const existingOnChain = await client.query<{ is_primary: boolean }>(`
+          SELECT is_primary FROM user_wallets
+          WHERE user_id = $1 AND wallet_chain = $2
+          ORDER BY is_primary DESC, created_at
+          LIMIT 1
+        `, [current.rows[0].id, chain]);
+        const linked = await client.query(`
+          INSERT INTO user_wallets (id, user_id, wallet_chain, wallet_address, is_primary)
+          VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (wallet_chain, wallet_address)
+          DO UPDATE SET updated_at = now()
+          WHERE user_wallets.user_id = EXCLUDED.user_id
+          RETURNING user_id
+        `, [randomUUID(), current.rows[0].id, chain, walletAddress, !existingOnChain.rowCount]);
+        if (!linked.rowCount) throw new Error("WALLET_ALREADY_LINKED");
+        if (!current.rows[0].wallet_address) {
+          await client.query(`UPDATE users SET wallet_chain = $1, wallet_address = $2, updated_at = now() WHERE id = $3`, [chain, walletAddress, current.rows[0].id]);
         }
-        await client.query(`UPDATE users SET wallet_chain = $1, wallet_address = $2, updated_at = now() WHERE id = $3`, [chain, walletAddress, current.rows[0].id]);
         return { id: current.rows[0].id, email: current.rows[0].email };
       }
 
-      const result = await client.query<{ id: string; email: string | null; status: string }>(`
-        INSERT INTO users (id, wallet_address, wallet_chain)
-        VALUES ($1, $2, $3)
+      if (!legacyOwner.rowCount) throw new Error("EMAIL_REQUIRED");
+      if (legacyOwner.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_SUSPENDED");
+      await client.query(`
+        INSERT INTO user_wallets (id, user_id, wallet_chain, wallet_address, is_primary)
+        VALUES ($1, $2, $3, $4, NOT EXISTS (
+          SELECT 1 FROM user_wallets WHERE user_id = $2 AND wallet_chain = $3
+        ))
         ON CONFLICT (wallet_chain, wallet_address)
         DO UPDATE SET updated_at = now()
-        RETURNING id, email, status
-      `, [randomUUID(), walletAddress, chain]);
-      if (result.rows[0].status !== "ACTIVE") throw new Error("ACCOUNT_SUSPENDED");
-      return result.rows[0];
+      `, [randomUUID(), legacyOwner.rows[0].id, chain, walletAddress]);
+      return legacyOwner.rows[0];
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message === "CHALLENGE_USED") return NextResponse.json({ error: "That sign-in request has already been used or expired." }, { status: 409 });
     if (message === "WALLET_ALREADY_LINKED") return NextResponse.json({ error: "That wallet is already linked to another account." }, { status: 409 });
-    if (message === "ACCOUNT_ALREADY_HAS_WALLET") return NextResponse.json({ error: "This account already has a different wallet linked. Sign in with that wallet or contact support." }, { status: 409 });
+    if (message === "EMAIL_REQUIRED") return NextResponse.json({
+      error: "Verify your email first, then connect this wallet from the same account.",
+      code: "EMAIL_REQUIRED"
+    }, { status: 409 });
     if (message === "ACCOUNT_SUSPENDED") return NextResponse.json({ error: "This account is suspended. Contact safety support if you believe this is an error." }, { status: 403 });
     throw error;
   }

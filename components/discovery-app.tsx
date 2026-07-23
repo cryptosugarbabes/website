@@ -526,8 +526,14 @@ export function DiscoveryApp() {
 
   async function verifySignIn(address: string, chain: WalletChain, message: string, signature: string, name: string) {
     const response = await fetch("/api/auth/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, chain, message, signature }) });
-    const data = (await response.json()) as { address?: string; chain?: WalletChain; email?: string | null; error?: string };
-    if (!response.ok || !data.address) throw new Error(data.error || "Sign-in failed.");
+    const data = (await response.json()) as { address?: string; chain?: WalletChain; email?: string | null; error?: string; code?: string };
+    if (!response.ok || !data.address) {
+      if (data.code === "EMAIL_REQUIRED") {
+        setWalletPickerOpen(false);
+        setEmailAuthOpen(true);
+      }
+      throw new Error(data.error || "Sign-in failed.");
+    }
     setWallet(data.address);
     if (data.email) setEmail(data.email);
     setWalletChain(data.chain || chain);
@@ -918,6 +924,11 @@ export function DiscoveryApp() {
     if (profile.sample) { setNotice("Editorial samples cannot receive real payments."); return; }
     if (!profile.supportEnabled) { setNotice("This Sugar Babe has not connected a payout wallet yet. Gifts and paid likes are unavailable."); return; }
     if (!wallet) { setWalletError("Connect a matching wallet before paying."); showWalletPicker(); return; }
+    if (walletChain && profile.supportNetworks?.length && !profile.supportNetworks.includes(walletChain)) {
+      setWalletError(`This Sugar Babe receives on ${profile.supportNetworks.includes("solana") ? "Solana" : "Base"}. Connect a matching wallet to pay.`);
+      showWalletPicker();
+      return;
+    }
     if (!accountType) { setAccountOpen(true); return; }
     if (accountType !== "CUSTOMER") { setNotice("Only private Sugar Daddy accounts can send paid support."); return; }
     setPaymentBusy(true); setWalletError("");

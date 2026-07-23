@@ -25,6 +25,7 @@ export type Profile = {
   points24h?: number;
   supportEnabled?: boolean;
   supportNetwork?: "evm" | "solana" | null;
+  supportNetworks?: Array<"evm" | "solana">;
   reviewStatus?: "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED";
   isOwn?: boolean;
 };

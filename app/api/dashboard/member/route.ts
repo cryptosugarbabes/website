@@ -24,6 +24,12 @@ type UserRow = AcceptanceRecord & {
   customer_bio: string | null;
   generosity_points: string | null;
 };
+type WalletRow = {
+  address: string;
+  chain: "evm" | "solana";
+  is_primary: boolean;
+  verified_at: Date;
+};
 
 export async function GET(request: NextRequest) {
   const session = authenticatedSession(request);
@@ -45,6 +51,13 @@ export async function GET(request: NextRequest) {
     `, [session.userId || null, session.chain || null, session.address || null]);
     if (!userResult.rowCount) return NextResponse.json({ error: "Your account could not be found." }, { status: 404 });
     const user = userResult.rows[0];
+    const walletsResult = await query<WalletRow>(`
+      SELECT wallet_address AS address, wallet_chain AS chain, is_primary, verified_at
+      FROM user_wallets
+      WHERE user_id = $1
+      ORDER BY wallet_chain, is_primary DESC, created_at
+    `, [user.id]);
+    const wallets = walletsResult.rows;
 
     const [profile, totals, favorites, activity, reports, visibility] = await Promise.all([
       query<{
@@ -163,6 +176,12 @@ export async function GET(request: NextRequest) {
         email: user.email,
         walletAddress: user.wallet_address,
         walletChain: user.wallet_chain,
+        wallets: wallets.map((wallet) => ({
+          address: wallet.address,
+          chain: wallet.chain,
+          primary: wallet.is_primary,
+          verifiedAt: wallet.verified_at
+        })),
         status: user.status,
         suspensionReason: user.suspension_reason,
         deletionRequestedAt: user.deletion_requested_at,
@@ -229,8 +248,11 @@ export async function GET(request: NextRequest) {
         sugarBabeRatingTiers: sugarBabeMonthlyRatingTiers()
       },
       paymentCapabilities: {
-        creatorSupportEnabled: user.wallet_chain === "solana"
-          || (user.wallet_chain === "evm" && PAYMENT_CONFIG.base.atomicSettlementEnabled),
+        creatorSupportEnabled: wallets.some((wallet) => wallet.chain === "solana")
+          || (PAYMENT_CONFIG.base.atomicSettlementEnabled && wallets.some((wallet) => wallet.chain === "evm")),
+        creatorSupportNetworks: wallets
+          .filter((wallet) => wallet.chain === "solana" || PAYMENT_CONFIG.base.atomicSettlementEnabled)
+          .map((wallet) => wallet.chain),
         baseCreatorSupportEnabled: PAYMENT_CONFIG.base.atomicSettlementEnabled,
         solanaCreatorSupportEnabled: true
       },

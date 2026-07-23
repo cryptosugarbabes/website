@@ -25,6 +25,7 @@ type ProfileRow = {
   points_24h: string;
   support_enabled: boolean;
   support_network: "evm" | "solana" | null;
+  support_networks: Array<"evm" | "solana">;
   is_own: boolean;
   media: Array<{ id: string; approved: boolean; paidLikes: number; focalX: number; focalY: number }>;
 };
@@ -39,10 +40,10 @@ function publicProfile(row: ProfileRow) {
     focalY: Number(item.focalY ?? 50)
   }));
   const name = row.display_name;
-  const supportEnabled = row.support_enabled && (
-    row.support_network === "solana"
-    || (row.support_network === "evm" && PAYMENT_CONFIG.base.atomicSettlementEnabled)
+  const supportNetworks = row.support_networks.filter((network) =>
+    network === "solana" || (network === "evm" && PAYMENT_CONFIG.base.atomicSettlementEnabled)
   );
+  const supportEnabled = row.support_enabled && supportNetworks.length > 0;
   return {
     id: row.id,
     name,
@@ -69,6 +70,7 @@ function publicProfile(row: ProfileRow) {
     points24h: Number(row.points_24h),
     supportEnabled,
     supportNetwork: row.support_network,
+    supportNetworks,
     reviewStatus: row.review_status,
     isOwn: row.is_own
   };
@@ -83,7 +85,12 @@ export async function GET(request: NextRequest) {
     ownerClause = `(u.id = $1)`;
   } else if (session?.chain && session.address) {
     values.push(session.chain, session.address);
-    ownerClause = `(u.wallet_chain = $1 AND u.wallet_address = $2)`;
+    ownerClause = `EXISTS (
+      SELECT 1 FROM user_wallets owner_wallet
+      WHERE owner_wallet.user_id = u.id
+        AND owner_wallet.wallet_chain = $1
+        AND owner_wallet.wallet_address = $2
+    )`;
   }
 
   try {
@@ -100,8 +107,9 @@ export async function GET(request: NextRequest) {
           + floor(support_stats.support_total)
           - floor(GREATEST(support_stats.support_total - support_stats.support_24h, 0))
         ) AS points_24h,
-        (u.wallet_chain IS NOT NULL AND u.wallet_address IS NOT NULL) AS support_enabled,
-        u.wallet_chain AS support_network,
+        (cardinality(payout.support_networks) > 0) AS support_enabled,
+        payout.support_networks[1] AS support_network,
+        payout.support_networks,
         ${ownerClause} AS is_own,
         COALESCE(json_agg(json_build_object(
           'id', m.id, 'approved', m.is_approved, 'paidLikes', m.paid_likes,
@@ -126,11 +134,19 @@ export async function GET(request: NextRequest) {
         FROM support_events se
         WHERE se.creator_profile_id = p.id
       ) support_stats ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(
+          array_agg(uw.wallet_chain ORDER BY uw.is_primary DESC, uw.created_at),
+          ARRAY[]::text[]
+        ) AS support_networks
+        FROM user_wallets uw
+        WHERE uw.user_id = u.id
+      ) payout ON TRUE
       LEFT JOIN profile_media m ON m.profile_id = p.id
         AND (p.review_status <> 'APPROVED' OR m.is_approved = TRUE)
       WHERE u.status = 'ACTIVE'
         AND ((p.review_status = 'APPROVED' AND u.account_type = 'CREATOR') OR ${ownerClause})
-      GROUP BY p.id, u.id, u.wallet_chain, u.wallet_address,
+      GROUP BY p.id, u.id, payout.support_networks,
         support_stats.likes_24h, support_stats.support_total, support_stats.support_24h
       ORDER BY CASE WHEN ${ownerClause} THEN 0 ELSE 1 END,
         points_24h DESC, creator_points DESC, p.updated_at DESC

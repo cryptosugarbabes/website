@@ -12,7 +12,6 @@ type PaymentKind = "PAID_LIKE" | "GIFT" | "MESSAGE_BOOST" | "MESSAGE_UNLOCK";
 type CreatorRow = {
   id: string;
   photo_likes: string;
-  wallet_chain: "evm" | "solana" | null;
   wallet_address: string | null;
 };
 
@@ -33,6 +32,14 @@ export async function POST(request: NextRequest) {
     const account = await accountForSession(session);
     if (!account?.account_type) return NextResponse.json({ error: "Choose your account type first." }, { status: 409 });
     if (kind !== "MESSAGE_UNLOCK" && account.account_type !== "CUSTOMER") return NextResponse.json({ error: "Sugar Babe accounts cannot pay their own profiles." }, { status: 403 });
+    const buyerWallet = await query(`
+      SELECT 1 FROM user_wallets
+      WHERE user_id = $1 AND wallet_chain = $2 AND wallet_address = $3
+      LIMIT 1
+    `, [account.id, session.chain, session.chain === "evm" ? session.address.toLowerCase() : session.address]);
+    if (!buyerWallet.rowCount) {
+      return NextResponse.json({ error: "Reconnect a verified wallet linked to this account." }, { status: 409 });
+    }
 
     let profileId = input.profileId || "";
     let conversationId: string | null = null;
@@ -67,17 +74,22 @@ export async function POST(request: NextRequest) {
     }
 
     const creator = await query<CreatorRow>(`
-      SELECT p.id, p.photo_likes::text, u.wallet_chain, u.wallet_address
-      FROM profiles p JOIN users u ON u.id = p.user_id
+      SELECT p.id, p.photo_likes::text, payout.wallet_address
+      FROM profiles p
+      JOIN users u ON u.id = p.user_id
+      LEFT JOIN LATERAL (
+        SELECT uw.wallet_address
+        FROM user_wallets uw
+        WHERE uw.user_id = u.id AND uw.wallet_chain = $2
+        ORDER BY uw.is_primary DESC, uw.created_at
+        LIMIT 1
+      ) payout ON TRUE
       WHERE p.id = $1 AND p.review_status = 'APPROVED' AND u.account_type = 'CREATOR' AND u.status = 'ACTIVE'
-    `, [profileId]);
+    `, [profileId, session.chain]);
     if (!creator.rowCount) return NextResponse.json({ error: "That Sugar Babe profile is not available." }, { status: 404 });
     const target = creator.rows[0];
-    if (kind !== "MESSAGE_UNLOCK" && (!target.wallet_chain || !target.wallet_address)) {
+    if (kind !== "MESSAGE_UNLOCK" && !target.wallet_address) {
       return NextResponse.json({ error: "This Sugar Babe has not connected a payout wallet yet. Free messaging is still available." }, { status: 409 });
-    }
-    if (kind !== "MESSAGE_UNLOCK" && target.wallet_chain !== session.chain) {
-      return NextResponse.json({ error: `This Sugar Babe receives on ${target.wallet_chain === "solana" ? "Solana" : "Base"}. Connect a matching wallet to pay.` }, { status: 409 });
     }
     if (kind !== "MESSAGE_UNLOCK" && session.chain === "evm" && !PAYMENT_CONFIG.base.atomicSettlementEnabled) {
       return NextResponse.json({
@@ -127,11 +139,11 @@ export async function POST(request: NextRequest) {
     const { creatorMicros, platformMicros } = split;
     const id = randomUUID();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    const quoteValues = [id, account.id, target.id, kind, session.chain === "solana" ? "SOLANA" : "BASE", microsToDecimal(grossMicros), microsToDecimal(creatorMicros), microsToDecimal(platformMicros), expiresAt, mediaId, messageId, conversationId];
+    const quoteValues = [id, account.id, target.id, kind, session.chain === "solana" ? "SOLANA" : "BASE", microsToDecimal(grossMicros), microsToDecimal(creatorMicros), microsToDecimal(platformMicros), expiresAt, mediaId, messageId, conversationId, session.chain === "evm" ? session.address.toLowerCase() : session.address, target.wallet_address];
     const insertQuote = `
       INSERT INTO payment_quotes
-        (id, buyer_user_id, creator_profile_id, kind, network, gross_amount_usdc, creator_amount_usdc, platform_amount_usdc, expires_at, media_id, message_id, conversation_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        (id, buyer_user_id, creator_profile_id, kind, network, gross_amount_usdc, creator_amount_usdc, platform_amount_usdc, expires_at, media_id, message_id, conversation_id, buyer_wallet_address, creator_wallet_address)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     `;
     if (kind === "MESSAGE_UNLOCK" && conversationId) {
       await transaction(async (client) => {
