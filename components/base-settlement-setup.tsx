@@ -16,7 +16,10 @@ type BasePaymentConfig = {
 };
 
 type BrowserWindow = Window & typeof globalThis & {
-  ethereum?: EIP1193Provider;
+  ethereum?: EIP1193Provider & {
+    isMetaMask?: boolean;
+    providers?: Array<EIP1193Provider & { isMetaMask?: boolean }>;
+  };
 };
 
 const BASE_CHAIN_HEX = "0x2105";
@@ -38,10 +41,15 @@ export function BaseSettlementSetup() {
   }, []);
 
   async function switchToBase(provider: EIP1193Provider) {
+    const currentChain = await provider.request({ method: "eth_chainId" }).catch(() => null);
+    if (currentChain === BASE_CHAIN_HEX) return;
     try {
       await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_CHAIN_HEX }] });
     } catch (caught) {
       const code = (caught as { code?: number }).code;
+      if (code === -32601 || String((caught as { message?: string }).message || "").includes("not supported")) {
+        throw new Error("Open MetaMask, select Base Mainnet, then try again.");
+      }
       if (code !== 4902) throw caught;
       await provider.request({
         method: "wallet_addEthereumChain",
@@ -58,7 +66,8 @@ export function BaseSettlementSetup() {
 
   async function deploySplitter() {
     setError("");
-    const provider = (window as BrowserWindow).ethereum;
+    const injected = (window as BrowserWindow).ethereum;
+    const provider = injected?.providers?.find((candidate) => candidate.isMetaMask) || injected;
     if (!provider) {
       setError("Open this page in a browser with your Base wallet extension, then try again.");
       return;
@@ -72,8 +81,8 @@ export function BaseSettlementSetup() {
 
     setBusy(true);
     try {
-      await switchToBase(provider);
-      const walletClient = createWalletClient({ chain: base, transport: custom(provider) });
+      await switchToBase(provider as EIP1193Provider);
+      const walletClient = createWalletClient({ chain: base, transport: custom(provider as Parameters<typeof custom>[0]) });
       const accounts = await walletClient.requestAddresses();
       const account = accounts[0];
       if (!account) throw new Error("Your wallet did not provide an account.");
