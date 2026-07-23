@@ -31,7 +31,7 @@ export async function accountForSession(session: AuthSession) {
           AND q.confirmed_at >= date_trunc('month', now())
           AND q.confirmed_at < date_trunc('month', now()) + interval '1 month'
       ), 0)::text AS monthly_support_sent,
-      EXISTS (SELECT 1 FROM profiles p WHERE p.user_id = u.id) AS has_creator_profile
+      EXISTS (SELECT 1 FROM profiles p WHERE p.user_id = u.id AND p.deleted_at IS NULL) AS has_creator_profile
     FROM users u
     LEFT JOIN customer_profiles cp ON cp.user_id = u.id
     WHERE ($1::uuid IS NOT NULL AND u.id = $1)

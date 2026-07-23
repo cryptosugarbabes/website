@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       FROM profiles p
       JOIN users u ON u.id = p.user_id AND u.account_type = 'CREATOR'
       LEFT JOIN profile_media m ON m.profile_id = p.id
+      WHERE p.deleted_at IS NULL
       GROUP BY p.id
       ORDER BY (p.moderation_reviewed_at IS NULL) DESC,
         CASE p.review_status WHEN 'PENDING_REVIEW' THEN 0 WHEN 'REJECTED' THEN 1 ELSE 2 END,

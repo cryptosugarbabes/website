@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
             ORDER BY m.sort_order, m.created_at) FILTER (WHERE m.id IS NOT NULL), '[]') AS media
         FROM profiles p
         LEFT JOIN profile_media m ON m.profile_id = p.id
-        WHERE p.user_id = $1
+        WHERE p.user_id = $1 AND p.deleted_at IS NULL
         GROUP BY p.id
       `, [user.id]),
       query<{

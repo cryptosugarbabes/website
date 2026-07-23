@@ -113,6 +113,18 @@ export async function sendProfileReviewEmail(email: string, input: { approved: b
   );
 }
 
+export async function sendProfileDeletionEmail(email: string, input: { profileName?: string | null; reason?: string | null }) {
+  const name = input.profileName?.trim() || "Your profile";
+  const safeName = escapeHtml(name);
+  const reason = input.reason?.trim() || "The profile was removed by an administrator.";
+  await sendEmail(
+    email,
+    "Your Crypto Sugar Babes profile was deleted",
+    `${name} was deleted from Crypto Sugar Babes. Administrator note: ${reason} Your member account and required transaction records have not been deleted.`,
+    `<h1 style="margin:0 0 15px;font-family:Georgia,serif;font-size:30px;font-weight:500">Your public profile was deleted.</h1><p style="color:#c8b8c0"><strong>${safeName}</strong> and its photos have been removed from public discovery.</p><div style="margin:18px 0;padding:16px;border-left:3px solid #e0ba78;background:#21131c;color:#e9dce3"><strong>Administrator note</strong><br>${escapeHtml(reason)}</div><p style="color:#c8b8c0">Your member account and required transaction records remain available. You may create a new profile from your dashboard if appropriate.</p><a href="https://cryptosugarbabes.com/dashboard" style="display:inline-block;margin-top:14px;border-radius:999px;background:#e0ba78;color:#160d13;padding:13px 22px;text-decoration:none;font-weight:700">Open your dashboard</a>`
+  );
+}
+
 export async function sendNewMessageEmail(email: string, senderName?: string | null) {
   const name = (senderName?.trim() || "A member").replace(/[\r\n]+/g, " ");
   const safeName = escapeHtml(name);

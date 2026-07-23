@@ -145,6 +145,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN profile_media m ON m.profile_id = p.id
         AND (p.review_status <> 'APPROVED' OR m.is_approved = TRUE)
       WHERE u.status = 'ACTIVE'
+        AND p.deleted_at IS NULL
         AND ((p.review_status = 'APPROVED' AND u.account_type = 'CREATOR') OR ${ownerClause})
       GROUP BY p.id, u.id, payout.support_networks,
         support_stats.likes_24h, support_stats.support_total, support_stats.support_24h
@@ -200,10 +201,12 @@ export async function POST(request: NextRequest) {
           headline = EXCLUDED.headline,
           bio = EXCLUDED.bio,
           interests = EXCLUDED.interests,
-          review_status = CASE WHEN profiles.review_status = 'REJECTED' THEN 'REJECTED' ELSE 'APPROVED' END,
-          rejection_reason = CASE WHEN profiles.review_status = 'REJECTED' THEN profiles.rejection_reason ELSE NULL END,
-          reviewed_at = CASE WHEN profiles.review_status = 'REJECTED' THEN profiles.reviewed_at ELSE now() END,
-          moderation_reviewed_at = CASE WHEN profiles.review_status = 'REJECTED' THEN profiles.moderation_reviewed_at ELSE NULL END,
+          review_status = CASE WHEN profiles.deleted_at IS NOT NULL THEN 'APPROVED' WHEN profiles.review_status = 'REJECTED' THEN 'REJECTED' ELSE 'APPROVED' END,
+          rejection_reason = CASE WHEN profiles.deleted_at IS NOT NULL THEN NULL WHEN profiles.review_status = 'REJECTED' THEN profiles.rejection_reason ELSE NULL END,
+          reviewed_at = CASE WHEN profiles.deleted_at IS NOT NULL THEN now() WHEN profiles.review_status = 'REJECTED' THEN profiles.reviewed_at ELSE now() END,
+          moderation_reviewed_at = CASE WHEN profiles.deleted_at IS NOT NULL THEN NULL WHEN profiles.review_status = 'REJECTED' THEN profiles.moderation_reviewed_at ELSE NULL END,
+          deleted_at = NULL,
+          deletion_reason = NULL,
           updated_at = now()
         RETURNING id, review_status
       `, [profileId, userId, displayName, age, country, region, headline, bio, interests]);
