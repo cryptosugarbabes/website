@@ -1850,12 +1850,14 @@ body .dashboard-current-photos .reposition-hint {
   }
 
   body .profile-modal .modal-actions button {
+    height: 50px;
     min-height: 50px;
   }
 
   body .profile-modal .profile-media-column > .photo-like-button {
+    height: 50px;
     min-height: 50px;
-    margin: 21px 12px 8px;
+    margin: 22px 12px 7px;
   }
 }
 
