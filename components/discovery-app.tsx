@@ -5,7 +5,8 @@ import { base } from "viem/chains";
 import { createPublicClient, createWalletClient, custom, erc20Abi, getAddress, http, keccak256, stringToHex } from "viem";
 import { Profile } from "@/lib/profiles";
 import { REGIONS } from "@/lib/regions";
-import { trackProductEvent } from "@/lib/client-observability";
+import { paymentErrorMessage } from "@/lib/payment-errors";
+import { reportBrowserError, trackProductEvent } from "@/lib/client-observability";
 import { InstagramLink } from "@/components/instagram-link";
 import { XLink } from "@/components/x-link";
 import {
@@ -126,14 +127,6 @@ function bytesToBase64(bytes: Uint8Array) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return window.btoa(binary);
-}
-
-function paymentErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : "The payment was not completed.";
-  if (/internal error/i.test(message)) {
-    return "Your Solana wallet could not submit the payment. Reopen Solflare or Phantom, confirm the same account is connected, and try again. No payment was recorded.";
-  }
-  return message;
 }
 
 async function switchToBase(provider: EthereumProvider) {
@@ -959,6 +952,7 @@ export function DiscoveryApp() {
       } : current);
       setNotice(`${kind === "PAID_LIKE" ? "Paid like" : kind === "GIFT" ? "Gift" : "Message boost"} confirmed on-chain: ${formatUsdc(amount)} USDC split 90/10.`);
     } catch (error) {
+      reportBrowserError(`Payment failed: ${error instanceof Error ? error.message : "Unknown payment error"}`);
       setWalletError(paymentErrorMessage(error));
     } finally { setPaymentBusy(false); setPaymentExpiresAt(null); }
   }
