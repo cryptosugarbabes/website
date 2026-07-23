@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { authenticatedSession } from "@/lib/request-security";
 import { acceptanceComplete, type AcceptanceRecord } from "@/lib/legal-acceptance";
-import { sugarBabeMonthlyLevel, sugarDaddyMonthlyLevel } from "@/lib/monthly-levels";
+import {
+  sugarBabeMonthlyLevel,
+  sugarBabeMonthlyRatingTiers,
+  sugarDaddyMonthlyLevel,
+  sugarDaddyMonthlyRatingTiers
+} from "@/lib/monthly-levels";
 import { PAYMENT_CONFIG } from "@/lib/payment-config";
 
 type UserRow = AcceptanceRecord & {
@@ -219,7 +224,9 @@ export async function GET(request: NextRequest) {
         supportSentUsdc: monthlySupportSentUsdc,
         creatorEarningsUsdc: monthlyCreatorEarningsUsdc,
         sugarDaddyLevel: sugarDaddyMonthlyLevel(monthlySupportSentUsdc),
-        sugarBabeLevel: sugarBabeMonthlyLevel(monthlyCreatorEarningsUsdc)
+        sugarBabeLevel: sugarBabeMonthlyLevel(monthlyCreatorEarningsUsdc),
+        sugarDaddyRatingTiers: sugarDaddyMonthlyRatingTiers(),
+        sugarBabeRatingTiers: sugarBabeMonthlyRatingTiers()
       },
       paymentCapabilities: {
         creatorSupportEnabled: user.wallet_chain === "solana"

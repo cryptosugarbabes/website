@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatMonthlySugarRating, monthlySugarRating, sugarBabeMonthlyLevel, sugarDaddyMonthlyLevel } from "../lib/monthly-levels";
+import {
+  formatMonthlySugarRating,
+  monthlySugarRating,
+  sugarBabeMonthlyLevel,
+  sugarBabeMonthlyRatingTiers,
+  sugarDaddyMonthlyLevel,
+  sugarDaddyMonthlyRatingTiers
+} from "../lib/monthly-levels";
 
 describe("monthly member levels", () => {
   it("assigns every Sugar Daddy level at the agreed thresholds", () => {
@@ -30,5 +37,22 @@ describe("monthly member levels", () => {
     expect(formatMonthlySugarRating(7)).toBe("7");
     expect(formatMonthlySugarRating(7.5)).toBe("7.5");
     expect(formatMonthlySugarRating(-1)).toBe("0");
+  });
+
+  it("publishes the monthly customer and creator rating lists", () => {
+    expect(sugarDaddyMonthlyRatingTiers()).toEqual([
+      expect.objectContaining({ level: 1, name: "Sugar Starter", minimumRating: 0, maximumRating: 499.99 }),
+      expect.objectContaining({ level: 2, name: "Sugar Boy", minimumRating: 500, maximumRating: 999.99 }),
+      expect.objectContaining({ level: 3, name: "Sugar Bro", minimumRating: 1_000, maximumRating: 4_999.99 }),
+      expect.objectContaining({ level: 4, name: "Sugar Meister", minimumRating: 5_000, maximumRating: 9_999.99 }),
+      expect.objectContaining({ level: 5, name: "Sugar Daddy", minimumRating: 10_000, maximumRating: null })
+    ]);
+    expect(sugarBabeMonthlyRatingTiers().map((tier) => tier.name)).toEqual([
+      "Sugar Babe",
+      "Sugar Honey",
+      "Sugar Princess",
+      "Sugar Angel",
+      "Sugar Queen"
+    ]);
   });
 });

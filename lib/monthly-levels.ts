@@ -5,6 +5,11 @@ export type MonthlyLevel = {
   nextMinimumUsdc: number | null;
 };
 
+export type MonthlyRatingTier = MonthlyLevel & {
+  minimumRating: number;
+  maximumRating: number | null;
+};
+
 const THRESHOLDS = [0, 500, 1_000, 5_000, 10_000] as const;
 const SUGAR_DADDY_LEVELS = ["Sugar Starter", "Sugar Boy", "Sugar Bro", "Sugar Meister", "Sugar Daddy"] as const;
 const SUGAR_BABE_LEVELS = ["Sugar Babe", "Sugar Honey", "Sugar Princess", "Sugar Angel", "Sugar Queen"] as const;
@@ -41,4 +46,23 @@ export function formatMonthlySugarRating(totalSpentUsdc: number) {
 
 export function sugarBabeMonthlyLevel(totalEarnedUsdc: number) {
   return monthlyLevel(totalEarnedUsdc, SUGAR_BABE_LEVELS);
+}
+
+function monthlyRatingTiers(names: readonly string[]): MonthlyRatingTier[] {
+  return names.map((name, index) => ({
+    level: (index + 1) as MonthlyLevel["level"],
+    name,
+    minimumUsdc: THRESHOLDS[index],
+    nextMinimumUsdc: THRESHOLDS[index + 1] ?? null,
+    minimumRating: THRESHOLDS[index],
+    maximumRating: THRESHOLDS[index + 1] ? THRESHOLDS[index + 1] - 0.01 : null
+  }));
+}
+
+export function sugarDaddyMonthlyRatingTiers() {
+  return monthlyRatingTiers(SUGAR_DADDY_LEVELS);
+}
+
+export function sugarBabeMonthlyRatingTiers() {
+  return monthlyRatingTiers(SUGAR_BABE_LEVELS);
 }
