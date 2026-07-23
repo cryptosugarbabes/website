@@ -21,6 +21,9 @@ const publicPages: Array<{
   { path: "/forums", priority: 0.8, changeFrequency: "daily" },
   { path: "/safety", priority: 0.6, changeFrequency: "monthly" },
   { path: "/disputes", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/anti-slavery", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/anti-trafficking", priority: 0.6, changeFrequency: "monthly" },
+  { path: "/consumer-protection", priority: 0.6, changeFrequency: "monthly" },
   { path: "/terms", priority: 0.4, changeFrequency: "yearly" },
   { path: "/privacy", priority: 0.4, changeFrequency: "yearly" },
 ];

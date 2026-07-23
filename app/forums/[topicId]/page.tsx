@@ -90,6 +90,6 @@ export default async function ForumTopicPage({ params }: { params: Promise<{ top
       {topic.status === "LOCKED" ? <div className="forum-locked">This discussion is closed to new replies.</div> : <ForumReplyForm topicId={topic.id}/>}
     </section>
 
-    <footer className="forum-footer"><div className="brand-social"><Link className="brand" href="/"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></Link><InstagramLink/><XLink/></div><span>© 2026 Crypto Sugar Babes. Safety First Always.</span><nav><Link href="/crypto-safety">Crypto safety</Link><Link href="/safety">Safety</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav></footer>
+    <footer className="forum-footer"><div className="brand-social"><Link className="brand" href="/"><img className="brand-logo-image" src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></Link><InstagramLink/><XLink/></div><span>© 2026 Crypto Sugar Babes. Safety First Always.</span><nav><Link href="/crypto-safety">Crypto safety</Link><Link href="/safety">Safety</Link><Link href="/anti-slavery">Anti-Slavery</Link><Link href="/anti-trafficking">Anti-Trafficking</Link><Link href="/consumer-protection">Consumer Protection</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav></footer>
   </main>;
 }

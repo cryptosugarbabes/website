@@ -105,7 +105,7 @@ export function SeoContentPage({
 
       <footer className="legal-footer">
         <div className="legal-footer-brand"><span>© 2026 Crypto Sugar Babes. Safety First Always.</span><InstagramLink/><XLink/></div>
-        <nav><Link href="/forums">Forums</Link><Link href="/safety">Safety</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
+        <nav><Link href="/forums">Forums</Link><Link href="/safety">Safety</Link><Link href="/anti-slavery">Anti-Slavery</Link><Link href="/anti-trafficking">Anti-Trafficking</Link><Link href="/consumer-protection">Consumer Protection</Link><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link></nav>
       </footer>
     </main>
   );
