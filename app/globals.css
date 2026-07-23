@@ -2170,3 +2170,14 @@ body .member-public-links a {
 body .member-brand {
   font-size: 22.5px !important;
 }
+
+/* Preserve the compact dashboard hierarchy after the global interface-copy
+   accessibility rules above. */
+body .monthly-rating-heading p,
+body .monthly-rating-tiers small {
+  font-size: 11px !important;
+}
+
+body .creator-position p {
+  font-size: 1rem !important;
+}
