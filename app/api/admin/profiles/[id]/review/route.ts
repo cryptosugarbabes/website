@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const action = body?.action === "approve" ? "APPROVED" : body?.action === "reject" ? "REJECTED" : null;
   if (!action) return NextResponse.json({ error: "Choose approve or reject." }, { status: 400 });
   const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 500) : "";
-  if (action === "REJECTED" && !reason) return NextResponse.json({ error: "Add a rejection reason for the creator." }, { status: 400 });
+  if (action === "REJECTED" && !reason) return NextResponse.json({ error: "Add a rejection reason for the Sugar Babe." }, { status: 400 });
 
   try {
     const updated = await transaction(async (client) => {

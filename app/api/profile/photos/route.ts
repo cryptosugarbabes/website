@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   try {
     const account = await accountForSession(session);
     if (!account || account.account_type !== "CREATOR") {
-      return NextResponse.json({ error: "Choose a creator account before uploading photos." }, { status: 403 });
+      return NextResponse.json({ error: "Choose a Sugar Babe account before uploading photos." }, { status: 403 });
     }
     const owner = await query<OwnerRow>(`
       SELECT p.id, COUNT(m.id)::text AS photo_count
@@ -109,7 +109,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const account = await accountForSession(session);
     if (!account || account.account_type !== "CREATOR") {
-      return NextResponse.json({ error: "Only creator accounts can arrange profile photos." }, { status: 403 });
+      return NextResponse.json({ error: "Only Sugar Babe accounts can arrange profile photos." }, { status: 403 });
     }
 
     await transaction(async (client) => {

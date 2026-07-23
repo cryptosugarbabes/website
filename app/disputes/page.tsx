@@ -18,7 +18,7 @@ export default function DisputesPage() {
         title: "1. Blockchain transactions are final",
         paragraphs: [
           "Base and Solana transactions are submitted from a user's own wallet and confirmed by independent blockchain networks. Once confirmed, a transfer is normally irreversible. Crypto Sugar Babes cannot cancel it, create a chargeback, or retrieve funds from a recipient-controlled wallet.",
-          "Before signing, check the token, network, amount, creator address, platform address, and network fee shown by your wallet. A moderation decision or removed profile does not itself reverse a completed transaction."
+          "Before signing, check the token, network, amount, Sugar Babe address, platform address, and network fee shown by your wallet. A moderation decision or removed profile does not itself reverse a completed transaction."
         ]
       },
       {

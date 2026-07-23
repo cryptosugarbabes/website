@@ -22,7 +22,7 @@ export default function HowItWorksPage() {
         title: "Create an adult member account",
         paragraphs: [
           "Join with an email address or supported wallet. Every member must be at least 18 and must have reached the legal age of majority where they live.",
-          "Creators can prepare and submit a profile with a display name, location, biography, interests, and photographs. Profiles and photos are reviewed regularly and remain subject to reports, suspension, and removal.",
+          "Sugar Babes can prepare and submit a profile with a display name, location, biography, interests, and photographs. Profiles and photos are reviewed regularly and remain subject to reports, suspension, and removal.",
         ],
       },
       {

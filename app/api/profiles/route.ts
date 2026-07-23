@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ profileId: profile.id, reviewStatus: profile.review_status });
   } catch (error) {
     if (error instanceof Error && error.message === "CUSTOMER_PROFILE") {
-      return NextResponse.json({ error: "Customer accounts stay private and cannot publish creator profiles." }, { status: 409 });
+      return NextResponse.json({ error: "Sugar Daddy accounts stay private and cannot publish Sugar Babe profiles." }, { status: 409 });
     }
     await reportApplicationError("profile:save", error);
     console.error("Profile save failed", error);

@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   try {
     const account = await accountForSession(session);
     if (!account?.account_type) return NextResponse.json({ error: "Choose your account type first." }, { status: 409 });
-    if (kind !== "MESSAGE_UNLOCK" && account.account_type !== "CUSTOMER") return NextResponse.json({ error: "Creator accounts cannot pay their own profiles." }, { status: 403 });
+    if (kind !== "MESSAGE_UNLOCK" && account.account_type !== "CUSTOMER") return NextResponse.json({ error: "Sugar Babe accounts cannot pay their own profiles." }, { status: 403 });
 
     let profileId = input.profileId || "";
     let conversationId: string | null = null;
@@ -71,13 +71,13 @@ export async function POST(request: NextRequest) {
       FROM profiles p JOIN users u ON u.id = p.user_id
       WHERE p.id = $1 AND p.review_status = 'APPROVED' AND u.account_type = 'CREATOR' AND u.status = 'ACTIVE'
     `, [profileId]);
-    if (!creator.rowCount) return NextResponse.json({ error: "That creator profile is not available." }, { status: 404 });
+    if (!creator.rowCount) return NextResponse.json({ error: "That Sugar Babe profile is not available." }, { status: 404 });
     const target = creator.rows[0];
     if (kind !== "MESSAGE_UNLOCK" && (!target.wallet_chain || !target.wallet_address)) {
-      return NextResponse.json({ error: "This creator has not connected a payout wallet yet. Free messaging is still available." }, { status: 409 });
+      return NextResponse.json({ error: "This Sugar Babe has not connected a payout wallet yet. Free messaging is still available." }, { status: 409 });
     }
     if (kind !== "MESSAGE_UNLOCK" && target.wallet_chain !== session.chain) {
-      return NextResponse.json({ error: `This creator receives on ${target.wallet_chain === "solana" ? "Solana" : "Base"}. Connect a matching wallet to pay.` }, { status: 409 });
+      return NextResponse.json({ error: `This Sugar Babe receives on ${target.wallet_chain === "solana" ? "Solana" : "Base"}. Connect a matching wallet to pay.` }, { status: 409 });
     }
     if (kind !== "MESSAGE_UNLOCK" && session.chain === "evm" && !PAYMENT_CONFIG.base.atomicSettlementEnabled) {
       return NextResponse.json({

@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     if (quote.status === "CONFIRMED") return NextResponse.json({ confirmed: true, quoteId: quote.id });
     if (quote.status !== "QUOTED") return NextResponse.json({ error: "That quote is no longer payable." }, { status: 409 });
     if (quote.kind !== "MESSAGE_UNLOCK" && !quote.creator_address) {
-      return NextResponse.json({ error: "This creator has not connected a payout wallet. Gifts and paid likes are unavailable." }, { status: 409 });
+      return NextResponse.json({ error: "This Sugar Babe has not connected a payout wallet. Gifts and paid likes are unavailable." }, { status: 409 });
     }
     const creatorAmount = decimalToMicros(quote.creator_amount_usdc);
     const platformAmount = decimalToMicros(quote.platform_amount_usdc);
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       } else {
         if (input.transactionHashes.length !== 1 || !isHash(input.transactionHashes[0])) return NextResponse.json({ error: "One atomic Base payment hash is required." }, { status: 400 });
         const hash = input.transactionHashes[0] as `0x${string}`;
-        if (!quote.creator_address) return NextResponse.json({ error: "The creator payout address is unavailable." }, { status: 409 });
+        if (!quote.creator_address) return NextResponse.json({ error: "The Sugar Babe payout address is unavailable." }, { status: 409 });
         const transfer = await verifyBaseAtomicTransfer(hash, quote.id, quote.buyer_address, quote.creator_address, creatorAmount, platformAmount, grossAmount, PAYMENT_CONFIG.base.splitterAddress);
         if (!transfer.valid) return NextResponse.json({ error: "The atomic Base payment could not be verified on-chain." }, { status: 409 });
         if (!transferFallsWithinQuoteWindow({ createdAtMs: quote.created_at.getTime(), expiresAtMs: quote.expires_at.getTime(), transferTimestampMs: transfer.timestampMs, expiryGraceMs })) {

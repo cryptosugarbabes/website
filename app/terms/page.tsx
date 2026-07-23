@@ -34,7 +34,7 @@ export default function TermsPage() {
       },
       {
         title: "4. Account roles and visibility",
-        paragraphs: ["Creator accounts may submit a public profile. Profiles and photos can appear after submission and are reviewed regularly. Customer accounts remain private and are not shown in public creator discovery. Account roles do not change these terms or permit unlawful conduct."]
+        paragraphs: ["Sugar Babe accounts may submit a public profile. Profiles and photos can appear after submission and are reviewed regularly. Sugar Daddy accounts remain private and are not shown in public Sugar Babe discovery. Account roles do not change these terms or permit unlawful conduct."]
       },
       {
         title: "5. Profiles, review, and user content",
@@ -59,7 +59,7 @@ export default function TermsPage() {
       {
         title: "7. Paid features, gifts, and platform fees",
         paragraphs: [
-          "Where paid likes, gifts, or boosted messages are offered, the payment quote identifies the amount, network, token, creator share, and platform share before you approve the wallet transaction. Unless the quote expressly says otherwise, eligible creator-support payments are allocated 90% to the creator and 10% to Crypto Sugar Babes. Network gas fees are separate and are paid to the blockchain network, not to the creator or platform.",
+          "Where paid likes, gifts, or boosted messages are offered, the payment quote identifies the amount, network, token, Sugar Babe share, and platform share before you approve the wallet transaction. Unless the quote expressly says otherwise, eligible Sugar Babe support payments are allocated 90% to the Sugar Babe and 10% to Crypto Sugar Babes. Network gas fees are separate and are paid to the blockchain network, not to the Sugar Babe or platform.",
           "A gift or paid interaction is voluntary digital support. It does not purchase a meeting, response, relationship, service, or particular outcome. Displayed reputation or visibility points are platform features, have no cash value, and may be adjusted or removed to address abuse or technical errors."
         ]
       },

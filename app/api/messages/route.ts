@@ -416,8 +416,8 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
     const message = error instanceof Error ? error.message : "";
-    if (message === "ACCOUNT_REQUIRED") return NextResponse.json({ error: "Choose whether this is a creator or customer account first." }, { status: 409 });
-    if (["PROFILE_REQUIRED", "PROFILE_NOT_FOUND"].includes(message)) return NextResponse.json({ error: "That creator profile is not available." }, { status: 404 });
+    if (message === "ACCOUNT_REQUIRED") return NextResponse.json({ error: "Choose whether this is a Sugar Babe or Sugar Daddy account first." }, { status: 409 });
+    if (["PROFILE_REQUIRED", "PROFILE_NOT_FOUND"].includes(message)) return NextResponse.json({ error: "That Sugar Babe profile is not available." }, { status: 404 });
     if (["CONVERSATION_REQUIRED", "CONVERSATION_NOT_FOUND"].includes(message)) return NextResponse.json({ error: "That conversation is not available." }, { status: 404 });
     if (message === "CONVERSATION_BLOCKED") return NextResponse.json({ error: "Messaging is unavailable because one of these accounts has blocked the other." }, { status: 403 });
     if (message === "ACCOUNT_UNAVAILABLE") return NextResponse.json({ error: "That account is not currently available for messaging." }, { status: 403 });

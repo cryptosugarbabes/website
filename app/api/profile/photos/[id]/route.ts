@@ -13,7 +13,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   try {
     const account = await accountForSession(session);
     if (!account || account.account_type !== "CREATOR") {
-      return NextResponse.json({ error: "Choose a creator account before managing photos." }, { status: 403 });
+      return NextResponse.json({ error: "Choose a Sugar Babe account before managing photos." }, { status: 403 });
     }
     const media = await query<{ storage_key: string; profile_id: string }>(`
       SELECT m.storage_key, m.profile_id FROM profile_media m

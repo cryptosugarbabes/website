@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message === "ACCOUNT_REQUIRED") return NextResponse.json({ error: "Choose your account type first." }, { status: 409 });
-    if (message === "PROFILE_NOT_FOUND") return NextResponse.json({ error: "That creator profile is not available." }, { status: 404 });
+    if (message === "PROFILE_NOT_FOUND") return NextResponse.json({ error: "That Sugar Babe profile is not available." }, { status: 404 });
     console.error("Favorite save failed", error);
     return NextResponse.json({ error: "That favorite could not be saved." }, { status: 503 });
   }

@@ -24,7 +24,7 @@ export default function SafetyPage() {
       {
         title: "2. Publication and review are not identity verification",
         paragraphs: [
-          "Public creator profiles and photos can appear after submission. They are reviewed regularly and remain subject to reports, suspension, and removal. Publication is not verification or a guarantee of a person's legal identity, age, character, intentions, location, photographs, or conduct.",
+          "Public Sugar Babe profiles and photos can appear after submission. They are reviewed regularly and remain subject to reports, suspension, and removal. Publication is not verification or a guarantee of a person's legal identity, age, character, intentions, location, photographs, or conduct.",
           "A published or administrator-reviewed profile must not be described or relied on as government-ID verified unless Crypto Sugar Babes has completed and expressly labelled that separate check. Always use your own judgment."
         ]
       },

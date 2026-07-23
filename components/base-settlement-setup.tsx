@@ -104,7 +104,7 @@ export function BaseSettlementSetup() {
       <span>BASE MAINNET · CANONICAL USDC</span>
       <h3>{activeAddress ? "Atomic Base payments are active" : "Activate atomic Base payments"}</h3>
       <p>{activeAddress
-        ? "Each paid like, gift and boost settles in one transaction: 90% to the creator and 10% to the platform treasury."
+        ? "Each paid like, gift and boost settles in one transaction: 90% to the Sugar Babe and 10% to the platform treasury."
         : "Deploy the audited payment splitter from your own wallet. The site never receives your private key and cannot move treasury funds."}</p>
     </div>
     {activeAddress ? <a className="admin-export-button" href={`https://basescan.org/address/${activeAddress}`} target="_blank" rel="noreferrer">View splitter on BaseScan</a> : <button className="admin-export-button" disabled={busy || !config} onClick={deploySplitter}>{busy ? "Confirming on Base…" : "Deploy Base 90/10 splitter"}</button>}
