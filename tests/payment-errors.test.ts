@@ -21,4 +21,10 @@ describe("payment error messages", () => {
       "The payment could not be completed. Check your wallet balance and network, then try again."
     );
   });
+
+  it("warns a payer not to duplicate a sent transaction while confirmation is pending", () => {
+    expect(paymentErrorMessage(new Error("PAYMENT_SENT_CONFIRMATION_PENDING: Block temporarily unavailable"))).toBe(
+      "Your payment was sent on-chain, but the website is still confirming it. Do not pay again. Check your dashboard shortly or contact support."
+    );
+  });
 });

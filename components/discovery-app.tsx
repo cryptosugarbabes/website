@@ -825,9 +825,20 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
   }
 
   async function confirmPayment(quote: PaymentQuote, transactionHashes: string[]) {
-    const response = await fetch("/api/payments/confirm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ quoteId: quote.quoteId, transactionHashes }) });
-    const data = await response.json() as { confirmed?: boolean; error?: string };
-    if (!response.ok || !data.confirmed) throw new Error(data.error || "The payment could not be confirmed on-chain.");
+    let lastError = "The payment could not be confirmed on-chain.";
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const response = await fetch("/api/payments/confirm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ quoteId: quote.quoteId, transactionHashes }) });
+        const data = await response.json() as { confirmed?: boolean; error?: string };
+        if (response.ok && data.confirmed) return;
+        lastError = data.error || lastError;
+        if (response.status < 500) break;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : lastError;
+      }
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+    }
+    throw new Error(`PAYMENT_SENT_CONFIRMATION_PENDING: ${lastError}`);
   }
 
   async function settleBasePayment(quote: PaymentQuote) {

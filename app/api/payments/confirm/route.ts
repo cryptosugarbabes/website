@@ -50,6 +50,19 @@ function decimalToMicros(value: string) {
   return BigInt(whole) * MICRO_USDC + BigInt(fraction.padEnd(6, "0").slice(0, 6));
 }
 
+async function retryBaseRpc<T>(operation: () => Promise<T>, attempts = 4) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 async function verifyBaseAtomicTransfer(hash: `0x${string}`, quoteId: string, from: string, creator: string, creatorAmount: bigint, platformAmount: bigint, grossAmount: bigint, splitterAddress: string) {
   const client = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org") });
   const [receipt, sent] = await Promise.all([client.getTransactionReceipt({ hash }), client.getTransaction({ hash })]);
@@ -65,8 +78,23 @@ async function verifyBaseAtomicTransfer(hash: `0x${string}`, quoteId: string, fr
     creatorAmount,
     platformAmount
   });
-  const block = valid ? await client.getBlock({ blockNumber: receipt.blockNumber }) : null;
-  return { valid, timestampMs: block ? Number(block.timestamp) * 1000 : 0 };
+  if (!valid) return { valid: false, timestampMs: 0 };
+  try {
+    const block = await retryBaseRpc(async () => {
+      try {
+        return await client.getBlock({ blockHash: receipt.blockHash });
+      } catch {
+        return client.getBlock({ blockNumber: receipt.blockNumber });
+      }
+    });
+    return { valid: true, timestampMs: Number(block.timestamp) * 1000 };
+  } catch (error) {
+    // The splitter event binds this receipt to an unpredictable, one-use quote ID.
+    // If an RPC can return the successful receipt and exact logs but is briefly
+    // unable to return the block, confirmation time is a safe bounded fallback.
+    await reportApplicationError("payments:base-block-timestamp", error);
+    return { valid: true, timestampMs: Date.now() };
+  }
 }
 
 async function verifyBasePlatformTransfer(hash: `0x${string}`, from: string, grossAmount: bigint) {
@@ -83,7 +111,13 @@ async function verifyBasePlatformTransfer(hash: `0x${string}`, from: string, gro
         && decoded.args.value === grossAmount;
     } catch { return false; }
   });
-  const block = valid ? await client.getBlock({ blockNumber: receipt.blockNumber }) : null;
+  const block = valid ? await retryBaseRpc(async () => {
+    try {
+      return await client.getBlock({ blockHash: receipt.blockHash });
+    } catch {
+      return client.getBlock({ blockNumber: receipt.blockNumber });
+    }
+  }) : null;
   return { valid, timestampMs: block ? Number(block.timestamp) * 1000 : 0 };
 }
 

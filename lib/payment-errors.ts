@@ -1,6 +1,9 @@
 export function paymentErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "";
 
+  if (/PAYMENT_SENT_CONFIRMATION_PENDING/i.test(message)) {
+    return "Your payment was sent on-chain, but the website is still confirming it. Do not pay again. Check your dashboard shortly or contact support.";
+  }
   if (/transfer amount exceeds balance|insufficient.*usdc|not enough.*usdc/i.test(message)) {
     return "This wallet does not have enough USDC for this payment.";
   }
