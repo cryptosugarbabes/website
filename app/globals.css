@@ -234,29 +234,24 @@ body .filter-bar .select-field > span { font-size: .7rem !important; }
 
 .profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .profile-carousel-shell { position: relative; }
+.profile-carousel-window {
+  overflow: hidden;
+  margin: -5px 0 -12px;
+  padding: 5px 0 12px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent);
+}
 .profile-carousel-track {
   display: flex;
-  gap: 20px;
-  overflow-x: auto;
-  padding: 5px 1px 12px;
-  scroll-behavior: smooth;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
+  width: max-content;
+  animation: profileCarouselScroll 84s linear infinite;
 }
-.profile-carousel-track::-webkit-scrollbar { display: none; }
-.profile-carousel-track .profile-card { flex: 0 0 calc((100% - 60px) / 4); scroll-snap-align: start; }
+.profile-carousel-window:hover .profile-carousel-track,
+.profile-carousel-window:focus-within .profile-carousel-track { animation-play-state: paused; }
+.profile-carousel-group { display: flex; gap: 20px; padding-right: 20px; }
+.profile-carousel-group .profile-card { flex: 0 0 calc((min(100vw, 1280px) - 140px) / 4); width: calc((min(100vw, 1280px) - 140px) / 4); }
+@keyframes profileCarouselScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .profile-carousel-controls { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 24px; }
-.profile-carousel-controls > button {
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgba(255,126,192,.32);
-  border-radius: 50%;
-  background: rgba(255,255,255,.035);
-  color: white;
-  cursor: pointer;
-  font-size: 20px;
-}
-.profile-carousel-controls > button:hover { border-color: var(--pink); color: var(--pink); }
 .profile-carousel-controls .primary-button { min-height: 46px; padding: 0 25px; }
 .directory-mode .hero,
 .directory-mode .desire-strip,
@@ -625,9 +620,9 @@ body .photo-field > label small { font-size: .68rem !important; line-height: 1.3
   .search-field { min-height: 60px; }
   .select-field { border-left: 0; border-top: 1px solid var(--line); border-radius: 0 0 13px 13px; }
   .profile-grid { grid-template-columns: 1fr; }
-  .profile-carousel-track .profile-card { flex-basis: 100%; }
+  .profile-carousel-window { -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+  .profile-carousel-group .profile-card { flex-basis: calc(100vw - 36px); width: calc(100vw - 36px); }
   .profile-carousel-controls { gap: 9px; }
-  .profile-carousel-controls > button { width: 42px; height: 42px; }
   .profile-carousel-controls .primary-button { padding: 0 17px; font-size: 11px; }
   .directory-mode .discovery-section { padding-top: 55px; }
   .steps-section { padding: 42.5px 22px; }
@@ -662,6 +657,9 @@ body .photo-field > label small { font-size: .68rem !important; line-height: 1.3
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .profile-carousel-track { animation: none; }
+  .profile-carousel-window { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
+  .profile-carousel-group[aria-hidden="true"] { display: none; }
   .wallet-setup-track { animation: none; }
   .wallet-setup-carousel { overflow-x: auto; -webkit-mask-image: none; mask-image: none; }
   .wallet-setup-group[aria-hidden="true"] { display: none; }

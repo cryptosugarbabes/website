@@ -232,8 +232,6 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
   const profileIntentRef = useRef(false);
   const lastUnreadRef = useRef(0);
   const regionMenuRef = useRef<HTMLDivElement | null>(null);
-  const profileCarouselRef = useRef<HTMLDivElement | null>(null);
-  const profileCarouselIndexRef = useRef(0);
   const isAuthenticated = Boolean(wallet || email);
   const acceptanceReady = acceptedAdult && acceptedTerms && acceptedPrivacy;
 
@@ -513,27 +511,6 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
       return matchesRegion && matchesQuery;
     });
   }, [allProfiles, region, query]);
-
-  function moveProfileCarousel(direction: 1 | -1) {
-    const track = profileCarouselRef.current;
-    if (!track) return;
-    const cards = Array.from(track.querySelectorAll<HTMLElement>(".profile-card"));
-    if (!cards.length) return;
-    const visibleCards = window.matchMedia("(max-width: 620px)").matches ? 1 : 4;
-    const lastFullPageStart = Math.max(0, cards.length - visibleCards);
-    const requestedIndex = profileCarouselIndexRef.current + direction * visibleCards;
-    profileCarouselIndexRef.current = direction > 0
-      ? requestedIndex > lastFullPageStart ? 0 : requestedIndex
-      : requestedIndex < 0 ? lastFullPageStart : requestedIndex;
-    const card = cards[profileCarouselIndexRef.current];
-    track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: "smooth" });
-  }
-
-  useEffect(() => {
-    if (directoryMode || allProfiles.length < 2) return;
-    const timer = window.setInterval(() => moveProfileCarousel(1), 5_000);
-    return () => window.clearInterval(timer);
-  }, [allProfiles.length, directoryMode]);
 
   async function requestSignIn(address: string, chain: WalletChain) {
     const response = await fetch("/api/auth/nonce", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, chain }) });
@@ -1088,10 +1065,10 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
     }
   }
 
-  function renderProfileCard(profile: Profile) {
-    return <article className="profile-card" key={profile.id}>
-      <button className={`favorite-button ${favorites.has(profile.id) ? "active" : ""}`} onClick={() => toggleFavorite(profile)} aria-label={`${favorites.has(profile.id) ? "Remove" : "Add"} ${profile.name} ${favorites.has(profile.id) ? "from" : "to"} favorites`}><Icon name="heart" size={18} filled={favorites.has(profile.id)}/></button>
-      <button className="profile-open" onClick={() => { trackProductEvent("PROFILE_VIEWED"); setActiveProfile(profile); setSelectedMediaId(profile.media?.[0]?.id || ""); }} aria-label={`View ${profile.name}'s profile`}>
+  function renderProfileCard(profile: Profile, duplicate = false) {
+    return <article className="profile-card" aria-hidden={duplicate || undefined} key={`${profile.id}-${duplicate ? "copy" : "primary"}`}>
+      <button tabIndex={duplicate ? -1 : undefined} className={`favorite-button ${favorites.has(profile.id) ? "active" : ""}`} onClick={() => toggleFavorite(profile)} aria-label={`${favorites.has(profile.id) ? "Remove" : "Add"} ${profile.name} ${favorites.has(profile.id) ? "from" : "to"} favorites`}><Icon name="heart" size={18} filled={favorites.has(profile.id)}/></button>
+      <button tabIndex={duplicate ? -1 : undefined} className="profile-open" onClick={() => { trackProductEvent("PROFILE_VIEWED"); setActiveProfile(profile); setSelectedMediaId(profile.media?.[0]?.id || ""); }} aria-label={`View ${profile.name}'s profile`}>
         <ProfileArtwork profile={profile}/>
         <div className="profile-content"><div className="profile-name-row"><h3>{profile.name}, {profile.age}</h3>{profile.sample ? <span className="sample-badge">SAMPLE</span> : profile.verified ? <span className="verified-badge" title="Published Sugar Babe"><Icon name="check" size={12}/></span> : <span className="draft-badge">{profile.reviewStatus === "PENDING_REVIEW" ? "IN REVIEW" : profile.reviewStatus === "REJECTED" ? "CHANGES NEEDED" : "DRAFT"}</span>}</div><p className="location">{profile.country} · {profile.region}</p><p className="headline">{profile.headline}</p><div className="tag-row">{profile.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></div>
       </button>
@@ -1161,9 +1138,11 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
             </div>}
           </div>
         </div>}
-        {directoryMode ? <div className="profile-grid">{filteredProfiles.map(renderProfileCard)}</div> : <div className="profile-carousel-shell">
-          <div className="profile-carousel-track" ref={profileCarouselRef} aria-label="Featured Sugar Babes carousel">{allProfiles.map(renderProfileCard)}</div>
-          {allProfiles.length > 1 && <div className="profile-carousel-controls"><button type="button" onClick={() => moveProfileCarousel(-1)} aria-label="Previous Sugar Babes">←</button><a className="primary-button" href="/sugar-babes">View all Sugar Babes <Icon name="arrow" size={18}/></a><button type="button" onClick={() => moveProfileCarousel(1)} aria-label="Next Sugar Babes">→</button></div>}
+        {directoryMode ? <div className="profile-grid">{filteredProfiles.map((profile) => renderProfileCard(profile))}</div> : <div className="profile-carousel-shell">
+          <div className="profile-carousel-window" aria-label="Featured Sugar Babes gallery"><div className="profile-carousel-track">
+            {[false, true].map((duplicate) => <div className="profile-carousel-group" aria-hidden={duplicate || undefined} key={duplicate ? "profiles-copy" : "profiles-primary"}>{allProfiles.map((profile) => renderProfileCard(profile, duplicate))}</div>)}
+          </div></div>
+          {allProfiles.length > 1 && <div className="profile-carousel-controls"><a className="primary-button" href="/sugar-babes">View all Sugar Babes <Icon name="arrow" size={18}/></a></div>}
         </div>}
         {(directoryMode ? filteredProfiles : allProfiles).length === 0 && <div className="empty-state">{directoryMode ? "No profiles match those filters yet." : "Published Sugar Babe profiles will appear here."}</div>}
       </section>
