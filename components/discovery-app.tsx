@@ -1106,7 +1106,7 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
       <section className="desire-strip" aria-label="Platform values"><span>{basePaymentsLive ? "Discreet. Safe. Monitored. Base & Solana USDC payments." : "Discreet. Safe. Monitored. Base wallet access · Solana USDC payments."}</span></section>
 
       <section className="discovery-section" id="discover">
-        <div className="section-heading"><div>{directoryMode && <span className="section-kicker">DISCOVER THE SUGAR</span>}<h2>{directoryMode ? "All Sugar Babes" : "Featured Sugar Babes"}</h2></div><p>{directoryMode ? "Search every published profile by destination or interest." : "A rotating selection from our published community."}</p></div>
+        <div className="section-heading"><div>{directoryMode && <span className="section-kicker">DISCOVER THE SUGAR</span>}<h2>{directoryMode ? "All Sugar Babes" : "Featured Sugar Babes"}</h2></div>{directoryMode && <p>Search every published profile by destination or interest.</p>}</div>
         {directoryMode && <div className="filter-bar">
           <label className="search-field"><Icon name="search" size={19}/><input aria-label="Search Sugar Babe interests or destinations" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search interests or destinations"/></label>
           <div className={`select-field custom-region-select ${regionMenuOpen ? "open" : ""}`} ref={regionMenuRef}>
