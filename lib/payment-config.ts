@@ -2,7 +2,7 @@ import { getAddress, isAddress } from "viem";
 
 import { isSolanaAddress } from "@/lib/base58";
 
-const DEFAULT_BASE_TREASURY_ADDRESS = "0x7293F09B131B99D564c602538D0777b18075c9b4";
+const DEFAULT_BASE_TREASURY_ADDRESS = "0x6E0178828F5C2EEEaaE8E9cdea05D62067D54883";
 const DEFAULT_SOLANA_TREASURY_ADDRESS = "EjkzchC98rxfQzHgmXD5cCbBQmhp1csqbPHkpXEA9shL";
 
 const configuredBaseTreasury =

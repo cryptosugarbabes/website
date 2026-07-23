@@ -67,7 +67,7 @@ Privacy-conscious product analytics store aggregate event names and page paths o
 - Solana wallets including Solflare and Phantom can authenticate in the same way.
 - WalletConnect uses the public Crypto Sugar Reown project ID, with an optional `NEXT_PUBLIC_REOWN_PROJECT_ID` build-time override. The GitHub workflow can read that override from the `REOWN_PROJECT_ID` repository secret.
 - Base is chain ID `8453`; Solana authentication uses Ed25519 signature verification.
-- Base platform fees are assigned to `0x7293F09B131B99D564c602538D0777b18075c9b4`; Solana platform fees are assigned to `EjkzchC98rxfQzHgmXD5cCbBQmhp1csqbPHkpXEA9shL`. These public destinations can be overridden at build time with `NEXT_PUBLIC_BASE_TREASURY_ADDRESS` and `NEXT_PUBLIC_SOLANA_TREASURY_ADDRESS`.
+- Base platform fees are assigned to `0x6E0178828F5C2EEEaaE8E9cdea05D62067D54883`; Solana platform fees are assigned to `EjkzchC98rxfQzHgmXD5cCbBQmhp1csqbPHkpXEA9shL`. These public destinations can be overridden at build time with `NEXT_PUBLIC_BASE_TREASURY_ADDRESS` and `NEXT_PUBLIC_SOLANA_TREASURY_ADDRESS`.
 - `/api/payments/config` publishes the active treasury destinations and split policy for clients. Solana settlement is enabled and verified as one atomic transaction. Base payment settlement remains disabled until an independently reviewed splitter is deployed and `BASE_SPLITTER_ADDRESS` is configured; Base authentication and free messaging are unaffected.
 - Platform products can transfer directly to the platform treasury.
 - High-frequency micro-payments should use prepaid USDC credits or batched settlement. Requiring a blockchain transaction for every message or like is not acceptable UX.
