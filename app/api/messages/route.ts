@@ -8,6 +8,7 @@ import { sendAdminMonitoredMessageEmail, sendNewMessageEmail } from "@/lib/email
 import { FREE_UNANSWERED_MESSAGES, MESSAGE_UNLOCK_DAYS, unansweredMessageState } from "@/lib/message-limits";
 import { sendTelegramMessageAlert, telegramBridgeIsConfigured } from "@/lib/telegram-chat";
 import { reportApplicationError } from "@/lib/observability";
+import { sendPrivateMessagePush } from "@/lib/push-notifications";
 
 type ConversationRow = {
   id: string;
@@ -367,6 +368,14 @@ export async function POST(request: NextRequest) {
         await sendNewMessageEmail(result.recipientEmail, result.senderName);
       } catch (error) {
         console.error("New message email could not be sent", error);
+      }
+    }
+    if (result.shouldNotify) {
+      try {
+        await sendPrivateMessagePush(result.recipientUserId);
+      } catch (error) {
+        await reportApplicationError("messages:push", error);
+        console.error("Private-message push could not be sent", error);
       }
     }
     if (result.notifyAdmin) {

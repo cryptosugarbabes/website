@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { query, transaction } from "@/lib/db";
 import { encryptMessage } from "@/lib/message-crypto";
+import { sendPrivateMessagePush } from "@/lib/push-notifications";
 import {
   handleTelegramAccessCommand,
   parseTelegramAccessCommand,
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       const processed = await client.query(`
         SELECT 1 FROM telegram_webhook_updates WHERE update_id = $1
       `, [reply.updateId]);
-      if (processed.rowCount) return false;
+      if (processed.rowCount) return null;
 
       const link = await client.query<LinkRow>(`
         SELECT l.conversation_id, l.website_user_id, c.creator_profile_id,
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
         FOR UPDATE OF c
       `, [reply.chatId, reply.repliedToMessageId]);
       const target = link.rows[0];
-      if (!target || ![target.customer_user_id, target.creator_user_id].includes(target.website_user_id)) return false;
+      if (!target || ![target.customer_user_id, target.creator_user_id].includes(target.website_user_id)) return null;
 
       const counterpartUserId = target.website_user_id === target.customer_user_id
         ? target.creator_user_id
@@ -128,7 +129,14 @@ export async function POST(request: NextRequest) {
            OR (blocker_user_id = $2 AND blocked_user_id = $1)
         LIMIT 1
       `, [target.website_user_id, counterpartUserId]);
-      if (blocked.rowCount) return false;
+      if (blocked.rowCount) return null;
+
+      const unread = await client.query<{ should_notify: boolean }>(`
+        SELECT NOT EXISTS (
+          SELECT 1 FROM messages
+          WHERE conversation_id = $1 AND sender_user_id = $2 AND status = 'SENT'
+        ) AS should_notify
+      `, [target.conversation_id, target.website_user_id]);
 
       const encrypted = encryptMessage(reply.body);
       const messageId = randomUUID();
@@ -151,11 +159,14 @@ export async function POST(request: NextRequest) {
           (update_id, telegram_chat_id, telegram_message_id, site_message_id)
         VALUES ($1, $2, $3, $4)
       `, [reply.updateId, reply.chatId, reply.messageId, messageId]);
-      return true;
+      return { counterpartUserId, shouldNotify: Boolean(unread.rows[0]?.should_notify) };
     });
+    if (created?.shouldNotify) {
+      await sendPrivateMessagePush(created.counterpartUserId).catch((error) => console.error("Telegram reply push alert could not be sent", error));
+    }
     if (created) await sendTelegramReplyConfirmation("the selected member conversation").catch(() => undefined);
     else await sendTelegramRoutingHelp().catch(() => undefined);
-    return NextResponse.json({ ok: true, created });
+    return NextResponse.json({ ok: true, created: Boolean(created) });
   } catch (error) {
     console.error("Telegram website-chat reply failed", error);
     return NextResponse.json({ ok: false }, { status: 503 });

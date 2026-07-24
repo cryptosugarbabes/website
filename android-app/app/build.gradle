@@ -1,0 +1,45 @@
+plugins {
+    id "com.android.application"
+}
+
+def hasGoogleServices = file("google-services.json").exists()
+if (hasGoogleServices) {
+    apply plugin: "com.google.gms.google-services"
+}
+
+android {
+    namespace "com.cryptosugarbabes.app"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.cryptosugarbabes.app"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "0.1.0"
+        buildConfigField "boolean", "FCM_CONFIGURED", hasGoogleServices.toString()
+        buildConfigField "String", "APP_ORIGIN", '"https://cryptosugarbabes.com"'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        debug {}
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "androidx.activity:activity:1.13.0"
+    implementation "com.google.firebase:firebase-messaging:25.1.1"
+}

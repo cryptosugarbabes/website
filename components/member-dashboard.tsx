@@ -4,6 +4,7 @@ import { ChangeEvent, DragEvent as ReactDragEvent, FormEvent, PointerEvent as Re
 import { InstagramLink } from "@/components/instagram-link";
 import { XLink } from "@/components/x-link";
 import { REGIONS } from "@/lib/regions";
+import { unregisterNativePushDevice } from "@/lib/native-push-client";
 
 type Tab = "overview" | "messages" | "profile" | "activity" | "safety" | "settings";
 type Identity = {
@@ -174,7 +175,16 @@ export function MemberDashboard() {
   }, [tab, data?.account.type]);
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(""), 4500); return () => window.clearTimeout(timer); }, [notice]);
   useEffect(() => { setMessageGate(null); }, [activeConversationId]);
-  useEffect(() => { setNotificationsEnabled(typeof Notification !== "undefined" && Notification.permission === "granted"); }, []);
+  useEffect(() => {
+    const native = Boolean(window.CryptoSugarAndroid);
+    setNotificationsEnabled(!native && typeof Notification !== "undefined" && Notification.permission === "granted");
+    function onNativePushStatus(event: Event) {
+      setNotificationsEnabled(Boolean((event as CustomEvent<{ enabled?: boolean }>).detail?.enabled));
+    }
+    window.addEventListener("crypto-sugar:push-status", onNativePushStatus);
+    window.CryptoSugarAndroid?.refreshPushToken();
+    return () => window.removeEventListener("crypto-sugar:push-status", onNativePushStatus);
+  }, []);
   useEffect(() => () => { pendingPhotoUrls.current.forEach((url) => URL.revokeObjectURL(url)); }, []);
 
   function selectPhotos(event: ChangeEvent<HTMLInputElement>) {
@@ -412,6 +422,11 @@ export function MemberDashboard() {
   }
 
   async function enableNotifications() {
+    if (window.CryptoSugarAndroid) {
+      window.CryptoSugarAndroid.requestPushNotifications();
+      setNotice("Confirm Android notification permission to receive private message alerts.");
+      return;
+    }
     if (typeof Notification === "undefined") { setNotice("Browser notifications are not supported on this device."); return; }
     const permission = await Notification.requestPermission();
     setNotificationsEnabled(permission === "granted");
@@ -503,7 +518,7 @@ export function MemberDashboard() {
     setBusy(false);
   }
 
-  async function signOut() { await fetch("/api/auth/logout", { method: "POST" }); setData(null); setSignedOut(true); }
+  async function signOut() { await unregisterNativePushDevice(); await fetch("/api/auth/logout", { method: "POST" }); setData(null); setSignedOut(true); }
 
   if (loading) return <main className="member-shell member-loading"><div className="dashboard-spinner"/><p>Opening your private dashboard…</p></main>;
   if (signedOut || !data) return <main className="member-shell"><header className="member-public-header"><a href="/" className="member-brand"><img src="/csb-coin-logo.png" alt=""/><span>Crypto Sugar Babes</span></a><div className="member-public-links"><a href="/forums">Forums</a><a href="/">Return home</a></div></header><section className="member-signin"><span>PRIVATE MEMBER ACCESS</span><h1>Your world, in one place.</h1><p>Sign in with your email to open messages, favorites, profile controls and activity.</p>{challengeId ? <form onSubmit={verifyCode}><label>Six-digit code<input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} placeholder="000000"/></label><button disabled={busy || code.length !== 6}>{busy ? "Checking…" : "Verify & open dashboard"}</button><button className="member-subtle-button" type="button" onClick={() => setChallengeId("")}>Use another email</button></form> : <form onSubmit={requestCode}><label>Email address<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com"/></label><button disabled={busy}>{busy ? "Sending…" : "Email me a sign-in code"}</button></form>}{error && <div className="dashboard-error">{error}</div>}</section></main>;
@@ -565,7 +580,7 @@ export function MemberDashboard() {
                 <button disabled={busy || !accountEmail.trim() || accountEmail.trim().toLowerCase() === data.identity.email}>{busy ? "Sending…" : data.identity.email ? "Verify new email" : "Add & verify email"}</button>
               </form>}
             </div>
-            <div className="dashboard-panel social-follow-panel"><div><span>Social updates</span><h2>Stay connected</h2><p>Follow our official accounts for announcements and community updates. This does not give Crypto Sugar access to your social accounts.</p></div><div className="social-follow-actions"><a href="https://www.instagram.com/cryptosugarbabes/" target="_blank" rel="noopener noreferrer">Instagram <small>@cryptosugarbabes</small></a><a href="https://x.com/cryptosugarking" target="_blank" rel="noopener noreferrer">X <small>@cryptosugarking</small></a></div></div>
+            <div className="dashboard-panel social-follow-panel"><div><span>Social updates</span><h2>Stay connected</h2><p>Follow our official accounts for announcements and community updates. This does not give Crypto Sugar access to your social accounts.</p></div><div className="social-follow-actions"><a href="https://www.instagram.com/cryptosugarbabes/" target="_blank" rel="noopener noreferrer">Instagram <small>@cryptosugarbabes</small></a><a href="https://x.com/Cryptosugarbbs" target="_blank" rel="noopener noreferrer">X <small>@Cryptosugarbbs</small></a></div></div>
             <div className="dashboard-panel deletion-panel"><h2>Account deletion</h2>{data.identity.deletionRequestedAt ? <><p>Your request was submitted on {new Date(data.identity.deletionRequestedAt).toLocaleDateString()}. An administrator will review required safety, dispute and transaction-retention obligations before deletion or anonymisation.</p><button disabled={busy} onClick={() => deletion("CANCEL_DELETION")}>Cancel deletion request</button></> : <><p>This sends a formal deletion request. Confirmed blockchain records cannot be erased from the network, but we can remove or anonymise eligible platform data.</p><label>Type DELETE to confirm<input value={deletionConfirmation} onChange={(event) => setDeletionConfirmation(event.target.value)}/></label><button className="danger-button" disabled={busy || deletionConfirmation !== "DELETE"} onClick={() => deletion("REQUEST_DELETION")}>Request account deletion</button></>}</div>
           </section>}
         </>}

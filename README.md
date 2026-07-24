@@ -2,6 +2,12 @@
 
 Crypto-native, adults-only social discovery platform for `cryptosugarbabes.com`. The live foundation includes passwordless email access, server-verified Base/EVM and Solana wallet linking, permanent creator profiles, private photo processing, PostgreSQL storage, free messaging, automatic creator publication, and retrospective administrator review.
 
+## Android app and private push alerts
+
+The native Android project lives in `android-app`. It is a restricted WebView shell for the production HTTPS origin, preserving the website's account, messaging, favorites, and wallet-payment flows while sending wallet and explorer links to installed external apps. It can be built without Google Play and the signed release APK can be hosted on this website.
+
+Android push alerts require a Firebase Android app registered as `com.cryptosugarbabes.app`, its `google-services.json` in `android-app/app`, migration `024_android_push_devices.sql`, and the matching server service-account JSON in `FCM_SERVICE_ACCOUNT_JSON`. Push payloads contain only an event type and a dashboard path; message bodies and sender identities are never sent to Firebase or shown on the lock screen.
+
 ## Dashboards
 
 - `/dashboard` is the private role-aware member area. Customers can manage their private profile, favorites, conversations, support history, safety reports, linked identities, and deletion requests. Creators additionally see publication status, photo management, earnings, paid likes, creator points, 24-hour discovery position, and their confirmed 90% payment share.
@@ -68,7 +74,7 @@ Privacy-conscious product analytics store aggregate event names and page paths o
 - WalletConnect uses the public Crypto Sugar Reown project ID, with an optional `NEXT_PUBLIC_REOWN_PROJECT_ID` build-time override. The GitHub workflow can read that override from the `REOWN_PROJECT_ID` repository secret.
 - Base is chain ID `8453`; Solana authentication uses Ed25519 signature verification.
 - Base platform fees are assigned to `0x6E0178828F5C2EEEaaE8E9cdea05D62067D54883`; Solana platform fees are assigned to `EjkzchC98rxfQzHgmXD5cCbBQmhp1csqbPHkpXEA9shL`. These public destinations can be overridden at build time with `NEXT_PUBLIC_BASE_TREASURY_ADDRESS` and `NEXT_PUBLIC_SOLANA_TREASURY_ADDRESS`.
-- `/api/payments/config` publishes the active treasury destinations and split policy for clients. Solana settlement is enabled and verified as one atomic transaction. Base payment settlement remains disabled until an independently reviewed splitter is deployed and `BASE_SPLITTER_ADDRESS` is configured; Base authentication and free messaging are unaffected.
+- `/api/payments/config` publishes the active treasury destinations and split policy for clients. Solana settlement is enabled and verified as one atomic transaction. Base settlement is also enabled through the deployed atomic 90/10 splitter at `0xDf858A04cF4206AAF338A399b50c1F569dcd9dbc`; `BASE_SPLITTER_ADDRESS` must remain set to that address in production.
 - Platform products can transfer directly to the platform treasury.
 - High-frequency micro-payments should use prepaid USDC credits or batched settlement. Requiring a blockchain transaction for every message or like is not acceptable UX.
 - Paid likes, gifts, and message boosts are recorded only after server-side chain verification. Base must use the reviewed atomic splitter and never falls back to two independent transfers.
@@ -80,6 +86,6 @@ Privacy-conscious product analytics store aggregate event names and page paths o
 - Add specialist age and identity verification; automatic publication and administrator content review are not KYC.
 - Add malware scanning and automated image moderation before publication.
 - Add passkey or documented account-recovery flows. Nonces, rate limits, origin checks, and confirmed payment records are database-backed.
-- Independently review and deploy the Base splitter before enabling Base creator payments.
+- Keep the deployed Base splitter address, canonical-USDC contract, treasury destination, and 90/10 allocation under change control. The splitter is live; any replacement requires a fresh independent review before activation.
 - Add immutable ledger entries, refunds, sanctions screening, abuse reporting, and moderator audit logs.
 - Complete jurisdiction-specific legal review and publish terms, privacy, safety, and prohibited-activity policies.

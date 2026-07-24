@@ -5,6 +5,7 @@ import { query, transaction } from "@/lib/db";
 import { decryptMessage, encryptMessage } from "@/lib/message-crypto";
 import { requestHasTrustedOrigin } from "@/lib/request-security";
 import { sendNewMessageEmail } from "@/lib/email-auth";
+import { sendPrivateMessagePush } from "@/lib/push-notifications";
 
 type MessageRow = {
   id: string;
@@ -172,6 +173,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
           createdAt: new Date()
         },
         counterpartEmail: counterpart.rows[0].email,
+        counterpartUserId,
         shouldNotify: Boolean(unread.rows[0]?.should_notify),
         senderName: senderIsCreator ? target.creator_name : target.customer_name
       };
@@ -182,6 +184,13 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
         await sendNewMessageEmail(result.counterpartEmail, result.senderName);
       } catch (error) {
         console.error("Admin reply email alert could not be sent", error);
+      }
+    }
+    if (result.shouldNotify) {
+      try {
+        await sendPrivateMessagePush(result.counterpartUserId);
+      } catch (error) {
+        console.error("Admin reply push alert could not be sent", error);
       }
     }
     return NextResponse.json({ ok: true, message: result.message });

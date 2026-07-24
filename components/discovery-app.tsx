@@ -5,6 +5,7 @@ import { base } from "viem/chains";
 import { createPublicClient, createWalletClient, custom, erc20Abi, getAddress, http, keccak256, stringToHex } from "viem";
 import { Profile } from "@/lib/profiles";
 import { REGIONS } from "@/lib/regions";
+import { unregisterNativePushDevice } from "@/lib/native-push-client";
 import { paymentErrorMessage } from "@/lib/payment-errors";
 import { reportBrowserError, trackProductEvent } from "@/lib/client-observability";
 import { InstagramLink } from "@/components/instagram-link";
@@ -385,6 +386,11 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
   }
 
   async function enableNotifications() {
+    if (window.CryptoSugarAndroid) {
+      window.CryptoSugarAndroid.requestPushNotifications();
+      setNotice("Confirm Android notification permission to receive private message alerts.");
+      return;
+    }
     if (typeof Notification === "undefined") { setNotice("Browser notifications are not supported on this device."); return; }
     const permission = await Notification.requestPermission();
     setNotificationsEnabled(permission === "granted");
@@ -487,7 +493,14 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
   useEffect(() => { setMessageGate(null); }, [activeConversationId, messageTarget?.id]);
 
   useEffect(() => {
-    setNotificationsEnabled(typeof Notification !== "undefined" && Notification.permission === "granted");
+    const native = Boolean(window.CryptoSugarAndroid);
+    setNotificationsEnabled(!native && typeof Notification !== "undefined" && Notification.permission === "granted");
+    function onNativePushStatus(event: Event) {
+      setNotificationsEnabled(Boolean((event as CustomEvent<{ enabled?: boolean }>).detail?.enabled));
+    }
+    window.addEventListener("crypto-sugar:push-status", onNativePushStatus);
+    window.CryptoSugarAndroid?.refreshPushToken();
+    return () => window.removeEventListener("crypto-sugar:push-status", onNativePushStatus);
   }, []);
 
   useEffect(() => {
@@ -649,6 +662,7 @@ export function DiscoveryApp({ directoryMode = false }: { directoryMode?: boolea
   }
 
   async function signOut() {
+    await unregisterNativePushDevice();
     await fetch("/api/auth/logout", { method: "POST" });
     setEmail(null);
     setWallet(null);
